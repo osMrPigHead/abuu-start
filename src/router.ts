@@ -26,7 +26,12 @@ const router = createRouter({
     {
       path: '/spoc/:assignmentId',
       name: 'spoc-detail',
-      component: () => import('./views/SpocDetailView.vue'),
+      component: () => import('./views/SpocListView.vue'),
+    },
+    {
+      path: '/bykc',
+      name: 'bykc',
+      component: () => import('./views/BykcView.vue'),
     },
     {
       path: '/settings',

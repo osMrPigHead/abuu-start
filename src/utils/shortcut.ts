@@ -5,8 +5,8 @@ export type ShortcutDraft = {
   url: string
 }
 
-/** 功能区固定 10 行，快捷方式可以放在任意一行。 */
-export const SHORTCUT_ROW_COUNT = 10
+/** 功能区固定 11 行，快捷方式可以放在任意一行。 */
+export const SHORTCUT_ROW_COUNT = 11
 
 /** 只接受绝对 http(s) 链接，返回规范化后的 href。 */
 export function normalizeShortcutUrl(value: string): string | null {

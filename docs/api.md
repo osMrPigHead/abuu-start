@@ -4,6 +4,10 @@
 
 - 本研教育管理系统：参考 A 的 `js/schedule-data.js`、`api/buaa.asp`，参考 B 的 `ScheduleService.kt`、`ExamService.kt`。
 - SPOC：参考 B 的 `SpocClient.kt`、`SpocSupport.kt`，以及 `private/har/spoc_query1`、`private/har/spoc_query2`。
+- 博雅：参考 B 的 `BykcClient.kt`、`BykcCrypto.kt`、`BykcService.kt`、`BykcModels.kt`，以及 `private/har/sscv`。
+- 阳光：参考 B 的 `YgdkClient.kt`、`LocalYgdkApi.kt`、`YgdkService.kt`。
+- `private/har/sscv` 捕获了博雅 `getUserProfile`、`getAllConfig`、`queryChosenCourse`、`queryStudentSemesterCourseByPage` 等请求；HAR 未导出 Cookie，因此博雅“仅 `auth_token` 是否足够”仍需真实联调确认。
+- 阳光没有 HAR；路径、表单字段与响应结构来自参考 B 源码，真实联调需验证。
 - HAR 已确认的结论直接写入本文；仍无法确定的内容会在条目中注明。
 - 本项目只做只读查询，不调用任何提交、打卡、选退课、签到接口。
 
@@ -102,9 +106,9 @@
 - `week`：周次
 - `examStatus`、`examType`、`taskId`：可不用
 
-用途：`/exams` 列表、倒计时、主页最近三场、`/schedule` 网格事件标记。
+用途：`/exams` 列表、倒计时、主页最近三场；`/schedule` 不叠加考试标记。
 
-本期状态：前端暂不接入考试接口，`/exams` 与主页考试信息行保持占位；以下字段保留为后续接入口径。
+本期状态：考试接口已接入；`/schedule` 不渲染考试标记，考试只在主页与 `/exams` 使用。以下字段保留为展示与排序口径。
 
 “已排定”按 `examDate` 与 `startTime` 是否存在判断；缺失的条目不在本期展示。日期/时间的实际字符串格式参考 B 未固定，解析时同时兼容 `YYYY-MM-DD`、ISO 8601 与 `YYYY-MM-DD HH:mm`。
 
@@ -272,7 +276,250 @@ HAR 中所有 SPOC 业务请求都带以下两个请求头，且 **没有 Cookie
 
 时间统一转换为 `Asia/Shanghai` 的 `YYYY-MM-DD HH:mm:ss`；上游可能是带时区偏移的 ISO 8601。
 
-## 3. 本项目实际调用
+## 3. 博雅课程（bykc）
+
+### 3.1 认证与加密
+
+- 基址：`https://bykc.buaa.edu.cn/sscv/`。
+- 浏览器完成 CAS 后最终跳到 `https://bykc.buaa.edu.cn/cas-login?token=<auth_token>`；`token` 即业务请求使用的 `auth_token`。本项目不实现 CAS，由用户在设置页提供。
+- 业务请求使用 `POST`，请求头：
+  - `Accept: application/json`
+  - `Content-Type: application/json;charset=UTF-8`
+  - `Origin: https://bykc.buaa.edu.cn`
+  - `Referer: https://bykc.buaa.edu.cn/system/course-select`
+  - `auth_token: <token>`
+  - `authtoken: <token>`（与 `auth_token` 同值）
+  - `ak`、`sk`、`ts`
+- 参考 B 固定使用 `/system/course-select` 作为 `Referer`；HAR 中不同页面分别为 `/system/home`、`/system/course-mine`，说明该值不严格。
+- 本项目按二阶段决策只发送 `auth_token`，不发送 Cookie。HAR 的 `cookies` 为空且没有 `cookie` 请求头，但 HAR 未导出 Cookie，因此“无 Cookie 也可用”仍需真实联调确认。
+
+请求加密：
+
+- 每次请求生成 16 字节 AES key，字符集：
+  `ABCDEFGHJKMNPQRSTWXYZabcdefhijkmnprstwxyz2345678`
+- `ak`：AES key 用固定 RSA 公钥做 `RSA/ECB/PKCS1Padding`，输出 Base64。
+- `sk`：请求 JSON 的 UTF-8 字节做 SHA-1，转小写十六进制字符串，再对字符串的 UTF-8 字节做 RSA 加密，输出 Base64。
+- 请求体：请求 JSON 用 `AES-128-ECB/PKCS5Padding` 加密，输出 Base64。
+- `ts`：`Date.now()` 毫秒字符串。
+- RSA 公钥（Base64 DER，来自参考 B `BykcCrypto.kt`）：
+
+```text
+MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDlHMQ3B5GsWnCe7Nlo1YiG/YmHdlOiKOST5aRm4iaqYSvhvWmwcigoyWTM+8bv2+sf6nQBRDWTY4KmNV7DBk1eDnTIQo6ENA31k5/tYCLEXgjPbEjCK9spiyB62fCT6cqOhbamJB0lcDJRO6Vo1m3dy+fD0jbxfDVBBNtyltIsDQIDAQAB
+```
+
+响应：
+
+- 响应体可能是 JSON 字符串包裹的 Base64（以 `"` 开头），也可能是裸 Base64。
+- 用本次请求的 AES key 做 `AES-128-ECB/PKCS5Padding` 解密。
+- 解密失败时回退为原始响应文本，按普通 JSON 解析。
+- 解析后 `status === "0"` 为成功，`data` 为业务数据；`status !== "0"` 时 `errmsg` 为错误信息。
+- 认证失效：HTTP 3xx/非 200、响应含 `会话已失效` 或 `未登录`、或 `status !== "0"` 且 `errmsg` 含登录/会话/未登录/认证。
+- 解密后不是 JSON 或无法解析：按响应异常处理。
+
+### 3.2 接口
+
+#### 用户资料
+
+`POST /sscv/getUserProfile`
+
+请求体：`{}`
+
+返回 `data`：
+
+- `id`、`employeeId`、`realName`
+- `studentNo`、`studentType`、`classCode`
+- `college.collegeName`
+- `term.termName`
+
+用途：校验 `auth_token`、设置页显示已配置状态。
+
+#### 系统配置与学期
+
+`POST /sscv/getAllConfig`
+
+请求体：`{}`
+
+返回 `data`：
+
+- `semester`：数组，每项含 `id`、`semesterName`、`semesterStartDate`、`semesterEndDate`
+- `term`：学期数组，可不用
+- `college`、`role`、`campus`：可不用
+
+用途：按当前时间匹配 `semesterStartDate` / `semesterEndDate`，得到当前学期起止日期，供已选课程查询使用。无匹配时取结束日期最晚的一项。
+
+#### 已选课程
+
+`POST /sscv/queryChosenCourse`
+
+请求体：
+
+```json
+{
+  "startDate": "2026-09-01 00:00:00",
+  "endDate": "2027-01-31 23:59:59"
+}
+```
+
+返回 `data.courseList`：数组，每项包含：
+
+- `id`：选课记录 id
+- `courseInfo`：课程对象，字段同“课程对象”
+- `selectDate`：选课时间
+- `checkin`、`score`、`pass`：考勤/成绩，可不用
+- `homework`、`homeworkAttachmentName`、`signInfo`：可不用
+
+用途：主页今日/明日博雅课程、`/schedule` 周视图。`courseInfo` 为空的记录跳过。
+
+#### 课程分页
+
+`POST /sscv/queryStudentSemesterCourseByPage`
+
+请求体：
+
+```json
+{
+  "pageNumber": 1,
+  "pageSize": 12
+}
+```
+
+返回 `data`：
+
+- `content`：课程数组
+- `totalElements`、`totalPages`、`size`、`number`
+
+用途：`/bykc` 课程广场分页；`pageNumber` 从 1 开始。
+
+#### 课程详情
+
+`POST /sscv/queryCourseById`
+
+请求体：
+
+```json
+{ "id": 101 }
+```
+
+返回 `data`：课程对象。
+
+用途：`/bykc` 详情 modal。
+
+#### 课程对象
+
+博雅课程对象的主要字段：
+
+- `id`：课程 id
+- `courseName`：课程名
+- `coursePosition`：地点
+- `courseTeacher`：教师
+- `courseStartDate`、`courseEndDate`：上课起止时间，格式 `YYYY-MM-DD HH:mm:ss`
+- `courseSelectStartDate`、`courseSelectEndDate`：选课起止时间
+- `courseCancelEndDate`：退选截止时间，可不用
+- `courseMaxCount`：人数上限
+- `courseCurrentCount`：当前人数，可能为 `null`
+- `selected`：当前用户是否已选，可能为 `true` / `false` / `null`
+- `courseDesc`：课程简介，可能是 HTML
+- `courseNewKind1.kindName`、`courseNewKind2.kindName`：课程分类，可不用
+- `courseSignType`、`courseSignConfig`：签到配置，二阶段不使用
+
+### 3.3 状态与字段映射
+
+课程状态由本项目计算，不是上游字段。按以下顺序判定（时间按 `Asia/Shanghai`）：
+
+1. `courseStartDate` 已过 → `已过期`
+2. `selected === true` → `已选`
+3. `courseSelectEndDate` 已过 → `选课结束`
+4. `courseCurrentCount != null && courseMaxCount > 0 && courseCurrentCount >= courseMaxCount` → `人数已满`
+5. `courseSelectStartDate` 未到 → `预告`
+6. 否则 → `可选`
+
+| 上游 | 本项目 |
+| --- | --- |
+| `courseName` | 课程名 |
+| `courseStartDate` / `courseEndDate` | 时间 |
+| `coursePosition` | 地点 |
+| `courseTeacher` | 教师；空值不显示 |
+| `courseCurrentCount` / `courseMaxCount` | 人数信息，可用于满员判断 |
+| `selected` | 是否已选 |
+| `courseDesc` | 详情简介；转纯文本，不渲染 HTML |
+| `courseSelectStartDate` / `courseSelectEndDate` | 状态判定与选课时间展示 |
+
+- `courseMaxCount` 缺失按 0；`courseCurrentCount` 缺失不判定满员。
+- 广场展示全部状态，不按状态过滤；已过期、选课结束也要展示。
+- 已选课程只用于日程合并，不显示状态标签。
+
+## 4. 阳光打卡（ygdk）
+
+### 4.1 认证
+
+- 基址：`https://ygdk.buaa.edu.cn/api`。
+- 业务请求全部为 `POST application/x-www-form-urlencoded; charset=UTF-8`。
+- 表单固定追加 `uid`、`token`；`uid` 为十进制整数。
+- 请求头：`X-Requested-With: XMLHttpRequest`。
+- `uid` / `token` 只放表单，不放 URL。
+- 参考 B 通过 `campusAppLogin` 换取 `uid` 与 `token`；本项目不实现该登录，由用户提供。
+- 响应：`{ "code": 1, "result": ... }`；`code === -98` 表示认证失效；其他 `code` 为业务错误。
+
+### 4.2 接口
+
+#### 分类列表
+
+`POST /Front/Clockin/Classify/getList`
+
+返回 `result.list`：数组，每项包含：
+
+- `classify_id`：分类 id
+- `name`：分类名
+- `term_num`：学期目标
+- `month_num`、`week_num`：月/周限制
+
+用途：取名称含“体育”的分类；没有则取 `classify_id === 1`；再没有取第一项。
+
+#### 次数概览
+
+`POST /Front/Clockin/Clockin/getCount`
+
+表单：
+
+- `classify_id`
+- `user_id`：等于 `uid`
+
+返回 `result`：
+
+- `term_count`、`term_count_show`
+- `term_good_count`、`term_good_count_show`
+- `week_count`、`week_num`
+- `month_count`、`month_num`、`day_count`
+- `term_num`
+
+用途：主页阳光卡片的学期/周次数与系统目标。
+
+#### 学期信息（可选）
+
+`POST /Front/Clockin/Term/get`
+
+返回 `result`：
+
+- `term_id` 或 `id`
+- `name`
+
+用途：卡片显示学期名称；失败不阻塞概览。
+
+### 4.3 字段映射
+
+| 上游 | 本项目 |
+| --- | --- |
+| `term_good_count_show ?? term_good_count ?? term_count_show ?? term_count ?? 0` | 学期次数 |
+| `term_num ?? classify.term_num ?? 0` | 系统学期目标；0 表示系统未给目标，前端回退用户设置 |
+| `week_count ?? 0` | 当周次数 |
+| `week_num ?? classify.week_num ?? 0` | 系统周限制；仅作参考，主页按 PRD 使用用户设置 |
+| `name`（`Term/get`） | 学期名称 |
+
+- 学期目标优先取系统值；系统缺失或为 0 时使用用户设置，默认 20。
+- 周限制使用用户设置，默认 4；范围 1–14。
+- 阳光不调用 `Item/getList`、`Clockin/getList`、`Upload/File/post`、`Clockin/clockin`。
+
+## 5. 本项目实际调用
 
 | 页面/功能 | 中继接口 | 上游调用 |
 | --- | --- | --- |
@@ -280,11 +527,24 @@ HAR 中所有 SPOC 业务请求都带以下两个请求头，且 **没有 Cookie
 | 考试（主页、`/exams`） | `GET /api/byxt/exams` | `currentUser` → `exams.do` |
 | SPOC 列表（主页、`/spoc`） | `GET /api/spoc/assignments` | `queryOne`（失败回退 `queryList`）→ `queryKclb` → `queryListByPage`（翻页） |
 | SPOC 详情（`/spoc/:id`） | `GET /api/spoc/assignments/:id` | 作业列表 + `queryKczyInfoByid` + `queryXsSubmitKczyInfo` |
-| 认证状态（`/settings`） | `GET /api/byxt/status`、`GET /api/spoc/status` | `currentUser`、`queryOne`（失败回退 `queryList`） |
+| 博雅已选（主页、`/schedule`） | `GET /api/bykc/chosen` | `getAllConfig` → `queryChosenCourse` |
+| 博雅广场（`/bykc`） | `GET /api/bykc/courses?page=&pageSize=12` | `queryStudentSemesterCourseByPage` |
+| 博雅详情（`/bykc` modal） | `GET /api/bykc/courses/:id` | `queryCourseById` |
+| 阳光概览（主页） | `GET /api/ygdk/overview` | `Classify/getList` → `Clockin/getCount` → `Term/get`（可选） |
+| 认证状态（`/settings`） | `GET /api/byxt/status`、`GET /api/spoc/status`、`GET /api/bykc/status` | `currentUser`、`queryOne`（失败回退 `queryList`）、`getUserProfile` |
+| 阳光认证校验（`/settings`） | `GET /api/ygdk/overview` | `Classify/getList` → `Clockin/getCount` |
 
-SPOC 请求头固定带用户提供的 `Token` 与 `RoleCode`，不发送 Cookie。
+- SPOC 请求头固定带用户提供的 `Token` 与 `RoleCode`，不发送 Cookie。
+- 博雅请求头固定带用户提供的 `auth_token`（中继同时发送 `auth_token` 与 `authtoken`），不发送 Cookie。
+- 阳光请求头只带 `X-Requested-With`；`uid`、`token` 由中继放入表单，不放入 URL。
 
-## 4. 未确定与不在本期范围
+## 6. 未确定与不在本期范围
 
+- 博雅“仅 `auth_token` 可用”尚未被 HAR 最终证明：`private/har/sscv` 的 `cookies` 为空且无 `cookie` 头，但 Cookie 未导出；若真实请求返回认证失效，需重新评估是否增加可选 Cookie 字段。
+- 博雅响应是加密的；HAR 无法离线解密响应体，课程字段与状态判定来自参考 B 的模型、业务代码与测试，真实响应需联调验证。
+- 博雅 `Referer` 在 HAR 中随页面变化（`/system/home`、`/system/course-mine`），参考 B 固定为 `/system/course-select`；实现按固定值，若上游拒绝再调整。
+- 阳光没有 HAR；路径、表单字段与响应结构来自参考 B，真实联调需验证。
+- 阳光 `weekTarget` 系统值仅作参考；本项目按 PRD 使用用户设置。
 - 考试接口日期/时间的实际字符串格式（参考 B 未固定，代码按多格式兼容）。
 - 研究生 GSMIS 课表不在本期范围。
+- 博雅选课/退课/签到、阳光打卡/上传、SPOC 提交/附件下载均不在本期范围。

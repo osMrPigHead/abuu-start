@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
+import BykcCourseModal from '@/components/BykcCourseModal.vue'
+import BykcSquareCard from '@/components/BykcSquareCard.vue'
 import ExamCard from '@/components/ExamCard.vue'
 import FocusCard from '@/components/FocusCard.vue'
 import HomeCard from '@/components/HomeCard.vue'
@@ -8,15 +10,22 @@ import ScheduleDayRow from '@/components/ScheduleDayRow.vue'
 import ShortcutCard from '@/components/ShortcutCard.vue'
 import ShortcutDialog from '@/components/ShortcutDialog.vue'
 import SourceStatusLine from '@/components/SourceStatusLine.vue'
+import SpocDetailDialog from '@/components/SpocDetailDialog.vue'
 import TodoCard from '@/components/TodoCard.vue'
+import YgdkCard from '@/components/YgdkCard.vue'
+import { useBykc, useBykcChosen, useBykcDetail } from '@/composables/useBykc'
 import { useClock } from '@/composables/useClock'
 import { useExams } from '@/composables/useExams'
 import { usePomodoro } from '@/composables/usePomodoro'
 import { useSchedule, type WeekEntry } from '@/composables/useSchedule'
 import { useScheduleSettings } from '@/composables/useScheduleSettings'
 import { useShortcuts } from '@/composables/useShortcuts'
+import { useSpoc, useSpocDetail } from '@/composables/useSpoc'
 import { useTodos } from '@/composables/useTodos'
-import type { Shortcut } from '@/types'
+import { useYgdk } from '@/composables/useYgdk'
+import { useYgdkSettings } from '@/composables/useYgdkSettings'
+import type { Course, Shortcut } from '@/types'
+import { bykcChosenCoursesOnDate } from '@/utils/bykc'
 import {
   addDays,
   formatDateKey,
@@ -32,6 +41,8 @@ import {
   sortCourses,
   weekNumberForDate,
 } from '@/utils/schedule'
+import { filterOpenSpocAssignments } from '@/utils/spoc'
+import { resolveYgdkTermTarget, resolveYgdkWeekLimit } from '@/utils/ygdk'
 import {
   normalizeShortcutRow,
   SHORTCUT_MIN_WIDTH_REM,
@@ -41,6 +52,7 @@ import {
 } from '@/utils/shortcut'
 
 const { now } = useClock()
+const { now: spocNow } = useClock(30_000)
 const router = useRouter()
 const keyword = ref('')
 
@@ -58,6 +70,34 @@ const {
   hydrate: hydrateExams,
   refresh: refreshExams,
 } = useExams()
+const {
+  state: ygdkState,
+  hydrate: hydrateYgdk,
+  refresh: refreshYgdk,
+} = useYgdk()
+const { termTarget: ygdkUserTermTarget, weekTarget: ygdkUserWeekTarget } = useYgdkSettings()
+const {
+  state: bykcState,
+  loadPage: loadBykcPage,
+  refresh: refreshBykc,
+} = useBykc()
+const {
+  state: bykcChosenState,
+  hydrate: hydrateBykcChosen,
+  refresh: refreshBykcChosen,
+} = useBykcChosen()
+const {
+  state: bykcDetailState,
+  open: openBykcDetail,
+  refresh: refreshBykcDetail,
+  close: closeBykcDetail,
+} = useBykcDetail()
+
+/** 学期目标优先系统值；周限制始终用用户设置，见 docs/trd-phase2.md 7.4。 */
+const ygdkTermTarget = computed(() =>
+  resolveYgdkTermTarget(ygdkState.overview?.termTarget ?? 0, ygdkUserTermTarget.value),
+)
+const ygdkWeekLimit = computed(() => resolveYgdkWeekLimit(ygdkUserWeekTarget.value))
 
 const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 
@@ -121,16 +161,30 @@ const tomorrowView = computed(() => {
 
 const todayCourses = computed(() =>
   sortCourses(
-    coursesOnDay(todayView.value.courses, isoDayOfWeek(todayDate.value)),
+    [
+      ...coursesOnDay(todayView.value.courses, isoDayOfWeek(todayDate.value)),
+      ...bykcChosenCoursesOnDate(bykcChosenState.courses, todayDate.value),
+    ],
     todayView.value.sectionTimes,
   ),
 )
 
 const tomorrowCourses = computed(() =>
   sortCourses(
-    coursesOnDay(tomorrowView.value.courses, isoDayOfWeek(tomorrowDate.value)),
+    [
+      ...coursesOnDay(tomorrowView.value.courses, isoDayOfWeek(tomorrowDate.value)),
+      ...bykcChosenCoursesOnDate(bykcChosenState.courses, tomorrowDate.value),
+    ],
     tomorrowView.value.sectionTimes,
   ),
+)
+
+/** 博雅已选课程已有可用数据（缓存或已同步），可单独支撑今日/明日课程。 */
+const todayReady = computed(
+  () => todayView.value.loaded || bykcChosenState.savedAt !== null,
+)
+const tomorrowReady = computed(
+  () => tomorrowView.value.loaded || bykcChosenState.savedAt !== null,
 )
 
 const todayState = computed(() => rowState(todayView.value))
@@ -146,9 +200,9 @@ const courseStates = computed(() =>
       date: todayDate.value,
       courses: todayCourses.value,
       sectionTimes: todayView.value.sectionTimes,
-      loaded: todayView.value.loaded,
+      loaded: todayReady.value,
     },
-    tomorrowView.value.loaded
+    tomorrowReady.value
       ? {
           date: tomorrowDate.value,
           courses: tomorrowCourses.value,
@@ -162,22 +216,27 @@ const courseStates = computed(() =>
 
 const nextCourse = computed(() => courseStates.value.ongoing ?? courseStates.value.upcoming)
 
-const nextLine = computed(() => {
-  if (!todayView.value.loaded) return '课表未加载'
+/** 博雅课程在摘要中带来源前缀，便于与常规课表区分。 */
+function courseDisplayName(course: Course): string {
+  return course.source === 'bykc' ? `博雅 · ${course.courseName}` : course.courseName
+}
 
+const nextLine = computed(() => {
   const next = nextCourse.value
   if (next) {
+    const name = courseDisplayName(next.course)
     if (next.kind === 'ongoing') {
-      return `正在上《${next.course.courseName}》 · 还有 ${next.remainingMinutes} 分钟`
+      return `正在上《${name}》 · 还有 ${next.remainingMinutes} 分钟`
     }
 
     const place = next.course.placeName?.trim() || ''
     const where = next.dayOffset === 1 ? '明天' : '今天'
     const location = place ? ` · ${place}` : ''
-    return `下一节《${next.course.courseName}》 · ${where} ${next.startText}-${next.endText}${location}`
+    return `下一节《${name}》 · ${where} ${next.startText}-${next.endText}${location}`
   }
 
-  if (!tomorrowView.value.loaded && tomorrowWeekNumber.value !== todayWeekNumber.value) {
+  if (!todayReady.value) return '课表未加载'
+  if (!tomorrowReady.value && tomorrowWeekNumber.value !== todayWeekNumber.value) {
     return '明日课表未加载'
   }
   return '暂无后续课程'
@@ -268,8 +327,15 @@ watch(tomorrowWeekNumber, preloadTomorrow, { immediate: true })
 onMounted(() => {
   hydrateSchedule()
   hydrateExams()
+  hydrateSpoc()
+  hydrateYgdk()
+  hydrateBykcChosen()
   void refreshCurrent()
   void refreshExams()
+  void refreshSpoc()
+  void refreshYgdk()
+  void refreshBykcChosen()
+  void loadBykcPage(1)
 })
 
 function refreshSchedule(): void {
@@ -309,21 +375,41 @@ const ROW_STEP_REM = ROW_HEIGHT_REM + ROW_GAP_REM
 const ROW_COUNT = SHORTCUT_ROW_COUNT
 
 const schedulePlacement: WaterfallPlacement = { id: 'schedule', width: 38, rows: 5, row: 0, x: 0 }
-const todoPlacement: WaterfallPlacement = { id: 'todo', width: 34, rows: 5, row: 5, x: 0 }
+const bykcPlacement: WaterfallPlacement = {
+  id: 'bykc',
+  width: 22.4,
+  rows: 5,
+  row: 0,
+  x: schedulePlacement.width + ROW_GAP_REM,
+}
+const todoPlacement: WaterfallPlacement = { id: 'todo', width: 34, rows: 6, row: 5, x: 0 }
 const focusPlacement: WaterfallPlacement = {
   id: 'focus',
   // 原 28rem 的 4/5，与待办同一行。
   width: 22.4,
-  rows: 5,
+  rows: 4,
   row: todoPlacement.row,
   x: todoPlacement.width + ROW_GAP_REM,
+}
+const ygdkPlacement: WaterfallPlacement = {
+  id: 'ygdk',
+  width: focusPlacement.width,
+  rows: 2,
+  row: focusPlacement.row + focusPlacement.rows,
+  x: focusPlacement.x,
 }
 
 /** 大卡固定占位后各行的右端；快捷方式从这些位置继续排。 */
 const BASE_ROW_ENDS = (() => {
   const rowEnds = Array.from({ length: ROW_COUNT }, () => 0)
 
-  for (const item of [schedulePlacement, todoPlacement, focusPlacement]) {
+  for (const item of [
+    schedulePlacement,
+    bykcPlacement,
+    todoPlacement,
+    focusPlacement,
+    ygdkPlacement,
+  ]) {
     for (let row = item.row; row < item.row + item.rows; row += 1) {
       rowEnds[row] = Math.max(rowEnds[row] ?? 0, item.x + item.width)
     }
@@ -344,6 +430,23 @@ const MIN_BOARD_WIDTH_REM = Math.max(
 const { shortcuts, addShortcut, updateShortcut, removeShortcut, moveShortcutTo } =
   useShortcuts()
 const { todos, addTodo, updateTodo, removeTodo, toggleTodo } = useTodos()
+const {
+  state: spocState,
+  hydrate: hydrateSpoc,
+  refresh: refreshSpoc,
+} = useSpoc()
+
+const openSpocAssignments = computed(() =>
+  filterOpenSpocAssignments(spocState.assignments, spocNow.value),
+)
+const {
+  state: spocDetailState,
+  open: openSpocDetail,
+  refresh: refreshSpocDetail,
+  close: closeSpocDetail,
+} = useSpocDetail()
+
+onBeforeUnmount(closeSpocDetail)
 const {
   settings: pomodoroSettings,
   phase: pomodoroPhase,
@@ -505,7 +608,7 @@ function handleShortcutDragStart(shortcut: Shortcut): void {
 }
 
 /**
- * 在整块功能区上计算落点：纵向按 10 行取行号，横向按该行现有卡片取插入序号。
+ * 在整块功能区上计算落点：纵向按 11 行取行号，横向按该行现有卡片取插入序号。
  * 因此空行、行尾空白和超出当前画布宽度的行尾都可作为放置目标。
  */
 function handleBoardDragOver(event: DragEvent): void {
@@ -820,22 +923,50 @@ function pad(value: number): string {
                     :error="statusView.error"
                     :warning="meta.warning"
                     :refreshing="statusView.loading"
+                    secondary-label="博雅"
+                    :secondary-status="bykcChosenState.status"
+                    :secondary-saved-at="bykcChosenState.savedAt"
+                    :secondary-error="bykcChosenState.error"
+                    :secondary-refreshing="bykcChosenState.loading"
+                    secondary-no-credential-text="未配置 auth_token"
+                    secondary-auth-expired-text="auth_token 已失效，请更新"
                     compact
                     @retry="refreshSchedule"
+                    @retry-secondary="refreshBykcChosen"
                   />
                 </div>
               </div>
             </HomeCard>
           </div>
 
+          <div class="absolute" :style="placementStyle(bykcPlacement)">
+            <BykcSquareCard
+              class="h-full w-full"
+              :courses="bykcState.courses"
+              :status="bykcState.status"
+              :saved-at="bykcState.savedAt"
+              :error="bykcState.error"
+              :loading="bykcState.loading"
+              @open="openBykcDetail"
+              @retry="refreshBykc"
+            />
+          </div>
+
           <div class="absolute" :style="placementStyle(todoPlacement)">
             <TodoCard
               :todos="todos"
+              :spoc-assignments="openSpocAssignments"
+              :spoc-status="spocState.status"
+              :spoc-saved-at="spocState.savedAt"
+              :spoc-error="spocState.error"
+              :spoc-loading="spocState.loading"
               class="h-full w-full"
               @create="addTodo"
               @update="updateTodo"
               @remove="removeTodo"
               @toggle="toggleTodo"
+              @refresh-spoc="refreshSpoc"
+              @open-spoc="openSpocDetail"
             />
           </div>
 
@@ -856,6 +987,19 @@ function pad(value: number): string {
               @resume="resumePomodoro"
               @reset="resetPomodoro"
               @edit="editPomodoroSettings"
+            />
+          </div>
+
+          <div class="absolute" :style="placementStyle(ygdkPlacement)">
+            <YgdkCard
+              class="h-full w-full"
+              :status="ygdkState.status"
+              :overview="ygdkState.overview"
+              :term-target="ygdkTermTarget"
+              :week-limit="ygdkWeekLimit"
+              :saved-at="ygdkState.savedAt"
+              :error="ygdkState.error"
+              @retry="refreshYgdk"
             />
           </div>
 
@@ -887,6 +1031,32 @@ function pad(value: number): string {
       @close="closeShortcutDialog"
       @submit="submitShortcut"
       @remove="removeShortcutFromDialog"
+    />
+
+    <BykcCourseModal
+      :open="bykcDetailState.courseId !== null"
+      :preview="bykcDetailState.preview"
+      :detail="bykcDetailState.course"
+      :status="bykcDetailState.status"
+      :saved-at="bykcDetailState.savedAt"
+      :error="bykcDetailState.error"
+      :loading="bykcDetailState.loading"
+      :not-found="bykcDetailState.notFound"
+      @close="closeBykcDetail"
+      @retry="refreshBykcDetail"
+    />
+
+    <SpocDetailDialog
+      :open="spocDetailState.assignmentId !== null"
+      :preview="spocDetailState.preview"
+      :detail="spocDetailState.assignment"
+      :status="spocDetailState.status"
+      :saved-at="spocDetailState.savedAt"
+      :error="spocDetailState.error"
+      :loading="spocDetailState.loading"
+      :not-found="spocDetailState.notFound"
+      @close="closeSpocDetail"
+      @retry="refreshSpocDetail"
     />
   </div>
 </template>

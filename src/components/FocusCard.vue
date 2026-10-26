@@ -52,7 +52,7 @@ const actionClass =
   'flex h-9 items-center justify-center rounded-full border border-white/20 bg-slate-950/40 text-[13px] text-white/80 backdrop-blur-xl transition hover:border-white/35 hover:bg-slate-950/55 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40'
 
 const inputClass =
-  'h-8 w-[4.5rem] rounded-full border border-white/20 bg-slate-950/40 px-3 text-right text-[13px] text-white outline-none backdrop-blur-xl transition placeholder:text-white/45 focus:border-white/35 focus:bg-slate-950/55'
+  'h-7 min-w-0 flex-1 rounded-full border border-white/20 bg-slate-950/40 px-2.5 text-right text-[12px] text-white outline-none backdrop-blur-xl transition placeholder:text-white/45 focus:border-white/35 focus:bg-slate-950/55'
 
 function submitSettings(): void {
   const settings = readDraft()
@@ -100,7 +100,7 @@ function parseInteger(value: string | number): number {
 </script>
 
 <template>
-  <HomeCard title="专注" class="h-full w-full">
+  <HomeCard title="专注" dense class="h-full w-full">
     <template #actions>
       <button
         v-if="started"
@@ -124,15 +124,15 @@ function parseInteger(value: string | number): number {
 
     <form
       v-if="!started"
-      class="flex min-h-0 flex-1 flex-col justify-between gap-2"
+      class="flex min-h-0 flex-1 flex-col justify-between gap-1.5"
       novalidate
       @input="persistSettings"
       @submit.prevent="submitSettings"
     >
-      <div class="flex flex-col gap-1.5">
-        <label class="flex items-center justify-center gap-3">
-          <span class="w-[5.5rem] shrink-0 text-right text-[11px] text-white/55">专注时长</span>
-          <span class="flex items-center gap-1.5">
+      <div class="grid grid-cols-2 gap-x-3 gap-y-1.5">
+        <label class="flex min-w-0 flex-col gap-1">
+          <span class="text-[10px] text-white/55">专注时长</span>
+          <span class="flex items-center gap-1">
             <input
               v-model="draft.focusMinutes"
               type="number"
@@ -144,13 +144,13 @@ function parseInteger(value: string | number): number {
               aria-label="专注时长（分钟）"
               :class="inputClass"
             >
-            <span class="w-6 text-[10px] text-white/35">分钟</span>
+            <span class="w-7 shrink-0 text-[9px] leading-none text-white/35">分钟</span>
           </span>
         </label>
 
-        <label class="flex items-center justify-center gap-3">
-          <span class="w-[5.5rem] shrink-0 text-right text-[11px] text-white/55">短休时长</span>
-          <span class="flex items-center gap-1.5">
+        <label class="flex min-w-0 flex-col gap-1">
+          <span class="text-[10px] text-white/55">短休时长</span>
+          <span class="flex items-center gap-1">
             <input
               v-model="draft.shortBreakMinutes"
               type="number"
@@ -162,13 +162,13 @@ function parseInteger(value: string | number): number {
               aria-label="短休时长（分钟）"
               :class="inputClass"
             >
-            <span class="w-6 text-[10px] text-white/35">分钟</span>
+            <span class="w-7 shrink-0 text-[9px] leading-none text-white/35">分钟</span>
           </span>
         </label>
 
-        <label class="flex items-center justify-center gap-3">
-          <span class="w-[5.5rem] shrink-0 text-right text-[11px] text-white/55">长休时长</span>
-          <span class="flex items-center gap-1.5">
+        <label class="flex min-w-0 flex-col gap-1">
+          <span class="text-[10px] text-white/55">长休时长</span>
+          <span class="flex items-center gap-1">
             <input
               v-model="draft.longBreakMinutes"
               type="number"
@@ -180,13 +180,13 @@ function parseInteger(value: string | number): number {
               aria-label="长休时长（分钟）"
               :class="inputClass"
             >
-            <span class="w-6 text-[10px] text-white/35">分钟</span>
+            <span class="w-7 shrink-0 text-[9px] leading-none text-white/35">分钟</span>
           </span>
         </label>
 
-        <label class="flex items-center justify-center gap-3">
-          <span class="w-[5.5rem] shrink-0 text-right text-[11px] text-white/55">每几轮进入长休</span>
-          <span class="flex items-center gap-1.5">
+        <label class="flex min-w-0 flex-col gap-1">
+          <span class="text-[10px] text-white/55">每几轮长休</span>
+          <span class="flex items-center gap-1">
             <input
               v-model="draft.roundsPerLongBreak"
               type="number"
@@ -198,7 +198,7 @@ function parseInteger(value: string | number): number {
               aria-label="每几轮进入长休"
               :class="inputClass"
             >
-            <span class="w-6 text-[10px] text-white/35">轮</span>
+            <span class="w-7 shrink-0 text-[9px] leading-none text-white/35">轮</span>
           </span>
         </label>
       </div>
@@ -210,7 +210,11 @@ function parseInteger(value: string | number): number {
       <button type="submit" :class="[actionClass, 'w-full']">开始</button>
     </form>
 
-    <div v-else class="flex min-h-0 flex-1 flex-col items-center justify-between gap-2">
+    <div v-else class="flex min-h-0 flex-1 flex-col items-center justify-between gap-1.5">
+      <p class="text-center text-[10.5px] leading-tight tracking-wide text-white/55">
+        {{ phaseLabel }}
+      </p>
+
       <time
         class="focus-time block w-full text-center text-white"
         :datetime="`PT${remainingSeconds}S`"

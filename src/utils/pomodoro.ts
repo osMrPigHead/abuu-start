@@ -1,5 +1,6 @@
 /**
- * 番茄钟配置校验、阶段推进、时间格式化与提示音，见 docs/trd.md 7.5。
+ * 番茄钟配置校验、阶段推进、时间格式化、提示音与桌面通知，见
+ * docs/trd.md 7.5 与 docs/trd-phase2.md 7.5。
  * 纯函数负责规则；Web Audio 只在用户手势后创建，播放失败不影响计时。
  */
 import type { PomodoroSettings } from '@/types'
@@ -20,6 +21,9 @@ export const POMODORO_LIMITS = {
   longBreakMinutes: { min: 1, max: 60 },
   roundsPerLongBreak: { min: 1, max: 12 },
 } as const
+
+/** 结束前 1 分钟通知的边界；阶段时长必须大于该值才会触发。 */
+export const POMODORO_ONE_MINUTE_SECONDS = 60
 
 export const POMODORO_PHASE_LABELS: Record<PomodoroPhase, string> = {
   focus: '专注',
@@ -218,4 +222,75 @@ function resolveAudioContext(): AudioContext | null {
   }
 
   return audioContext
+}
+
+/* ---------- 桌面通知 ---------- */
+
+export type PomodoroNotificationKind = 'one-minute' | 'phase-end'
+
+const NOTIFICATION_TITLE = '航启番茄钟'
+const NOTIFICATION_TAGS: Record<PomodoroNotificationKind, string> = {
+  'one-minute': 'buaa-start-pomodoro-one-minute',
+  'phase-end': 'buaa-start-pomodoro-phase-end',
+}
+
+/** 保留通知引用，避免对象被回收后点击回调失效。 */
+const activeNotifications = new Set<Notification>()
+
+export function isPomodoroNotificationSupported(): boolean {
+  return typeof window !== 'undefined' && 'Notification' in window
+}
+
+export function pomodoroNotificationPermission(): NotificationPermission | null {
+  if (!isPomodoroNotificationSupported()) return null
+
+  try {
+    return Notification.permission
+  } catch {
+    return null
+  }
+}
+
+export async function requestPomodoroNotificationPermission(): Promise<NotificationPermission | null> {
+  if (!isPomodoroNotificationSupported()) return null
+
+  try {
+    return await Notification.requestPermission()
+  } catch {
+    return null
+  }
+}
+
+/** 发送固定标题的通知；权限不足或浏览器不支持时静默失败。 */
+export function showPomodoroNotification(
+  body: string,
+  kind: PomodoroNotificationKind,
+): boolean {
+  if (pomodoroNotificationPermission() !== 'granted') return false
+
+  try {
+    const options: NotificationOptions & { renotify?: boolean } = {
+      body,
+      tag: NOTIFICATION_TAGS[kind],
+      // 同一 tag 替换旧通知时仍提醒用户，避免后续阶段静默替换。
+      renotify: true,
+    }
+    const notification = new Notification(NOTIFICATION_TITLE, options)
+
+    activeNotifications.add(notification)
+    const release = (): void => {
+      activeNotifications.delete(notification)
+    }
+
+    notification.onclose = release
+    notification.onclick = () => {
+      release()
+      notification.close()
+      window.focus()
+    }
+
+    return true
+  } catch {
+    return false
+  }
 }

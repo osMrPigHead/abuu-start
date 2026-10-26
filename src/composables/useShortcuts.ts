@@ -11,9 +11,9 @@ import { readJson, STORAGE_KEYS, writeJson } from '@/utils/storage'
 /** 预置快捷方式，见 docs/prd.md 3.2；默认分到前两行。 */
 const PRESET_SHORTCUTS: readonly Shortcut[] = [
   { id: 'preset-spoc', title: 'SPOC', url: 'https://spoc.buaa.edu.cn/', row: 0 },
-  { id: 'preset-bykc', title: '博雅课程', url: 'https://bykc.buaa.edu.cn/', row: 0 },
-  { id: 'preset-ygdk', title: '阳光打卡', url: 'https://ygdk.buaa.edu.cn/', row: 0 },
-  { id: 'preset-it', title: '智慧北航', url: 'https://it.buaa.edu.cn/', row: 0 },
+  { id: 'preset-it', title: '智慧北航', url: 'https://it.buaa.edu.cn/', row: 1 },
+  { id: 'preset-bykc', title: '博雅课程', url: 'https://bykc.buaa.edu.cn/', row: 2 },
+  { id: 'preset-ygdk', title: '阳光打卡', url: 'https://ygdk.buaa.edu.cn/', row: 3 },
 ]
 
 /** 旧数据没有 row 字段时的迁移密度。 */

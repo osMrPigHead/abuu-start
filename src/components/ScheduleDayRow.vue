@@ -79,7 +79,7 @@ function highlightFor(course: Course): CourseHighlight {
       class="schedule-strip flex min-w-0 flex-1 gap-2 overflow-x-auto overflow-y-hidden"
       :class="compact ? 'items-center' : 'items-stretch'"
     >
-      <template v-if="state === 'ready'">
+      <template v-if="courses.length > 0">
         <CourseBlock
           v-for="(course, index) in courses"
           :key="`${course.courseCode}-${course.courseName}-${course.dayOfWeek}-${course.beginSection}-${index}`"
@@ -88,14 +88,14 @@ function highlightFor(course: Course): CourseHighlight {
           :compact="compact"
           :highlight="highlightFor(course)"
         />
-        <p
-          v-if="courses.length === 0"
-          class="self-center whitespace-nowrap text-white/40"
-          :class="compact ? 'text-[11px]' : 'text-[13px]'"
-        >
-          无课
-        </p>
       </template>
+      <p
+        v-else-if="state === 'ready'"
+        class="self-center whitespace-nowrap text-white/40"
+        :class="compact ? 'text-[11px]' : 'text-[13px]'"
+      >
+        无课
+      </p>
       <p
         v-else-if="state === 'loading'"
         class="self-center whitespace-nowrap text-white/40"

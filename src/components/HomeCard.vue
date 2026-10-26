@@ -4,10 +4,12 @@ withDefaults(
     title: string
     badge?: string
     dense?: boolean
+    compact?: boolean
   }>(),
   {
     badge: '',
     dense: false,
+    compact: false,
   },
 )
 </script>
@@ -15,7 +17,7 @@ withDefaults(
 <template>
   <section
     class="relative flex min-h-0 flex-col overflow-hidden rounded-3xl border border-white/15 bg-slate-950/45 shadow-[0_24px_70px_-36px_rgba(0,0,0,0.95)] backdrop-blur-md transition-colors duration-300 before:pointer-events-none before:absolute before:inset-x-8 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-white/25 before:to-transparent hover:border-white/25 hover:bg-slate-950/55"
-    :class="dense ? 'p-4' : 'p-5'"
+    :class="compact ? 'p-3' : dense ? 'p-4' : 'p-5'"
   >
     <header class="flex items-start justify-between gap-3">
       <h2 class="text-[15px] font-medium tracking-wide text-white/90">{{ title }}</h2>
@@ -30,7 +32,10 @@ withDefaults(
       </div>
     </header>
 
-    <div class="flex min-h-0 flex-1 flex-col" :class="dense ? 'mt-2' : 'mt-4'">
+    <div
+      class="flex min-h-0 flex-1 flex-col"
+      :class="compact ? 'mt-1.5' : dense ? 'mt-2' : 'mt-4'"
+    >
       <slot />
     </div>
   </section>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
+import BackHomeLink from '@/components/BackHomeLink.vue'
 import ExamCard from '@/components/ExamCard.vue'
 import SourceStatusLine from '@/components/SourceStatusLine.vue'
 import { useClock } from '@/composables/useClock'
@@ -49,6 +50,7 @@ function retry(): void {
             {{ state.term?.name || '本学期已排定考试' }}
           </p>
         </div>
+        <BackHomeLink />
       </header>
 
       <div class="mt-4 rounded-2xl border border-white/10 bg-slate-950/30 px-4 py-3 backdrop-blur-md">

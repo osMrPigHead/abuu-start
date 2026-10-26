@@ -7,9 +7,15 @@ export const STORAGE_KEYS = {
   examsCache: 'buaa-start.cache.byxt.exams.v1',
   spocAssignmentsCache: 'buaa-start.cache.spoc.assignments.v1',
   spocDetailCachePrefix: 'buaa-start.cache.spoc.detail.v1.',
+  bykcCoursesCachePrefix: 'buaa-start.cache.bykc.courses.v1.',
+  bykcCourseCachePrefix: 'buaa-start.cache.bykc.course.v1.',
+  bykcChosenCache: 'buaa-start.cache.bykc.chosen.v1',
+  ygdkOverviewCache: 'buaa-start.cache.ygdk.overview.v1',
+  ygdkSettings: 'buaa-start.ygdk.settings.v1',
   todos: 'buaa-start.todos.v1',
   shortcuts: 'buaa-start.shortcuts.v1',
   pomodoroSettings: 'buaa-start.pomodoro.settings.v1',
+  pomodoroNotifications: 'buaa-start.pomodoro.notifications.v1',
   scheduleHighlightLeadMinutes: 'buaa-start.schedule.highlightLeadMinutes.v1',
 } as const
 
@@ -19,6 +25,9 @@ const EMPTY_CREDENTIALS: Credentials = {
   byxtCookie: '',
   spocToken: '',
   spocRoleCode: '',
+  bykcToken: '',
+  ygdkUid: '',
+  ygdkToken: '',
 }
 
 /** localStorage 不可用时降级为内存，页面可据此提示一次。 */
@@ -27,6 +36,15 @@ const memoryFallback = new Map<string, string>()
 
 export function spocDetailCacheKey(assignmentId: string): string {
   return `${STORAGE_KEYS.spocDetailCachePrefix}${assignmentId}`
+}
+
+/** 广场缓存按页码与每页数量分键，见 docs/trd-phase2.md 5。 */
+export function bykcCoursesCacheKey(page: number, pageSize: number): string {
+  return `${STORAGE_KEYS.bykcCoursesCachePrefix}${page}.${pageSize}`
+}
+
+export function bykcCourseCacheKey(courseId: number): string {
+  return `${STORAGE_KEYS.bykcCourseCachePrefix}${courseId}`
 }
 
 export function isStorageDegraded(): boolean {
@@ -90,6 +108,46 @@ export function clearCache(): void {
   }
 }
 
+/** 删除指定前缀的缓存键；SPOC 详情按 id 分键。 */
+export function removeKeysWithPrefix(prefix: string): void {
+  const keys = new Set<string>()
+
+  try {
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+      const key = window.localStorage.key(index)
+      if (key?.startsWith(prefix)) keys.add(key)
+    }
+  } catch {
+    storageDegraded = true
+  }
+
+  for (const key of keys) {
+    removeRaw(key)
+  }
+
+  for (const key of [...memoryFallback.keys()]) {
+    if (key.startsWith(prefix)) memoryFallback.delete(key)
+  }
+}
+
+/** 只清理 SPOC 缓存，不碰凭据与本地待办。 */
+export function clearSpocCaches(): void {
+  removeRaw(STORAGE_KEYS.spocAssignmentsCache)
+  removeKeysWithPrefix(STORAGE_KEYS.spocDetailCachePrefix)
+}
+
+/** 只清理阳光概览缓存；阳光目标属于用户偏好，不清除。 */
+export function clearYgdkCaches(): void {
+  removeRaw(STORAGE_KEYS.ygdkOverviewCache)
+}
+
+/** 只清理博雅广场列表、课程详情与已选课程缓存，不碰博雅凭据。 */
+export function clearBykcCaches(): void {
+  removeRaw(STORAGE_KEYS.bykcChosenCache)
+  removeKeysWithPrefix(STORAGE_KEYS.bykcCoursesCachePrefix)
+  removeKeysWithPrefix(STORAGE_KEYS.bykcCourseCachePrefix)
+}
+
 export function readCredentials(): Credentials {
   const stored = readJson<Partial<Credentials>>(STORAGE_KEYS.credentials)
   if (!stored) return { ...EMPTY_CREDENTIALS }
@@ -98,6 +156,9 @@ export function readCredentials(): Credentials {
     byxtCookie: asString(stored.byxtCookie),
     spocToken: asString(stored.spocToken),
     spocRoleCode: asString(stored.spocRoleCode),
+    bykcToken: asString(stored.bykcToken),
+    ygdkUid: asString(stored.ygdkUid),
+    ygdkToken: asString(stored.ygdkToken),
   }
 }
 
