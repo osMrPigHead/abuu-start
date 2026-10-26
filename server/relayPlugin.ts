@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Plugin } from 'vite'
 import { RelayError, toErrorBody, toRelayError } from './errors.ts'
-import { routes } from './routes.ts'
+import { resolveRoute } from './routes.ts'
 
 type NextFunction = (error?: unknown) => void
 
@@ -56,7 +56,7 @@ async function handleApiRequest(
       throw new RelayError('METHOD_NOT_ALLOWED', '仅支持 GET')
     }
 
-    const handler = routes[pathname]
+    const handler = resolveRoute(pathname)
     if (!handler) {
       throw new RelayError('NOT_FOUND', '未找到')
     }

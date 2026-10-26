@@ -41,7 +41,7 @@ src/
   api/spoc.ts         /api/spoc/*
   composables/        useClock、useTodos、usePomodoro、useCredentials、useSchedule、useExams、useSpoc...
   components/         卡片、状态行、弹窗、周导航、课程块...
-  views/              Home、Schedule、Exams、SpocList、SpocDetail、Settings
+  views/              Home、Schedule、Exams、SpocList、Settings
   router.ts           Vue Router 4
   types.ts            前端类型
   utils/              日期、重复任务、番茄钟、favicon、存储
@@ -363,6 +363,7 @@ type PomodoroSettings = {
 | `buaa-start.pomodoro.settings.v1` | `PomodoroSettings` |
 | `buaa-start.schedule.highlightLeadMinutes.v1` | `number`（0–180，默认 30；不属于缓存，清缓存不删除） |
 
+- 二阶段新增 `buaa-start.pomodoro.notifications.v1`（番茄钟通知开关偏好，未明确关闭时默认开启），见 [trd-phase2.md](docs/trd-phase2.md) 5。
 - 读写统一包在安全存储工具里：`JSON.parse` 失败、配额不足、隐私模式不可用时返回 `null` / 降级为内存状态，并给出一次页面提示。
 - 清除缓存只删 `buaa-start.cache.*`；清除凭据只删 `buaa-start.credentials.v1`；两者互不影响。
 - 凭据不写入 URL、日志、缓存；缓存数据不含 Cookie/Token。
@@ -374,8 +375,8 @@ type PomodoroSettings = {
 | `/` | HomeView | 时钟/日期、Bing 搜索、随机背景、日程卡片、待办卡片、专注卡片、快捷方式卡片 |
 | `/schedule` | ScheduleView | 页首与页尾的周次切换、7 行周视图、课程高亮、缓存与刷新 |
 | `/exams` | ExamsView | 本期占位页；后续为未开始考试分组、倒计时、空状态 |
-| `/spoc` | SpocListView | 未提交且未截止作业、状态、开始/截止时间、进入详情 |
-| `/spoc/:assignmentId` | SpocDetailView | 只读详情、成绩、附件名、未找到状态 |
+| `/spoc` | SpocListView | 未提交且未截止作业、状态、开始/截止时间、点击打开详情 modal |
+| `/spoc/:assignmentId` | SpocListView + SpocDetailDialog | 列表页上打开只读详情 modal（直达时自动打开） |
 | `/settings` | SettingsView | byxt Cookie、SPOC 占位、日程高亮边界、状态、校验、清除凭据/缓存 |
 
 - 未知路由重定向 `/`；history 模式；Vite dev/preview 自带 SPA fallback。
@@ -384,11 +385,12 @@ type PomodoroSettings = {
 - 背景：从仓库内置图片随机一张，加载失败回退渐变；不做上传/外链。
 - 快捷方式：预置 PRD 3.2 的 6 个入口；新增/编辑/删除，字段只有标题 + URL；只允许 `http:`/`https:`；favicon 取站点自身 `/favicon.ico`，失败显示首字母；可拖到 10 行中的任意一行，每行数量不限，超出后横向滚动。
 - 日程卡片：首行下一节课摘要、今日/明日课程、考试信息占位行；不显示博雅课程。
-- 待办卡片：本地待办在前，SPOC 在后；不显示阳光打卡行。本地待办支持新增/编辑/删除/勾选；SPOC 段只读，点击进详情。
+- 待办卡片：本地待办在前，SPOC 在后；不显示阳光打卡行。本地待办支持新增/编辑/删除/勾选；SPOC 段只读，点击打开详情 modal。
 - 主页入口：日程卡片点击进 `/schedule`；考试区点击进 `/exams`；SPOC 区点击进 `/spoc`；时钟行右侧设置、新建、编辑按钮分别进入 `/settings`、新建快捷方式弹窗、切换快捷方式编辑状态。
+- 子页面返回：`/schedule`、`/exams`、`/spoc`、`/bykc`、`/settings` 标题行右侧统一使用 `BackHomeLink` 返回 `/`；`/spoc/:assignmentId` 关闭 modal 后仍在 `/spoc` 列表。
 - 课程块：节次/时间、课程名、地点；教师有则附在地点行末尾（`地点 · 教师/周次描述`），数据用 `weeksAndTeachers` 的周次/教师合并描述。
 - 课程高亮：`courseHighlightState` 将课程日期与节次/时间换算为绝对起止时间；开始前 N 分钟内暖色并以 1.1s 周期闪烁、进行中冷色，其余不高亮。`CourseBlock` 通过 `highlight` 控制状态，`useScheduleSettings` 保存提前分钟数，主页与详情共用。
-- 专注卡片：设置态显示居中排列的时长与轮次配置；专注态显示剩余时间、预计完成、已完成轮次（不显示阶段文案），按钮为开始/暂停/继续/重置。
+- 专注卡片：设置态显示居中排列的时长与轮次配置；专注态显示当前阶段（专注/短休/长休）、剩余时间、预计完成（仅运行中且未暂停时显示）、已完成轮次，按钮为开始/暂停/继续/重置。
 - 视觉样式以 [ui-lowfi.md](docs/ui-lowfi.md) 为准；本节结构与 UI 文档已对齐，不新增视觉体系。
 - 桌面优先，最小支持宽度约 1024px；不做移动端布局。
 
@@ -439,9 +441,10 @@ type PomodoroSettings = {
 
 - 列表只显示 `submissionStatus === 'unsubmitted'` 且（`dueTime` 为空或晚于当前时间）的作业。
 - 无截止时间显示“无截止时间”并置后；已截止、已提交不显示。
-- 列表字段：课程·教师、标题、开始时间、截止时间、状态；点击进入详情。
-- 详情只读：标题、课程、教师、开始/截止、提交状态、成绩、作业说明、附件名称；无成绩显示“暂无成绩”；无附件不显示附件区。
-- 无效 id 显示“未找到”并可返回 `/spoc`。
+- 列表字段：课程·教师、标题、开始时间、截止时间、状态；点击打开详情 modal。
+- 详情 modal 只读：标题、课程、教师、开始/截止、提交状态、成绩、作业说明、附件名称；无成绩显示“暂无成绩”；无附件不显示附件区。
+- 打开 modal 时先展示列表现有字段，详情加载后补齐成绩、说明与附件；关闭后回到列表。
+- 无效 id 显示“未找到”，可关闭 modal 回到 `/spoc`。
 - 失败时保留缓存并显示缓存时间；无缓存时显示错误与重试。
 
 ### 7.4 待办
@@ -450,10 +453,12 @@ type PomodoroSettings = {
 - 重复任务必须有截止时间；完成时保留原条目为已完成，并按周期生成新条目。
 - 顺延：新截止时间 = 原截止时间 + 周期；若仍不晚于当前时间，继续加周期直到未来最近一次。
 - 排序：未完成在前；截止时间升序；无截止时间置后；已完成置后；同截止时间按创建时间。优先级只改变展示，不参与排序。
-- SPOC 段只读，不显示勾选框；点击进详情。本地段在前，SPOC 段在后。
+- SPOC 段只读，不显示勾选框；点击打开详情 modal。本地段在前，SPOC 段在后。
 - 数据写 `buaa-start.todos.v1`；刷新保留。
 
 ### 7.5 番茄钟
+
+> 二阶段起阶段结束自动开始下一阶段，并增加桌面通知与通知开关；本节保留一阶段口径，当前实现见 [trd-phase2.md](docs/trd-phase2.md) 7.5。
 
 - 默认 25/5/15 分钟，每 4 个专注轮次进入长休；配置写 `buaa-start.pomodoro.settings.v1`。
 - 配置校验：专注 1-180 分钟，短休/长休 1-60 分钟，轮次 1-12；非法值不保存并提示。

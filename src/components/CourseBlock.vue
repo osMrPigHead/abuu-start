@@ -24,6 +24,10 @@ const props = withDefaults(
 const sectionLabel = computed(() => courseSectionLabel(props.course))
 const timeLabel = computed(() => courseTimeLabel(props.course, props.sectionTimes))
 const placeLabel = computed(() => coursePlaceText(props.course))
+const isBykc = computed(() => props.course.source === 'bykc')
+const displayName = computed(() =>
+  isBykc.value ? `博雅 · ${props.course.courseName}` : props.course.courseName,
+)
 
 const highlightClass = computed(() => {
   if (props.highlight === 'ongoing') {
@@ -36,9 +40,9 @@ const highlightClass = computed(() => {
 })
 
 const ariaLabel = computed(() => {
-  if (props.highlight === 'ongoing') return `进行中：${props.course.courseName}`
-  if (props.highlight === 'upcoming') return `即将开始：${props.course.courseName}`
-  return props.course.courseName
+  if (props.highlight === 'ongoing') return `进行中：${displayName.value}`
+  if (props.highlight === 'upcoming') return `即将开始：${displayName.value}`
+  return displayName.value
 })
 </script>
 
@@ -51,7 +55,14 @@ const ariaLabel = computed(() => {
   >
     <div class="flex min-w-0 items-baseline gap-1.5 whitespace-nowrap">
       <span
-        v-if="sectionLabel"
+        v-if="isBykc"
+        class="font-medium text-white/80"
+        :class="compact ? 'text-[10px] leading-tight' : 'text-[12px]'"
+      >
+        博雅
+      </span>
+      <span
+        v-else-if="sectionLabel"
         class="font-medium text-white/80"
         :class="compact ? 'text-[10px] leading-tight' : 'text-[12px]'"
       >
@@ -65,7 +76,7 @@ const ariaLabel = computed(() => {
         {{ timeLabel }}
       </span>
       <span
-        v-if="!sectionLabel && !timeLabel"
+        v-if="!isBykc && !sectionLabel && !timeLabel"
         class="text-white/40"
         :class="compact ? 'text-[9.5px] leading-tight' : 'text-[11px]'"
       >

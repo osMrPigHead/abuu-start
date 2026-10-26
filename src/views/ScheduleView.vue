@@ -1,15 +1,23 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import BackHomeLink from '@/components/BackHomeLink.vue'
 import ScheduleDayRow from '@/components/ScheduleDayRow.vue'
 import SourceStatusLine from '@/components/SourceStatusLine.vue'
 import WeekSwitcher from '@/components/WeekSwitcher.vue'
 import { useClock } from '@/composables/useClock'
+import { useBykcChosen } from '@/composables/useBykc'
 import { useSchedule, type WeekEntry } from '@/composables/useSchedule'
 import { useScheduleSettings } from '@/composables/useScheduleSettings'
+import { bykcChosenCoursesOnDate } from '@/utils/bykc'
 import { formatDateKey } from '@/utils/date'
 import { buildWeekDays, coursesOnDay, sortCourses, weekDateRange } from '@/utils/schedule'
 
 const { meta, hydrate: hydrateSchedule, refreshCurrent, loadWeek, weekView } = useSchedule()
+const {
+  state: bykcChosenState,
+  hydrate: hydrateBykcChosen,
+  refresh: refreshBykcChosen,
+} = useBykcChosen()
 const { highlightLeadMinutes } = useScheduleSettings()
 const { now } = useClock(Math.max(5, highlightLeadMinutes.value) * 1000)
 
@@ -41,7 +49,10 @@ const weekRows = computed(() =>
   weekDays.value.map((day) => ({
     ...day,
     courses: sortCourses(
-      coursesOnDay(selectedView.value.courses, day.dayOfWeek),
+      [
+        ...coursesOnDay(selectedView.value.courses, day.dayOfWeek),
+        ...bykcChosenCoursesOnDate(bykcChosenState.courses, day.date),
+      ],
       selectedView.value.sectionTimes,
     ),
   })),
@@ -71,7 +82,9 @@ watch(
 
 onMounted(() => {
   hydrateSchedule()
+  hydrateBykcChosen()
   void refreshCurrent()
+  void refreshBykcChosen()
 })
 
 function rowState(view: WeekEntry): 'loading' | 'ready' | 'unavailable' {
@@ -129,6 +142,7 @@ function refresh(): void {
           <h1 class="text-2xl font-semibold tracking-wide">第 {{ selectedWeek }} 周</h1>
           <p class="mt-1 text-sm text-white/45">{{ rangeLabel }}</p>
         </div>
+        <BackHomeLink />
       </header>
 
       <div class="mt-4 rounded-2xl border border-white/10 bg-slate-950/30 px-4 py-3 backdrop-blur-md">
@@ -138,7 +152,15 @@ function refresh(): void {
           :error="selectedView.error"
           :warning="displayWarning"
           :refreshing="selectedView.loading"
+          secondary-label="博雅"
+          :secondary-status="bykcChosenState.status"
+          :secondary-saved-at="bykcChosenState.savedAt"
+          :secondary-error="bykcChosenState.error"
+          :secondary-refreshing="bykcChosenState.loading"
+          secondary-no-credential-text="未配置 auth_token"
+          secondary-auth-expired-text="auth_token 已失效，请更新"
           @retry="refresh"
+          @retry-secondary="refreshBykcChosen"
         />
       </div>
 

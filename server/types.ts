@@ -102,6 +102,86 @@ export type SpocAssignmentDetailResponse = {
   assignment: SpocAssignmentDetail
 }
 
+/** 阳光打卡概览，字段口径见 docs/trd-phase2.md 3.2 / 4。 */
+export type YgdkOverview = {
+  termName: string | null
+  termCount: number
+  termTarget: number
+  weekCount: number
+  weekTarget: number
+}
+
+/** 博雅课程状态，见 docs/api.md 3.3。 */
+export type BykcCourseStatus =
+  | 'expired'
+  | 'selected'
+  | 'preview'
+  | 'ended'
+  | 'full'
+  | 'available'
+
+/** 博雅课程列表项，见 docs/trd-phase2.md 3.2 / 4。 */
+export type BykcCourse = {
+  id: number
+  courseName: string
+  startTime: string | null
+  endTime: string | null
+  place: string | null
+  teacher: string | null
+  status: BykcCourseStatus
+  selected: boolean
+  currentCount: number | null
+  maxCount: number
+}
+
+/** 博雅课程详情：列表项 + 纯文本简介。 */
+export type BykcCourseDetail = BykcCourse & {
+  descriptionText: string | null
+}
+
+/** 博雅课程广场分页结果。 */
+export type BykcCoursePage = {
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+  courses: BykcCourse[]
+}
+
+export type BykcStatusResponse = {
+  user: {
+    name: string
+  }
+  term: {
+    name: string
+  }
+}
+
+/** 已选博雅课程，见 docs/trd-phase2.md 4。 */
+export type BykcChosenCourse = {
+  courseId: number
+  courseName: string
+  startTime: string | null
+  endTime: string | null
+  place: string | null
+  teacher: string | null
+}
+
+export type BykcChosenTerm = {
+  name: string
+  startDate: string
+  endDate: string
+}
+
+export type BykcChosenResponse = {
+  term: BykcChosenTerm
+  courses: BykcChosenCourse[]
+}
+
+export type BykcCourseResponse = {
+  course: BykcCourseDetail
+}
+
 /** byxt 统一响应信封。 */
 export type ByxtEnvelope<T> = {
   code: string

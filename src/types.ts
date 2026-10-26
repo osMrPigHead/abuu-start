@@ -29,6 +29,8 @@ export type Course = {
   placeName: string | null
   weeksAndTeachers: string | null
   dayOfWeek: number | null
+  /** 课程来源；byxt 常规课表缺省，博雅已选课程固定为 `bykc`。 */
+  source?: 'byxt' | 'bykc'
 }
 
 export type Exam = {
@@ -90,10 +92,25 @@ export type PomodoroSettings = {
   roundsPerLongBreak: number
 }
 
+/** 番茄钟运行态只保存在当前页面内存中，见 docs/trd-phase2.md 7.5。 */
+export type PomodoroRuntime = {
+  phase: 'focus' | 'short-break' | 'long-break'
+  endsAt: number | null
+  remainingSeconds: number
+  running: boolean
+  paused: boolean
+  completedRounds: number
+  phaseDurationSeconds: number
+  oneMinuteNotified: boolean
+}
+
 export type Credentials = {
   byxtCookie: string
   spocToken: string
   spocRoleCode: string
+  bykcToken: string
+  ygdkUid: string
+  ygdkToken: string
 }
 
 /* ---------- 中继响应 ---------- */
@@ -139,6 +156,90 @@ export type SpocAssignmentDetailResponse = {
   assignment: SpocAssignmentDetail
 }
 
+/** 阳光打卡概览，见 docs/trd-phase2.md 4。 */
+export type YgdkOverview = {
+  termName: string | null
+  termCount: number
+  termTarget: number
+  weekCount: number
+  weekTarget: number
+}
+
+/** 博雅课程状态，见 docs/api.md 3.3。 */
+export type BykcCourseStatus =
+  | 'expired'
+  | 'selected'
+  | 'preview'
+  | 'ended'
+  | 'full'
+  | 'available'
+
+/** 博雅课程列表项，见 docs/trd-phase2.md 4。 */
+export type BykcCourse = {
+  id: number
+  courseName: string
+  startTime: string | null
+  endTime: string | null
+  place: string | null
+  teacher: string | null
+  status: BykcCourseStatus
+  selected: boolean
+  currentCount: number | null
+  maxCount: number
+}
+
+export type BykcCourseDetail = BykcCourse & {
+  descriptionText: string | null
+}
+
+export type BykcCoursePage = {
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+  courses: BykcCourse[]
+}
+
+export type BykcStatusResponse = {
+  user: {
+    name: string
+  }
+  term: {
+    name: string
+  }
+}
+
+/** 已选博雅课程，见 docs/trd-phase2.md 4。 */
+export type BykcChosenCourse = {
+  courseId: number
+  courseName: string
+  startTime: string | null
+  endTime: string | null
+  place: string | null
+  teacher: string | null
+}
+
+export type BykcChosenTerm = {
+  name: string
+  startDate: string
+  endDate: string
+}
+
+export type BykcChosenResponse = {
+  term: BykcChosenTerm
+  courses: BykcChosenCourse[]
+}
+
+export type BykcCourseResponse = {
+  course: BykcCourseDetail
+}
+
+/** 用户在设置页维护的打卡目标。 */
+export type YgdkSettings = {
+  termTarget: number
+  weekTarget: number
+}
+
 /* ---------- 缓存 ---------- */
 
 export type WeekCache = {
@@ -174,6 +275,33 @@ export type SpocDetailCache = {
   assignment: SpocAssignmentDetail
 }
 
+export type YgdkOverviewCache = {
+  savedAt: string
+  overview: YgdkOverview
+}
+
+/** 博雅广场每页独立缓存。 */
+export type BykcCoursesCache = {
+  savedAt: string
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+  courses: BykcCourse[]
+}
+
+export type BykcCourseCache = {
+  savedAt: string
+  course: BykcCourseDetail
+}
+
+/** 已选博雅课程缓存，见 docs/trd-phase2.md 5。 */
+export type BykcChosenCache = {
+  savedAt: string
+  term: BykcChosenTerm
+  courses: BykcChosenCourse[]
+}
+
 /* ---------- 状态与错误 ---------- */
 
 export type SourceStatus =
@@ -190,6 +318,7 @@ export type RelayErrorCode =
   | 'AUTH_EXPIRED'
   | 'INVALID_REQUEST'
   | 'INVALID_WEEK'
+  | 'INVALID_PAGE'
   | 'NOT_FOUND'
   | 'METHOD_NOT_ALLOWED'
   | 'UPSTREAM_TIMEOUT'
