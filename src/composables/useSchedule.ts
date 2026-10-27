@@ -2,7 +2,7 @@
 import { reactive } from 'vue'
 import { fetchByxtSchedule } from '@/api/byxt'
 import { ApiError } from '@/api/client'
-import { isAuthenticated, markSourceExpired } from '@/composables/useAuth'
+import { isAuthBlocked, markSourceExpired } from '@/composables/useAuth'
 import type {
   Course,
   ScheduleCache,
@@ -114,13 +114,13 @@ function hydrate(): void {
     }
   }
 
-  const authenticated = isAuthenticated()
+  const blocked = isAuthBlocked()
   for (const [key, cachedWeek] of Object.entries(cache.byWeek)) {
     const week = Number(key)
     if (!Number.isSafeInteger(week) || week < 1) continue
 
     entries[week] = {
-      status: authenticated ? 'cached' : 'no-credential',
+      status: blocked ? 'no-credential' : 'cached',
       courses: cachedWeek.courses,
       sectionTimes:
         cachedWeek.sectionTimes.length > 0 ? cachedWeek.sectionTimes : EMPTY_SECTION_TIMES,
@@ -135,7 +135,7 @@ function hydrate(): void {
 async function refreshCurrent(): Promise<void> {
   hydrate()
 
-  if (!isAuthenticated()) {
+  if (isAuthBlocked()) {
     boot.status = 'no-credential'
     boot.error = null
     boot.loading = false
@@ -212,7 +212,7 @@ async function loadWeek(week: number, options: { force?: boolean } = {}): Promis
   if (!Number.isSafeInteger(week) || week < 1) return
 
   const entry = ensureEntry(week)
-  if (!isAuthenticated()) {
+  if (isAuthBlocked()) {
     entry.status = 'no-credential'
     entry.error = null
     entry.loading = false

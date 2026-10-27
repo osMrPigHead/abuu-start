@@ -588,6 +588,8 @@ type AuthState = {
   authenticatedAt: string | null
   persisted: boolean
   deriving: boolean
+  checking: boolean
+  checkFailed: boolean
   loading: boolean
   error: string
   warning: string
@@ -700,7 +702,8 @@ type HomeDisplayState = {
 {
   state: AuthState,
   hydrate(): Promise<void>,
-  refreshStatus(validate?: boolean): Promise<void>,
+  refreshStatus(validate?: boolean): Promise<boolean>,
+  isAuthBlocked(): boolean,
   preload(): Promise<{ loginId: string; captchaImage: string | null }>,
   login(input: { username: string; password: string; captcha?: string }): Promise<boolean>,
   retrySource(source: SourceId): Promise<void>,
@@ -708,7 +711,10 @@ type HomeDisplayState = {
 }
 ```
 
-- `hydrate()` 只在首次调用时请求 `GET /api/auth/status?validate=1`。
+- `hydrate()` 只在首次调用时请求 `GET /api/auth/status?validate=1`；调用方不等待，首次调用后复用同一 Promise。
+- 认证校验期间 `checking=true`；成功后 `checking=false`、`checkFailed=false`；失败后 `checking=false`、`checkFailed=true`，仅写 `warning`。
+- `isAuthBlocked()` 仅在 `checking=false`、`checkFailed=false` 且 `authenticated=false` 时为真；为真时各数据源直接显示“未登录”，否则照常取数。
+- 登录成功或退出登录后丢弃迟到的校验结果；后续 `refreshStatus()` 成功会清除 `checkFailed`。
 - `preload()` 把 `loginId` 保存在模块级内存；验证码图片由设置页展示。
 - `login()`：
   - 复用当前 `loginId`；没有时才调用 `preload()`。
@@ -719,6 +725,13 @@ type HomeDisplayState = {
   - 设置页挂载时若 `state.deriving`，每 1.5 秒调用 `refreshStatus()`，直到 `deriving=false` 或 60 秒。
   - 轮询不带 `validate=1`，避免频繁请求 UC。
 - `logout()` 成功后清 `loginId`、密码、验证码与四源状态。
+
+#### 启动顺序
+
+1. `bootstrap()` 删除旧凭据键后立即 `mount`，不等待认证校验。
+2. 挂载后调用 `void hydrate()`；主页与子页面同时读缓存并按开关刷新。
+3. 认证校验与业务取数并行；认证未决或校验失败时，缓存标为 `cached`，不得标为 `no-credential`。
+4. 校验失败只记录 `warning`，不拦截取数；卡片按各数据源响应显示“加载失败/缓存于…+重试”。
 
 ### 7.2 设置页
 
@@ -770,7 +783,7 @@ type HomeDisplayState = {
 
 #### 取数与缓存
 
-- 首次挂载先读缓存（`hydrate*` 只读 localStorage，不发请求），再按开关决定是否刷新：
+- 首次挂载先读缓存（`hydrate*` 只读 localStorage，不发请求），再按开关决定是否刷新；认证校验与刷新并行，不等待校验结果：
 
 | 卡片 | 关闭时不请求 |
 | --- | --- |
@@ -780,6 +793,9 @@ type HomeDisplayState = {
 | 专注 | 无数据源 |
 | 阳光打卡 | `/api/ygdk/overview` |
 
+- 认证未决或校验失败时，缓存按 `cached` 展示；只有 `isAuthBlocked()` 为真（认证完成且确认未登录）才置 `no-credential`。
+- 未登录时业务请求可能先行返回 `NO_CREDENTIAL`，卡片随即显示“未登录”；这是数据源的明确结果，不属于提前误判。
+- 认证校验失败（中继不可达或超时）不拦截取数；卡片按自身请求结果显示“加载失败/缓存于…+重试”，不显示成“未登录”。
 - 考试区随日程卡片、SPOC 段随待办卡片一起隐藏，没有独立开关。
 - 重新开启后再次进入主页，按“缓存优先 + 后台刷新”执行。
 - 子页面（`/schedule`、`/exams`、`/spoc`、`/bykc`）不受开关影响，仍按各自流程取数。

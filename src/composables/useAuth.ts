@@ -28,6 +28,8 @@ export type AuthState = {
   authenticatedAt: string | null
   persisted: boolean
   deriving: boolean
+  checking: boolean
+  checkFailed: boolean
   loading: boolean
   error: string
   warning: string
@@ -69,6 +71,8 @@ const state = reactive<AuthState>({
   authenticatedAt: null,
   persisted: false,
   deriving: false,
+  checking: true,
+  checkFailed: false,
   loading: false,
   error: '',
   warning: '',
@@ -83,6 +87,8 @@ const state = reactive<AuthState>({
 let loginId: string | null = null
 let hydratePromise: Promise<void> | null = null
 let pollingTimer: ReturnType<typeof setTimeout> | null = null
+/** 登录/退出后递增，丢弃迟到的认证校验结果。 */
+let authEpoch = 0
 
 export function useAuth() {
   return {
@@ -95,22 +101,42 @@ export function useAuth() {
     logout,
     markSourceExpired,
     isAuthenticated,
+    isAuthBlocked,
     pollWhileDeriving,
   }
 }
 
-/** 首次调用请求 status?validate=1；之后复用同一 Promise。 */
+/** 首次调用请求 status?validate=1；调用方不等待，之后复用同一 Promise。 */
 function hydrate(): Promise<void> {
-  hydratePromise ??= refreshStatus(true)
+  hydratePromise ??= runHydrate()
   return hydratePromise
 }
 
-async function refreshStatus(validate = false): Promise<void> {
+async function runHydrate(): Promise<void> {
+  const epoch = authEpoch
+  state.checking = true
+  state.checkFailed = false
+
+  const ok = await refreshStatus(true)
+  if (epoch !== authEpoch) return
+
+  state.checking = false
+  state.checkFailed = !ok
+}
+
+/** 认证校验失败时返回 false，由调用方决定是否提示。 */
+async function refreshStatus(validate = false): Promise<boolean> {
+  const epoch = authEpoch
+
   try {
     const response = await fetchAuthStatus(validate)
+    if (epoch !== authEpoch) return false
     applyStatus(response)
+    return true
   } catch (error) {
+    if (epoch !== authEpoch) return false
     state.warning = authErrorMessage(error).message
+    return false
   }
 }
 
@@ -237,6 +263,14 @@ export function isAuthenticated(): boolean {
   return state.authenticated
 }
 
+/**
+ * 认证已确认未登录时才拦截业务请求；校验中或校验失败一律放行，
+ * 由各数据源自己的响应决定卡片状态，避免慢网时首页被校验串行阻塞。
+ */
+export function isAuthBlocked(): boolean {
+  return !state.checking && !state.checkFailed && !state.authenticated
+}
+
 /** 派生中轮询状态；返回停止函数，供设置页 onUnmounted 调用。 */
 function pollWhileDeriving(): () => void {
   stopPolling()
@@ -269,9 +303,11 @@ function applyStatus(response: AuthStatusResponse): void {
   state.deriving = response.deriving
   state.sources = response.sources
   state.warning = response.warning ?? ''
+  state.checkFailed = false
 }
 
 function applyLogin(response: AuthLoginResponse): void {
+  authEpoch += 1
   state.authenticated = true
   state.user = response.user
   state.authenticatedAt = response.authenticatedAt
@@ -279,6 +315,8 @@ function applyLogin(response: AuthLoginResponse): void {
   state.deriving = true
   state.sources = response.sources
   state.warning = response.warning ?? ''
+  state.checking = false
+  state.checkFailed = false
 }
 
 function resetLoginAttemptState(): void {
@@ -290,11 +328,14 @@ function resetLoginAttemptState(): void {
 }
 
 function resetAuthState(): void {
+  authEpoch += 1
   state.authenticated = false
   state.user = null
   state.authenticatedAt = null
   state.persisted = false
   state.deriving = false
+  state.checking = false
+  state.checkFailed = false
   state.sources = emptySources()
   state.warning = ''
   resetLoginAttemptState()

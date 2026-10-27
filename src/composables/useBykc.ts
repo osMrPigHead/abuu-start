@@ -7,7 +7,7 @@ import {
   fetchBykcCourse,
   fetchBykcCourses,
 } from '@/api/bykc'
-import { isAuthenticated, markSourceExpired } from '@/composables/useAuth'
+import { isAuthBlocked, markSourceExpired } from '@/composables/useAuth'
 import type {
   BykcChosenCache,
   BykcChosenCourse,
@@ -168,7 +168,7 @@ async function loadPage(page: number, pageSize: number = BYKC_PAGE_SIZE): Promis
 }
 
 async function refresh(): Promise<void> {
-  if (!isAuthenticated()) {
+  if (isAuthBlocked()) {
     state.status = 'no-credential'
     state.error = null
     state.loading = false
@@ -236,7 +236,7 @@ function openDetail(course: BykcCourse): void {
   if (cache) {
     detailState.course = cache.course
     detailState.savedAt = cache.savedAt || null
-    detailState.status = isAuthenticated() ? 'cached' : 'no-credential'
+    detailState.status = isAuthBlocked() ? 'no-credential' : 'cached'
   }
 
   void refreshDetail()
@@ -246,7 +246,7 @@ async function refreshDetail(): Promise<void> {
   const courseId = detailState.courseId
   if (courseId === null) return
 
-  if (!isAuthenticated()) {
+  if (isAuthBlocked()) {
     detailState.status = 'no-credential'
     detailState.error = null
     detailState.loading = false
@@ -327,13 +327,13 @@ function hydrateChosen(): void {
   chosenState.term = cache.term
   chosenState.courses = cache.courses
   chosenState.savedAt = cache.savedAt || null
-  chosenState.status = isAuthenticated() ? 'cached' : 'no-credential'
+  chosenState.status = isAuthBlocked() ? 'no-credential' : 'cached'
 }
 
 async function refreshChosen(): Promise<void> {
   hydrateChosen()
 
-  if (!isAuthenticated()) {
+  if (isAuthBlocked()) {
     chosenState.status = 'no-credential'
     chosenState.error = null
     chosenState.loading = false
@@ -418,7 +418,7 @@ function hydratePage(): void {
   state.total = cache.total
   state.totalPages = cache.totalPages
   state.savedAt = cache.savedAt || null
-  state.status = isAuthenticated() ? 'cached' : 'no-credential'
+  state.status = isAuthBlocked() ? 'no-credential' : 'cached'
 }
 
 function persistPage(): void {
