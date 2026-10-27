@@ -132,6 +132,7 @@ src/
 | `PATH_UNAVAILABLE` | 422 | 背景目录不存在、不是目录或无权限 |
 
 - 原有错误码保留：`NO_CREDENTIAL`、`AUTH_EXPIRED`、`INVALID_REQUEST`、`INVALID_WEEK`、`INVALID_PAGE`、`NOT_FOUND`、`METHOD_NOT_ALLOWED`、`UPSTREAM_TIMEOUT`、`UPSTREAM_ERROR`、`BAD_RESPONSE`、`INTERNAL`。
+- `UPSTREAM_ERROR`、`UPSTREAM_TIMEOUT`、`BAD_RESPONSE` 表示网络或上游不可用/异常，**不表示登录失效**；只有 `AUTH_EXPIRED` 需要重新登录。上游 408/429/5xx、连接失败、DNS 失败与超时均归入此类。
 - 日志只记录 `method`、`path`、`status`、`durationMs`；不记录请求头、请求体、密码、验证码、Cookie、Token、`ak/sk/ts`、响应体。
 
 ### 3.2 认证接口
@@ -265,7 +266,9 @@ src/
 - `status` 取值：`unconfigured`、`pending`、`ready`、`failed`、`expired`。
 - `deriving` 为任一源 `pending`。
 - `?validate=1`：若已登录，额外调用一次 UC status 校验会话；设置页首次加载使用，轮询不带该参数。
-- 校验失败时先尝试一次自动重登；仍失败则保留 `authenticated:true` 与 `authenticatedAt`，把四个源标记为 `expired`，并附 `warning:"登录状态已失效，请重新登录"`，避免把缓存误显示为“无数据”。
+- `?validate=1` 的失败分两类处理：
+  - 认证失败（UC 返回未登录、非 JSON 或非 2xx）：先尝试一次自动重登；仍失败则保留 `authenticated:true` 与 `authenticatedAt`，把四个源标记为 `expired`，并附 `warning:"登录状态已失效，请重新登录"`，避免把缓存误显示为“无数据”。
+  - 网络或上游不可用（请求抛 `UPSTREAM_ERROR`/`UPSTREAM_TIMEOUT`，或 UC 返回 408/429/5xx）：**不重登、不改四源状态**，保留 `authenticated:true` 与原状态，附 `warning:"无法连接统一认证，登录状态未校验"`。
 - 凭据文件损坏/密钥缺失：返回未登录，并带 `warning:"登录状态无法读取，请重新登录"`；不白屏。
 
 #### `POST /api/auth/sources/:source/retry`
@@ -399,11 +402,11 @@ src/
   - 博雅：`auth_token`、`authtoken`。
   - 阳光：表单 `uid`、`token`。
 - 未登录：`401 AUTH_REQUIRED`。
-- 上游认证失效：
-  1. 标记该源 `expired`。
-  2. 尝试自动重登一次。
-  3. 重登成功则重新派生该源并重试原请求一次。
-  4. 仍失败返回 `401 AUTH_EXPIRED`，保留前端缓存。
+- 上游认证失效（3xx/401/403、HTML 登录页、业务码表明未登录）：
+  1. 尝试自动重登一次，重登前不预先标记 `expired`。
+  2. 重登成功则重新派生该源并重试原请求一次；仍失败返回 `401 AUTH_EXPIRED` 并标记该源 `expired`。
+  3. 重登因网络/上游 5xx 失败时返回 `502 UPSTREAM_ERROR` 或 `504 UPSTREAM_TIMEOUT`，不改数据源状态、不要求重新登录。
+  4. 上游 408/429/5xx 不视为认证失效，直接返回 `UPSTREAM_ERROR`。
 - 业务接口路径、参数、响应结构保持二阶段不变；只改变凭据来源。
 - 上游请求优先用 Node 内置 `fetch` + `redirect: 'manual'` + `headers.getSetCookie()`；若 `fetch` 对 `Cookie` 头有限制，则用 `node:https` 实现手动跳转与 Cookie 罐，不引入第三方 HTTP 库。
 - `/api/byxt/status`、`/api/spoc/status`、`/api/bykc/status`、`/api/ygdk/overview` 保留，用于设置页与卡片校验。
@@ -668,13 +671,15 @@ type HomeDisplayState = {
 - 同一时间只允许一次自动重登。
 - 流程：
   1. 有会话且有保存的密码，否则直接 `AUTH_EXPIRED`。
-  2. 若距上次自动重登失败不足 5 分钟，直接失败，避免连续试错。
+  2. 冷却：认证类失败（账号被拒、验证码、无密码）5 分钟内不重复；网络或上游 5xx 的瞬时失败 30 秒内不重复。
   3. 新建 Cookie 罐，不重用已失效 Cookie。
   4. `GET sso/login`；若要求验证码，标记 `needsManualLogin`，返回失败。
   5. 用保存的学号密码提交，激活 UC，校验 UC status。
   6. 成功：替换会话 Cookie、`authenticatedAt`；同步重新派生失败源（其他源后台刷新）；写盘。
-  7. 失败：标记会话 `AUTH_EXPIRED`，保留密码与缓存；不自动重试。
-- 自动重登成功后，原业务请求只重试一次；仍失败返回 `AUTH_EXPIRED`。
+  7. 失败按原因区分：
+     - 认证失败（账号被拒、验证码、UC 未登录）：标记会话 `AUTH_EXPIRED`，保留密码与缓存；不自动重试。
+     - 网络或上游不可用：返回 `upstream` 原因，由调用方映射为 `UPSTREAM_ERROR`/`UPSTREAM_TIMEOUT`，不改数据源状态、不要求重新登录。
+- 自动重登成功后，原业务请求只重试一次；仍失败按认证失败返回 `AUTH_EXPIRED`。
 - 不因自动重登失败而删除密码；用户手动登录成功后覆盖。
 
 ### 6.5 退出
@@ -853,7 +858,7 @@ type HomeDisplayState = {
 - 路由不变：`/`、`/schedule`、`/bykc`、`/spoc`、`/spoc/:assignmentId`、`/exams`、`/settings`。
 - 不新增登录页；登录只在 `/settings` 的统一登录区。
 - `minimalMode` 只影响 `/`；其他页面正常显示。
-- 未登录时主页不新增横幅；各卡片沿用状态行引导到 `/settings`。
+- 未登录时主页不新增横幅；各卡片沿用标题状态标签引导到 `/settings`。
 - 本地待办、番茄钟、快捷入口不依赖登录，未登录仍可用。
 
 ## 9. 安全

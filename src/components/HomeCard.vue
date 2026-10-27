@@ -16,7 +16,7 @@ withDefaults(
 
 <template>
   <section
-    class="relative flex min-h-0 flex-col overflow-hidden rounded-3xl border border-white/15 bg-slate-950/45 shadow-[0_24px_70px_-36px_rgba(0,0,0,0.95)] backdrop-blur-md transition-colors duration-300 before:pointer-events-none before:absolute before:inset-x-8 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-white/25 before:to-transparent hover:border-white/25 hover:bg-slate-950/55"
+    class="relative flex min-h-0 flex-col overflow-hidden rounded-3xl border border-white/15 bg-slate-950/45 backdrop-blur-md transition-colors duration-300 before:pointer-events-none before:absolute before:inset-x-8 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-white/25 before:to-transparent hover:border-white/25 hover:bg-slate-950/55"
     :class="compact ? 'p-3' : dense ? 'p-4' : 'p-5'"
   >
     <header class="flex items-start justify-between gap-3">

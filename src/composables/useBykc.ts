@@ -7,7 +7,7 @@ import {
   fetchBykcCourse,
   fetchBykcCourses,
 } from '@/api/bykc'
-import { markBykcAuthExpired } from '@/composables/useCredentials'
+import { isAuthenticated, markSourceExpired } from '@/composables/useAuth'
 import type {
   BykcChosenCache,
   BykcChosenCourse,
@@ -23,7 +23,6 @@ import {
   bykcCourseCacheKey,
   bykcCoursesCacheKey,
   clearBykcCaches,
-  readCredentials,
   readJson,
   STORAGE_KEYS,
   writeJson,
@@ -169,7 +168,7 @@ async function loadPage(page: number, pageSize: number = BYKC_PAGE_SIZE): Promis
 }
 
 async function refresh(): Promise<void> {
-  if (!hasBykcCredentials()) {
+  if (!isAuthenticated()) {
     state.status = 'no-credential'
     state.error = null
     state.loading = false
@@ -205,7 +204,7 @@ async function refresh(): Promise<void> {
     if (currentRequest !== requestId) return
 
     const mapped = mapBykcError(error, '博雅课程广场加载失败')
-    if (mapped.status === 'auth-expired') markBykcAuthExpired()
+    if (mapped.status === 'auth-expired') markSourceExpired('bykc')
 
     state.loading = false
     state.error = mapped.message
@@ -237,7 +236,7 @@ function openDetail(course: BykcCourse): void {
   if (cache) {
     detailState.course = cache.course
     detailState.savedAt = cache.savedAt || null
-    detailState.status = hasBykcCredentials() ? 'cached' : 'no-credential'
+    detailState.status = isAuthenticated() ? 'cached' : 'no-credential'
   }
 
   void refreshDetail()
@@ -247,7 +246,7 @@ async function refreshDetail(): Promise<void> {
   const courseId = detailState.courseId
   if (courseId === null) return
 
-  if (!hasBykcCredentials()) {
+  if (!isAuthenticated()) {
     detailState.status = 'no-credential'
     detailState.error = null
     detailState.loading = false
@@ -282,7 +281,7 @@ async function refreshDetail(): Promise<void> {
     if (currentRequest !== detailRequestId || detailState.courseId !== courseId) return
 
     const mapped = mapBykcError(error, '博雅课程详情加载失败')
-    if (mapped.status === 'auth-expired') markBykcAuthExpired()
+    if (mapped.status === 'auth-expired') markSourceExpired('bykc')
 
     detailState.loading = false
     detailState.error = mapped.message
@@ -328,13 +327,13 @@ function hydrateChosen(): void {
   chosenState.term = cache.term
   chosenState.courses = cache.courses
   chosenState.savedAt = cache.savedAt || null
-  chosenState.status = hasBykcCredentials() ? 'cached' : 'no-credential'
+  chosenState.status = isAuthenticated() ? 'cached' : 'no-credential'
 }
 
 async function refreshChosen(): Promise<void> {
   hydrateChosen()
 
-  if (!hasBykcCredentials()) {
+  if (!isAuthenticated()) {
     chosenState.status = 'no-credential'
     chosenState.error = null
     chosenState.loading = false
@@ -366,7 +365,7 @@ async function refreshChosen(): Promise<void> {
     if (currentRequest !== chosenRequestId) return
 
     const mapped = mapBykcError(error, '博雅已选课程加载失败')
-    if (mapped.status === 'auth-expired') markBykcAuthExpired()
+    if (mapped.status === 'auth-expired') markSourceExpired('bykc')
 
     chosenState.loading = false
     chosenState.error = mapped.message
@@ -419,7 +418,7 @@ function hydratePage(): void {
   state.total = cache.total
   state.totalPages = cache.totalPages
   state.savedAt = cache.savedAt || null
-  state.status = hasBykcCredentials() ? 'cached' : 'no-credential'
+  state.status = isAuthenticated() ? 'cached' : 'no-credential'
 }
 
 function persistPage(): void {
@@ -562,12 +561,12 @@ function mapBykcError(error: unknown, fallback: string): MappedError {
   if (error instanceof ApiError) {
     switch (error.code) {
       case 'NO_CREDENTIAL':
-        return { status: 'no-credential', message: '未配置博雅课程 auth_token' }
+      case 'AUTH_REQUIRED':
+        return { status: 'no-credential', message: '未登录，请前往设置完成登录' }
       case 'AUTH_EXPIRED':
-        return {
-          status: 'auth-expired',
-          message: '博雅登录状态已失效，请到设置页更新 auth_token',
-        }
+        return { status: 'auth-expired', message: '登录状态已失效，请到设置页重新登录' }
+      case 'SOURCE_BUSY':
+        return { status: 'error', message: '数据源正在派生，请稍后重试' }
       case 'NOT_FOUND':
         return { status: 'error', message: '课程不存在或已下架', notFound: true }
       case 'INVALID_PAGE':
@@ -582,9 +581,6 @@ function mapBykcError(error: unknown, fallback: string): MappedError {
 
 /* ------------------------------- 基础辅助 ------------------------------- */
 
-function hasBykcCredentials(): boolean {
-  return readCredentials().bykcToken.trim().length > 0
-}
 
 function readText(value: unknown): string | null {
   if (typeof value !== 'string') return null

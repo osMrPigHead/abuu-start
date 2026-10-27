@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import CardStatusActions from '@/components/CardStatusActions.vue'
 import HomeCard from '@/components/HomeCard.vue'
-import SourceStatusLine from '@/components/SourceStatusLine.vue'
 import SpocTodoItem from '@/components/SpocTodoItem.vue'
 import TodoDialog from '@/components/TodoDialog.vue'
 import TodoItem from '@/components/TodoItem.vue'
 import type { SourceStatus, SpocAssignment, Todo } from '@/types'
+import {
+  canRetrySource,
+  needsSettingsSource,
+  resolveSourceBadge,
+} from '@/utils/sourceStatus'
 import type { TodoDraft } from '@/utils/todo'
 
 const props = withDefaults(
@@ -37,12 +42,34 @@ const emit = defineEmits<{
 const dialogOpen = ref(false)
 const editingTodo = ref<Todo | null>(null)
 
-const showSpocEmpty = computed(
-  () =>
-    props.spocAssignments.length === 0 &&
-    props.spocError === null &&
-    (props.spocStatus === 'ok' || props.spocStatus === 'cached'),
+/** 待办卡片只为 SPOC 数据源显示同步状态；自定义待办保存在本地。 */
+const spocBadge = computed(() =>
+  resolveSourceBadge({
+    status: props.spocStatus,
+    savedAt: props.spocSavedAt,
+    loading: props.spocLoading,
+  }),
 )
+
+const spocCanRetry = computed(() =>
+  canRetrySource({ status: props.spocStatus, error: props.spocError }),
+)
+const showSpocSettings = computed(() => needsSettingsSource({ status: props.spocStatus }))
+
+const spocEmptyText = computed(() => {
+  switch (props.spocStatus) {
+    case 'loading':
+      return '正在加载 SPOC 作业…'
+    case 'no-credential':
+      return '登录后查看作业'
+    case 'auth-expired':
+      return '登录状态已失效，请到设置页重新登录'
+    case 'error':
+      return props.spocError || 'SPOC 作业加载失败'
+    default:
+      return '暂无未完成作业'
+  }
+})
 
 function openCreate(): void {
   editingTodo.value = null
@@ -72,7 +99,15 @@ function submitTodo(draft: TodoDraft): void {
 </script>
 
 <template>
-  <HomeCard title="待办" dense class="h-full w-full">
+  <HomeCard title="待办" :badge="spocBadge" dense class="h-full w-full">
+    <template #actions>
+      <CardStatusActions
+        :retryable="spocCanRetry"
+        :needs-settings="showSpocSettings"
+        @retry="emit('refreshSpoc')"
+      />
+    </template>
+
     <div class="grid min-h-0 flex-1 grid-cols-2">
       <section class="flex min-h-0 flex-col pr-4">
         <div class="flex items-center justify-between gap-3">
@@ -135,24 +170,11 @@ function submitTodo(draft: TodoDraft): void {
           />
         </ul>
         <p
-          v-else-if="showSpocEmpty"
+          v-else
           class="mt-1.5 rounded-xl border border-dashed border-white/12 px-3 py-2 text-center text-[10.5px] text-white/35"
         >
-          暂无未完成作业
+          {{ spocEmptyText }}
         </p>
-
-        <SourceStatusLine
-          class="mt-1.5 shrink-0"
-          :status="spocStatus"
-          :saved-at="spocSavedAt"
-          :error="spocError"
-          :refreshing="spocLoading"
-          compact
-          no-credential-text="未配置 SPOC 凭据"
-          auth-expired-text="SPOC 登录状态已失效"
-          fallback-error-text="SPOC 作业加载失败"
-          @retry="emit('refreshSpoc')"
-        />
       </section>
     </div>
   </HomeCard>

@@ -1,8 +1,5 @@
-import type { Credentials } from '@/types'
-
 /** 本地存储键，见 docs/trd.md 5。 */
 export const STORAGE_KEYS = {
-  credentials: 'buaa-start.credentials.v1',
   scheduleCache: 'buaa-start.cache.byxt.schedule.v1',
   examsCache: 'buaa-start.cache.byxt.exams.v1',
   spocAssignmentsCache: 'buaa-start.cache.spoc.assignments.v1',
@@ -23,14 +20,6 @@ export const STORAGE_KEYS = {
 
 const CACHE_PREFIX = 'buaa-start.cache.'
 
-const EMPTY_CREDENTIALS: Credentials = {
-  byxtCookie: '',
-  spocToken: '',
-  spocRoleCode: '',
-  bykcToken: '',
-  ygdkUid: '',
-  ygdkToken: '',
-}
 
 /** localStorage 不可用时降级为内存，页面可据此提示一次。 */
 let storageDegraded = false
@@ -80,8 +69,11 @@ export function remove(key: string): void {
   removeRaw(key)
 }
 
-export function clearCredentials(): void {
-  removeRaw(STORAGE_KEYS.credentials)
+/** 旧明文凭据键；三阶段启动时删除，不尝试迁移，见 docs/trd-phase3.md 4.5。 */
+export const LEGACY_CREDENTIALS_KEY = 'buaa-start.credentials.v1'
+
+export function removeLegacyCredentials(): void {
+  removeRaw(LEGACY_CREDENTIALS_KEY)
 }
 
 /** 只清理数据缓存，不碰凭据与本地待办。 */
@@ -150,23 +142,6 @@ export function clearBykcCaches(): void {
   removeKeysWithPrefix(STORAGE_KEYS.bykcCourseCachePrefix)
 }
 
-export function readCredentials(): Credentials {
-  const stored = readJson<Partial<Credentials>>(STORAGE_KEYS.credentials)
-  if (!stored) return { ...EMPTY_CREDENTIALS }
-
-  return {
-    byxtCookie: asString(stored.byxtCookie),
-    spocToken: asString(stored.spocToken),
-    spocRoleCode: asString(stored.spocRoleCode),
-    bykcToken: asString(stored.bykcToken),
-    ygdkUid: asString(stored.ygdkUid),
-    ygdkToken: asString(stored.ygdkToken),
-  }
-}
-
-export function writeCredentials(credentials: Credentials): boolean {
-  return writeJson(STORAGE_KEYS.credentials, credentials)
-}
 
 function readRaw(key: string): string | null {
   try {
@@ -200,6 +175,4 @@ function removeRaw(key: string): void {
   }
 }
 
-function asString(value: unknown): string {
-  return typeof value === 'string' ? value : ''
-}
+

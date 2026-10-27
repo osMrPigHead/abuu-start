@@ -5,7 +5,7 @@
  * 不调用 Item/getList、Clockin/getList、Upload/File/post、Clockin/clockin。
  * 上游路径全部写死，不接受任意 URL。
  */
-import type { IncomingHttpHeaders } from 'node:http'
+import { ygdkCredentials as sessionYgdkCredentials } from './authSession.ts'
 import { RelayError } from './errors.ts'
 import { fetchUpstream } from './http.ts'
 import type { YgdkOverview } from './types.ts'
@@ -37,8 +37,8 @@ type YgdkCount = {
 }
 
 /** 阳光概览：学期次数/目标 + 当周次数/系统周限制，见 docs/trd-phase2.md 3.2。 */
-export async function ygdkOverview(headers: IncomingHttpHeaders): Promise<YgdkOverview> {
-  const credentials = requireYgdkCredentials(headers)
+export async function ygdkOverview(): Promise<YgdkOverview> {
+  const credentials = requireYgdkCredentials()
   const classify = await fetchClassify(credentials)
   const count = await fetchCount(credentials, classify.classifyId)
   const termName = await fetchTermName(credentials)
@@ -58,20 +58,16 @@ export async function ygdkOverview(headers: IncomingHttpHeaders): Promise<YgdkOv
   }
 }
 
-/** 从请求头取 uid/token；uid 必须是十进制整数。 */
-function requireYgdkCredentials(headers: IncomingHttpHeaders): YgdkCredentials {
-  const uid = readHeader(headers, 'x-ygdk-uid').trim()
-  const token = readHeader(headers, 'x-ygdk-token').trim()
-
-  if (uid.length === 0 || token.length === 0) {
-    throw new RelayError('NO_CREDENTIAL', '未配置阳光打卡 UID 与 token')
-  }
+/** 从认证会话取 uid/token；uid 必须是十进制整数。 */
+function requireYgdkCredentials(): YgdkCredentials {
+  const stored = sessionYgdkCredentials()
+  const uid = String(stored.uid)
 
   if (!UID_RE.test(uid)) {
     throw new RelayError('INVALID_REQUEST', '阳光打卡 UID 必须是十进制整数')
   }
 
-  return { uid, token }
+  return { uid, token: stored.token }
 }
 
 /**
@@ -209,11 +205,6 @@ function readInteger(value: unknown): number | null {
   return null
 }
 
-function readHeader(headers: IncomingHttpHeaders, name: string): string {
-  const value = headers[name]
-  if (Array.isArray(value)) return value.join('; ')
-  return typeof value === 'string' ? value : ''
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)

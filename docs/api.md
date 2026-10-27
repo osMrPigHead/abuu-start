@@ -23,7 +23,7 @@
 - 常用请求头：
   - `Accept: application/json, text/javascript, */*; q=0.01`
   - `X-Requested-With: XMLHttpRequest`
-  - `Referer: https://byxt.buaa.edu.cn/jwapp/sys/homeapp/index.html`
+  - `Referer: https://byxt.buaa.edu.cn`
   - `fetch-api: true`（参考 A 使用，建议保留）
 - 成功响应：`{ "code": "0", "msg": null, "datas": ... }`
 - 会话失效：返回 SSO 登录页 HTML、非 JSON 或非 200；中继统一映射为认证失效。
@@ -238,11 +238,11 @@
 #### 2.3.1 byxt Cookie
 
 1. `GET https://byxt.buaa.edu.cn/jwapp/sys/homeapp/api/home/currentUser.do`，跟随跳转（最多 10 次）。
-   - 请求头：`Accept: application/json, text/javascript, */*; q=0.01`、`X-Requested-With: XMLHttpRequest`、`Referer: https://byxt.buaa.edu.cn/jwapp/sys/homeapp/index.html`。
+   - 请求头：`Accept: application/json, text/javascript, */*; q=0.01`、`X-Requested-With: XMLHttpRequest`、`Referer: https://byxt.buaa.edu.cn`。
    - 若尚未建立 byxt 会话，该请求会 302 到 SSO，再由 SSO 带 ticket 跳回 byxt；跟随过程中 byxt 域会写入 Cookie。
 2. 最终响应为 JSON 且 `code === "0"`，说明 byxt Cookie 可用；取 `datas.userId`、`datas.userName` 与 `welcomeInfo`。
 3. 最终 URL 仍含 `sso.buaa.edu.cn`，或响应是含 `input name="execution"` 的 HTML，视为派生失败。
-4. 参考 B 不额外访问 byxt 首页；若真实联调中 `currentUser` 不触发票据交换，可先 `GET https://byxt.buaa.edu.cn/jwapp/sys/homeapp/index.html` 一次，再重试 `currentUser`。
+4. 参考 B 不额外访问 byxt 首页；若真实联调中 `currentUser` 不触发票据交换，可先 `GET https://byxt.buaa.edu.cn` 一次，再重试 `currentUser`。
 
 Cookie 范围：保存 `byxt.buaa.edu.cn` 与其父域 `.buaa.edu.cn` 下匹配的 Cookie；不把其他业务系统的 Cookie 发给 byxt。
 
@@ -302,9 +302,12 @@ HAR 未导出 Cookie；若真实请求在只带 `auth_token` 时返回会话失�
 | HTTP 401 | 未认证或凭据错误 |
 | 登录页出现 `continueForm`、`ignoreAndContinue`、`账号存在安全风险`、`密码过期` | 需要用户处理密码过期或安全风险；三阶段中止登录并提示用户，不自动提交 `ignoreAndContinue` |
 | 响应为 HTML 登录页、非 JSON | 会话失效，不是业务数据为空 |
-| 5xx、连接失败、超时 | 上游或网络失败，可重试 |
+| 5xx、408、429 | 上游暂时不可用，不是会话失效；中继返回 `UPSTREAM_ERROR` |
+| 连接失败、DNS 失败、超时 | 网络或上游不可用，不是会话失效；中继返回 `UPSTREAM_ERROR`/`UPSTREAM_TIMEOUT` |
 
 验证码错误与账号密码错误要分开提示：验证码错误时保留学号，刷新验证码后可直接重试，不要求重新输入密码。
+
+网络或上游不可用时不标记登录失效：`?validate=1` 保留已登录状态与四源状态，仅附 `warning:"无法连接统一认证，登录状态未校验"`；业务请求返回 `UPSTREAM_ERROR`/`UPSTREAM_TIMEOUT`，由用户重试。
 
 ### 2.5 三阶段不做的认证能力
 

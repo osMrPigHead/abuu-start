@@ -152,6 +152,19 @@ body {
   background: rgb(255 255 255 / 0.25);
 }
 
+/* 功能区的滚动视口铺满视口宽度，但内容起点仍与 1440px 页眉对齐，卡片视觉位置不变。 */
+.home-board-fullbleed {
+  padding-left: max(1.5rem, calc((100% - 1440px) / 2 + 1.5rem));
+  padding-right: 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .home-board-fullbleed {
+    padding-left: max(2.5rem, calc((100% - 1440px) / 2 + 2.5rem));
+    padding-right: 2.5rem;
+  }
+}
+
 .waterfall-board {
   position: relative;
 }
@@ -262,6 +275,61 @@ body {
   transform: translateX(-2.5rem);
 }
 
+/* 路由切换：页眉沿用完全功能模式时钟与搜索行的方向，其余内容沿用功能区方向。
+   根元素只登记过渡时长（透明度实际不变），让 Vue 等子树动画结束后再卸载。 */
+.route-page-enter-active {
+  transition: opacity 200ms ease-out;
+}
+
+.route-page-leave-active {
+  transition: opacity 150ms ease-in;
+}
+
+.route-page-enter-active .route-page-header,
+.route-page-enter-active .route-page-body {
+  transition:
+    opacity 200ms ease-out,
+    transform 200ms ease-out;
+}
+
+.route-page-leave-active .route-page-header,
+.route-page-leave-active .route-page-body {
+  transition:
+    opacity 150ms ease-in,
+    transform 150ms ease-in;
+}
+
+.route-page-enter-from .route-page-header,
+.route-page-leave-to .route-page-header {
+  opacity: 0;
+  transform: translateY(-1.25rem);
+}
+
+.route-page-enter-from .route-page-body,
+.route-page-leave-to .route-page-body {
+  opacity: 0;
+  transform: translateY(1.25rem);
+}
+
+/* 仅时钟与背景模式：进入主页时沿用最小化时钟向左渐隐、向右渐入的方向。 */
+.route-page-enter-active .route-page-minimal {
+  transition:
+    opacity 200ms ease-out,
+    transform 200ms ease-out;
+}
+
+.route-page-leave-active .route-page-minimal {
+  transition:
+    opacity 150ms ease-in,
+    transform 150ms ease-in;
+}
+
+.route-page-enter-from .route-page-minimal,
+.route-page-leave-to .route-page-minimal {
+  opacity: 0;
+  transform: translateX(-2.5rem);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .home-backdrop::before,
   .home-backdrop::after,
@@ -270,7 +338,15 @@ body {
   .home-board-enter-active,
   .home-board-leave-active,
   .minimal-clock-enter-active,
-  .minimal-clock-leave-active {
+  .minimal-clock-leave-active,
+  .route-page-enter-active,
+  .route-page-leave-active,
+  .route-page-enter-active .route-page-header,
+  .route-page-enter-active .route-page-body,
+  .route-page-enter-active .route-page-minimal,
+  .route-page-leave-active .route-page-header,
+  .route-page-leave-active .route-page-body,
+  .route-page-leave-active .route-page-minimal {
     transition-duration: 1ms;
   }
 }

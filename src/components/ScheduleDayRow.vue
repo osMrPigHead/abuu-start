@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import CourseBlock from '@/components/CourseBlock.vue'
+import { useHorizontalWheelScroll } from '@/composables/useHorizontalWheelScroll'
 import type { Course, SectionTime } from '@/types'
 import { formatDayNumber, weekdayCn } from '@/utils/date'
 import {
@@ -32,6 +33,9 @@ const props = withDefaults(
 const dateLabel = computed(() => formatDayNumber(props.date))
 const weekdayLabel = computed(() => weekdayCn(props.date))
 
+const { setScrollElement: setStripElement, onWheel: handleStripWheel } =
+  useHorizontalWheelScroll({ consume: true })
+
 function highlightFor(course: Course): CourseHighlight {
   if (!props.now) return null
   return courseHighlightState(
@@ -48,6 +52,7 @@ function highlightFor(course: Course): CourseHighlight {
   <div
     class="flex min-h-0 items-stretch"
     :class="compact ? 'gap-2 py-0.5' : 'gap-4 py-3'"
+    @wheel="handleStripWheel"
   >
     <div
       class="flex shrink-0 flex-col justify-center"
@@ -76,6 +81,7 @@ function highlightFor(course: Course): CourseHighlight {
     </div>
 
     <div
+      :ref="setStripElement"
       class="schedule-strip flex min-w-0 flex-1 gap-2 overflow-x-auto overflow-y-hidden"
       :class="compact ? 'items-center' : 'items-stretch'"
     >

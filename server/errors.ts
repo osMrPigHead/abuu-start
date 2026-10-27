@@ -1,10 +1,18 @@
 /**
  * 中继统一错误码与 HTTP 状态映射。
- * 文案与状态见 docs/trd.md 3.1。
+ * 文案与状态见 docs/trd.md 3.1、docs/trd-phase3.md 3.1。
  */
 export type RelayErrorCode =
   | 'NO_CREDENTIAL'
+  | 'AUTH_REQUIRED'
+  | 'INVALID_CREDENTIALS'
+  | 'CAPTCHA_REQUIRED'
+  | 'CAPTCHA_INVALID'
+  | 'PASSWORD_EXPIRED'
   | 'AUTH_EXPIRED'
+  | 'LOGIN_IN_PROGRESS'
+  | 'SOURCE_UNKNOWN'
+  | 'SOURCE_BUSY'
   | 'INVALID_REQUEST'
   | 'INVALID_WEEK'
   | 'INVALID_PAGE'
@@ -22,7 +30,15 @@ export type RelayErrorCode =
 
 const HTTP_STATUS: Record<RelayErrorCode, number> = {
   NO_CREDENTIAL: 401,
+  AUTH_REQUIRED: 401,
+  INVALID_CREDENTIALS: 401,
+  CAPTCHA_REQUIRED: 401,
+  CAPTCHA_INVALID: 401,
+  PASSWORD_EXPIRED: 403,
   AUTH_EXPIRED: 401,
+  LOGIN_IN_PROGRESS: 409,
+  SOURCE_UNKNOWN: 400,
+  SOURCE_BUSY: 409,
   INVALID_REQUEST: 400,
   INVALID_WEEK: 400,
   INVALID_PAGE: 400,

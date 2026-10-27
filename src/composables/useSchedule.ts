@@ -2,7 +2,7 @@
 import { reactive } from 'vue'
 import { fetchByxtSchedule } from '@/api/byxt'
 import { ApiError } from '@/api/client'
-import { markByxtAuthExpired } from '@/composables/useCredentials'
+import { isAuthenticated, markSourceExpired } from '@/composables/useAuth'
 import type {
   Course,
   ScheduleCache,
@@ -13,7 +13,7 @@ import type {
   WeekCache,
   WeekSource,
 } from '@/types'
-import { readCredentials, readJson, remove, STORAGE_KEYS, writeJson } from '@/utils/storage'
+import { readJson, remove, STORAGE_KEYS, writeJson } from '@/utils/storage'
 import {
   DEFAULT_SECTION_TIMES,
   normalizeTime,
@@ -114,13 +114,13 @@ function hydrate(): void {
     }
   }
 
-  const cookiePresent = hasByxtCookie()
+  const authenticated = isAuthenticated()
   for (const [key, cachedWeek] of Object.entries(cache.byWeek)) {
     const week = Number(key)
     if (!Number.isSafeInteger(week) || week < 1) continue
 
     entries[week] = {
-      status: cookiePresent ? 'cached' : 'no-credential',
+      status: authenticated ? 'cached' : 'no-credential',
       courses: cachedWeek.courses,
       sectionTimes:
         cachedWeek.sectionTimes.length > 0 ? cachedWeek.sectionTimes : EMPTY_SECTION_TIMES,
@@ -135,7 +135,7 @@ function hydrate(): void {
 async function refreshCurrent(): Promise<void> {
   hydrate()
 
-  if (!hasByxtCookie()) {
+  if (!isAuthenticated()) {
     boot.status = 'no-credential'
     boot.error = null
     boot.loading = false
@@ -187,7 +187,7 @@ async function refreshCurrent(): Promise<void> {
     if (requestId !== currentRequestId) return
 
     const mapped = mapScheduleError(error)
-    if (mapped.status === 'auth-expired') markByxtAuthExpired()
+    if (mapped.status === 'auth-expired') markSourceExpired('byxt')
 
     boot.status = mapped.status
     boot.error = mapped.status === 'error' ? mapped.message : null
@@ -212,7 +212,7 @@ async function loadWeek(week: number, options: { force?: boolean } = {}): Promis
   if (!Number.isSafeInteger(week) || week < 1) return
 
   const entry = ensureEntry(week)
-  if (!hasByxtCookie()) {
+  if (!isAuthenticated()) {
     entry.status = 'no-credential'
     entry.error = null
     entry.loading = false
@@ -241,7 +241,7 @@ async function loadWeek(week: number, options: { force?: boolean } = {}): Promis
     if (weekRequestIds.get(week) !== requestId) return
 
     const mapped = mapScheduleError(error)
-    if (mapped.status === 'auth-expired') markByxtAuthExpired()
+    if (mapped.status === 'auth-expired') markSourceExpired('byxt')
 
     entry.loading = false
     entry.error = mapped.message
@@ -508,9 +508,12 @@ function mapScheduleError(error: unknown): MappedError {
   if (error instanceof ApiError) {
     switch (error.code) {
       case 'NO_CREDENTIAL':
-        return { status: 'no-credential', message: '未配置本研教育管理系统 Cookie' }
+      case 'AUTH_REQUIRED':
+        return { status: 'no-credential', message: '未登录，请前往设置完成登录' }
       case 'AUTH_EXPIRED':
-        return { status: 'auth-expired', message: '登录状态已失效，请到设置页更新 Cookie' }
+        return { status: 'auth-expired', message: '登录状态已失效，请到设置页重新登录' }
+      case 'SOURCE_BUSY':
+        return { status: 'error', message: '数据源正在派生，请稍后重试' }
       case 'INVALID_WEEK':
         return { status: 'error', message: '周次无效或超出当前学期范围' }
       case 'RELAY_UNREACHABLE':
@@ -525,9 +528,6 @@ function mapScheduleError(error: unknown): MappedError {
 
 /* ------------------------------- 基础辅助 ------------------------------- */
 
-function hasByxtCookie(): boolean {
-  return readCredentials().byxtCookie.trim().length > 0
-}
 
 function toPositiveInteger(value: unknown): number | null {
   const number =
