@@ -1,12 +1,19 @@
 @import 'tailwindcss';
 
+html {
+  overflow: hidden;
+}
+
 html,
 body {
+  height: 100%;
   font-family: "Source Han Sans VF", sans-serif;
+  user-select: none;
 }
 
 body {
   background-color: #0b1220;
+  overflow-y: auto;
 }
 
 #app {
@@ -23,14 +30,13 @@ body {
 .app-background-image {
   position: fixed;
   inset: 0;
-  z-index: 0;
-  width: 100%;
-  height: 100%;
+  z-index: -1;
+  width: 100vw;
+  height: 100vh;
   object-fit: cover;
   object-position: center;
   opacity: 0;
   pointer-events: none;
-  user-select: none;
   -webkit-user-drag: none;
 }
 
