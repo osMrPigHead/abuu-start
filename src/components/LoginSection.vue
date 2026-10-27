@@ -136,7 +136,7 @@ const fieldClass =
           <input
             v-model="username"
             :class="[fieldClass, 'h-11 px-4 text-[13px]']"
-            placeholder="2418xxxx"
+            placeholder="学号"
             aria-label="学号"
             autocomplete="username"
             spellcheck="false"

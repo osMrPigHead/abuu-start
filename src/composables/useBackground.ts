@@ -7,6 +7,7 @@ import {
 } from '@/api/background'
 import { ApiError } from '@/api/client'
 import type { BackgroundImage, BackgroundManifest } from '@/types'
+import { pickBuiltinBackground } from '@/utils/builtinBackground'
 
 export type BackgroundBusyAction = 'save' | 'rescan' | 'clear'
 
@@ -41,6 +42,7 @@ const state = reactive<BackgroundState>({
 const failedNames = new Set<string>()
 let consecutiveFailures = 0
 let hydratePromise: Promise<void> | null = null
+const builtinBackground = pickBuiltinBackground()
 
 /**
  * 自定义随机背景的模块级单例。
@@ -50,6 +52,7 @@ let hydratePromise: Promise<void> | null = null
 export function useBackground() {
   return {
     state,
+    builtinBackground,
     hydrate,
     saveDirectory,
     clearDirectory,

@@ -2,7 +2,7 @@
 import { reactive } from 'vue'
 import { fetchByxtExams } from '@/api/byxt'
 import { ApiError } from '@/api/client'
-import { isAuthenticated, markSourceExpired } from '@/composables/useAuth'
+import { isAuthBlocked, markSourceExpired } from '@/composables/useAuth'
 import type {
   Exam,
   ExamsCache,
@@ -59,13 +59,13 @@ function hydrate(): void {
   state.term = cache.term
   state.exams = cache.exams
   state.savedAt = cache.savedAt || null
-  state.status = isAuthenticated() ? 'cached' : 'no-credential'
+  state.status = isAuthBlocked() ? 'no-credential' : 'cached'
 }
 
 async function refresh(): Promise<void> {
   hydrate()
 
-  if (!isAuthenticated()) {
+  if (isAuthBlocked()) {
     state.status = 'no-credential'
     state.error = null
     state.loading = false

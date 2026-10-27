@@ -14,7 +14,7 @@ body {
 }
 
 /* 背景层位于所有页面内容之下；用 img 铺满视口，避免 fixed background 随滚动位移。
-   自定义图加载期间不渲染图片，加载成功后由 .is-loaded 渐入；失败时切换到内置图。 */
+   自定义图与内置图都在 img 加载完成后通过 .is-loaded 渐入。 */
 .app-shell {
   position: relative;
   min-height: 100vh;
@@ -29,7 +29,6 @@ body {
   object-fit: cover;
   object-position: center;
   opacity: 0;
-  transition: opacity 500ms ease-out;
   pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;
@@ -37,11 +36,22 @@ body {
 
 .app-background-image.is-loaded {
   opacity: 1;
+  animation: background-fade-in 500ms ease-out both;
+}
+
+@keyframes background-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .app-background-image {
-    transition-duration: 1ms;
+  .app-background-image.is-loaded {
+    animation-duration: 1ms;
   }
 }
 

@@ -2,7 +2,7 @@
 import { reactive } from 'vue'
 import { ApiError } from '@/api/client'
 import { fetchYgdkOverview } from '@/api/ygdk'
-import { isAuthenticated, markSourceExpired } from '@/composables/useAuth'
+import { isAuthBlocked, markSourceExpired } from '@/composables/useAuth'
 import type { SourceStatus, YgdkOverview, YgdkOverviewCache } from '@/types'
 import {
   clearYgdkCaches,
@@ -56,13 +56,13 @@ function hydrate(): void {
 
   state.overview = cache.overview
   state.savedAt = cache.savedAt
-  state.status = isAuthenticated() ? 'cached' : 'no-credential'
+  state.status = isAuthBlocked() ? 'no-credential' : 'cached'
 }
 
 async function refresh(): Promise<void> {
   hydrate()
 
-  if (!isAuthenticated()) {
+  if (isAuthBlocked()) {
     state.status = 'no-credential'
     state.error = null
     state.loading = false

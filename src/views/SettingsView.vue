@@ -60,6 +60,7 @@ const { highlightLeadMinutes, setHighlightLeadMinutes } = useScheduleSettings()
 const { visibility: homeCardVisibility, setVisible: setHomeCardVisible } = useHomeCards()
 const {
   state: backgroundState,
+  builtinBackground,
   hydrate: hydrateBackground,
   saveDirectory: saveBackgroundDirectory,
   clearDirectory: clearBackgroundDirectory,
@@ -137,10 +138,16 @@ const backgroundStatusClass = computed(() => {
   }
   return 'border-white/15 bg-white/[0.04] text-white/45'
 })
+const customBackgroundActive = computed(
+  () =>
+    backgroundState.configured &&
+    backgroundState.selectedName !== null &&
+    !backgroundState.fallback,
+)
 const backgroundCurrentImage = computed(() =>
-  backgroundState.selectedName !== null && !backgroundState.fallback
-    ? backgroundState.selectedName
-    : '内置背景',
+  customBackgroundActive.value
+    ? backgroundState.selectedName ?? ''
+    : builtinBackground?.fileName ?? '内置背景',
 )
 const backgroundCanSave = computed(
   () => backgroundPathDraft.value.trim().length > 0 && !backgroundBusy.value,
@@ -570,7 +577,7 @@ const fieldClass =
           <input
             v-model="backgroundPathDraft"
             :class="[fieldClass, 'h-11 px-4 font-mono text-[12px]']"
-            placeholder="D:\Pictures\wallpapers"
+            placeholder="背景目录绝对路径"
             aria-label="背景目录绝对路径"
             autocomplete="off"
             spellcheck="false"
@@ -617,8 +624,20 @@ const fieldClass =
           </p>
           <p class="flex min-w-0 items-center gap-1 text-xs text-white/40">
             <span class="shrink-0">当前背景：</span>
-            <span class="truncate font-mono text-white/60" :title="backgroundCurrentImage">
+            <span
+              v-if="customBackgroundActive"
+              class="truncate font-mono text-white/60"
+              :title="backgroundCurrentImage"
+            >
               {{ backgroundCurrentImage }}
+            </span>
+            <span v-else class="min-w-0 truncate text-white/60" :title="backgroundCurrentImage">
+              内置背景<template v-if="builtinBackground">（图源<a
+                :href="builtinBackground.sourceUrl ?? undefined"
+                class="text-white/80 underline decoration-white/25 underline-offset-2 transition hover:text-white"
+                target="_blank"
+                rel="noreferrer noopener"
+              >{{ builtinBackground.sourceName }}</a>，作者{{ builtinBackground.author }}）</template><template v-else>（无可用图片）</template>
             </span>
           </p>
         </div>

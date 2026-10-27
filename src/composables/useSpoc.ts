@@ -2,7 +2,7 @@
 import { reactive } from 'vue'
 import { ApiError } from '@/api/client'
 import { fetchSpocAssignmentDetail, fetchSpocAssignments } from '@/api/spoc'
-import { isAuthenticated, markSourceExpired } from '@/composables/useAuth'
+import { isAuthBlocked, markSourceExpired } from '@/composables/useAuth'
 import type {
   SourceStatus,
   SpocAssignment,
@@ -103,13 +103,13 @@ function hydrate(): void {
   state.term = cache.term
   state.assignments = cache.assignments
   state.savedAt = cache.savedAt || null
-  state.status = isAuthenticated() ? 'cached' : 'no-credential'
+  state.status = isAuthBlocked() ? 'no-credential' : 'cached'
 }
 
 async function refresh(): Promise<void> {
   hydrate()
 
-  if (!isAuthenticated()) {
+  if (isAuthBlocked()) {
     state.status = 'no-credential'
     state.error = null
     state.loading = false
@@ -185,7 +185,7 @@ function openDetailById(assignmentId: string, preview: SpocAssignment | null = n
   if (cache) {
     detailState.assignment = cache.assignment
     detailState.savedAt = cache.savedAt || null
-    detailState.status = isAuthenticated() ? 'cached' : 'no-credential'
+    detailState.status = isAuthBlocked() ? 'no-credential' : 'cached'
   }
 
   void refreshDetail()
@@ -195,7 +195,7 @@ async function refreshDetail(): Promise<void> {
   const assignmentId = detailState.assignmentId
   if (assignmentId === null || !isValidSpocAssignmentId(assignmentId)) return
 
-  if (!isAuthenticated()) {
+  if (isAuthBlocked()) {
     detailState.status = 'no-credential'
     detailState.error = null
     detailState.loading = false
