@@ -240,6 +240,20 @@ export type YgdkSettings = {
   weekTarget: number
 }
 
+/** 本机背景目录与第一层图片清单，见 docs/trd-phase3.md 3.3。 */
+export type BackgroundImage = {
+  name: string
+  size: number
+  modifiedAt: string
+}
+
+export type BackgroundManifest = {
+  directory: string | null
+  configured: boolean
+  images: BackgroundImage[]
+  warning: string | null
+}
+
 /* ---------- 缓存 ---------- */
 
 export type WeekCache = {
@@ -319,8 +333,13 @@ export type RelayErrorCode =
   | 'INVALID_REQUEST'
   | 'INVALID_WEEK'
   | 'INVALID_PAGE'
+  | 'INVALID_PATH'
+  | 'PATH_UNAVAILABLE'
   | 'NOT_FOUND'
   | 'METHOD_NOT_ALLOWED'
+  | 'FORBIDDEN_ORIGIN'
+  | 'UNSUPPORTED_MEDIA'
+  | 'PAYLOAD_TOO_LARGE'
   | 'UPSTREAM_TIMEOUT'
   | 'UPSTREAM_ERROR'
   | 'BAD_RESPONSE'

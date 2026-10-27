@@ -11,8 +11,13 @@ const RELAY_ERROR_CODES: readonly RelayErrorCode[] = [
   'INVALID_REQUEST',
   'INVALID_WEEK',
   'INVALID_PAGE',
+  'INVALID_PATH',
+  'PATH_UNAVAILABLE',
   'NOT_FOUND',
   'METHOD_NOT_ALLOWED',
+  'FORBIDDEN_ORIGIN',
+  'UNSUPPORTED_MEDIA',
+  'PAYLOAD_TOO_LARGE',
   'UPSTREAM_TIMEOUT',
   'UPSTREAM_ERROR',
   'BAD_RESPONSE',
@@ -40,7 +45,7 @@ export class ApiError extends Error {
 
 /**
  * 前端唯一的 fetch 入口。
- * - 固定 GET，不缓存；
+ * - GET 业务请求与白名单 POST 共用响应解析；
  * - 网络失败、非 JSON 响应统一映射为 RELAY_UNREACHABLE；
  * - 错误响应解析为 ApiError，不打印日志。
  */
@@ -53,11 +58,34 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   if (options.headers) init.headers = options.headers
   if (options.signal) init.signal = options.signal
 
+  return send<T>(path, init, options.signal)
+}
+
+/** 仅用于白名单 POST（背景目录设置与重新扫描）。 */
+export async function postJson<T>(
+  path: string,
+  body: unknown,
+  options: RequestOptions = {},
+): Promise<T> {
+  const init: RequestInit = {
+    method: 'POST',
+    cache: 'no-store',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }
+
+  if (options.headers) init.headers = options.headers
+  if (options.signal) init.signal = options.signal
+
+  return send<T>(path, init, options.signal)
+}
+
+async function send<T>(path: string, init: RequestInit, signal?: AbortSignal): Promise<T> {
   let response: Response
   try {
     response = await fetch(path, init)
   } catch {
-    if (options.signal?.aborted) {
+    if (signal?.aborted) {
       throw new ApiError('RELAY_UNREACHABLE', '请求已取消', 0)
     }
     throw new ApiError(

@@ -16,6 +16,8 @@ import YgdkCard from '@/components/YgdkCard.vue'
 import { useBykc, useBykcChosen, useBykcDetail } from '@/composables/useBykc'
 import { useClock } from '@/composables/useClock'
 import { useExams } from '@/composables/useExams'
+import { useHomeCards } from '@/composables/useHomeCards'
+import { useHomeDisplay } from '@/composables/useHomeDisplay'
 import { usePomodoro } from '@/composables/usePomodoro'
 import { useSchedule, type WeekEntry } from '@/composables/useSchedule'
 import { useScheduleSettings } from '@/composables/useScheduleSettings'
@@ -34,6 +36,13 @@ import {
 } from '@/utils/date'
 import { recentExamEntries } from '@/utils/exams'
 import {
+  computeHomeLayout,
+  HOME_ROW_COUNT,
+  HOME_ROW_GAP_REM,
+  HOME_ROW_HEIGHT_REM,
+  type PlacementGeometry,
+} from '@/utils/homeLayout'
+import {
   coursesOnDay,
   DEFAULT_SECTION_TIMES,
   findCourseStates,
@@ -45,8 +54,6 @@ import { filterOpenSpocAssignments } from '@/utils/spoc'
 import { resolveYgdkTermTarget, resolveYgdkWeekLimit } from '@/utils/ygdk'
 import {
   normalizeShortcutRow,
-  SHORTCUT_MIN_WIDTH_REM,
-  SHORTCUT_ROW_COUNT,
   shortcutWidthRem,
   type ShortcutDraft,
 } from '@/utils/shortcut'
@@ -55,6 +62,18 @@ const { now } = useClock()
 const { now: spocNow } = useClock(30_000)
 const router = useRouter()
 const keyword = ref('')
+
+const { visibility: cardVisibility } = useHomeCards()
+const {
+  display: homeDisplay,
+  enterMinimalMode,
+  exitMinimalMode,
+} = useHomeDisplay()
+
+/** 仅时钟与背景模式只在本页（`/`）生效，离开主页不影响子页面。 */
+const minimalMode = computed(() => homeDisplay.minimalMode)
+/** 功能区隐藏或进入仅时钟模式时，既不渲染功能区也不发起取数，见 docs/prd-phase3.md 4.5。 */
+const homeAreaVisible = computed(() => !minimalMode.value && homeDisplay.showFunctionArea)
 
 const {
   meta,
@@ -312,6 +331,9 @@ function rowState(view: WeekEntry): 'loading' | 'ready' | 'unavailable' {
 }
 
 function preloadTomorrow(): void {
+  if (!homeAreaVisible.value) return
+  if (!cardVisibility.schedule) return
+
   const week = tomorrowWeekNumber.value
   if (week === null || week > maxWeek.value) return
   if (week === todayWeekNumber.value) return
@@ -324,19 +346,58 @@ function preloadTomorrow(): void {
 
 watch(tomorrowWeekNumber, preloadTomorrow, { immediate: true })
 
-onMounted(() => {
+/** 缓存优先：只读 localStorage，不发请求。 */
+function hydrateHomeData(): void {
   hydrateSchedule()
   hydrateExams()
   hydrateSpoc()
   hydrateYgdk()
   hydrateBykcChosen()
-  void refreshCurrent()
-  void refreshExams()
-  void refreshSpoc()
-  void refreshYgdk()
-  void refreshBykcChosen()
-  void loadBykcPage(1)
+}
+
+/** 卡片关闭时不请求；功能区隐藏或仅时钟模式下整体不请求。 */
+function refreshHomeData(): void {
+  if (cardVisibility.schedule) {
+    void refreshCurrent()
+    void refreshExams()
+    void refreshBykcChosen()
+  }
+  if (cardVisibility.bykc) void loadBykcPage(1)
+  if (cardVisibility.todo) void refreshSpoc()
+  if (cardVisibility.ygdk) void refreshYgdk()
+  preloadTomorrow()
+}
+
+onMounted(() => {
+  hydrateHomeData()
+  if (homeAreaVisible.value) refreshHomeData()
 })
+
+/** 恢复显示时按缓存优先刷新；进入仅时钟模式或隐藏功能区时先退出编辑并关闭弹层。 */
+watch(homeAreaVisible, (visible) => {
+  if (!visible) {
+    closeHomeEditing()
+    shortcutDialogOpen.value = false
+    closeBykcDetail()
+    closeSpocDetail()
+    return
+  }
+
+  hydrateHomeData()
+  refreshHomeData()
+})
+
+watch(
+  () => homeDisplay.showActionButtons,
+  (visible) => {
+    if (!visible) closeHomeEditing()
+  },
+)
+
+function closeHomeEditing(): void {
+  isEditing.value = false
+  resetDragState()
+}
 
 function refreshSchedule(): void {
   void refreshCurrent()
@@ -357,75 +418,21 @@ function submitSearch(): void {
   window.location.assign(`https://www.bing.com/search?q=${encodeURIComponent(query)}`)
 }
 
-type WaterfallPlacement = {
+type ShortcutPlacement = PlacementGeometry & {
   id: string
-  width: number
-  rows: number
-  row: number
-  x: number
-}
-
-type ShortcutPlacement = WaterfallPlacement & {
   shortcut: Shortcut
 }
 
-const ROW_HEIGHT_REM = 3
-const ROW_GAP_REM = 0.75
+const ROW_HEIGHT_REM = HOME_ROW_HEIGHT_REM
+const ROW_GAP_REM = HOME_ROW_GAP_REM
 const ROW_STEP_REM = ROW_HEIGHT_REM + ROW_GAP_REM
-const ROW_COUNT = SHORTCUT_ROW_COUNT
+const ROW_COUNT = HOME_ROW_COUNT
 
-const schedulePlacement: WaterfallPlacement = { id: 'schedule', width: 38, rows: 5, row: 0, x: 0 }
-const bykcPlacement: WaterfallPlacement = {
-  id: 'bykc',
-  width: 22.4,
-  rows: 5,
-  row: 0,
-  x: schedulePlacement.width + ROW_GAP_REM,
-}
-const todoPlacement: WaterfallPlacement = { id: 'todo', width: 34, rows: 6, row: 5, x: 0 }
-const focusPlacement: WaterfallPlacement = {
-  id: 'focus',
-  // 原 28rem 的 4/5，与待办同一行。
-  width: 22.4,
-  rows: 4,
-  row: todoPlacement.row,
-  x: todoPlacement.width + ROW_GAP_REM,
-}
-const ygdkPlacement: WaterfallPlacement = {
-  id: 'ygdk',
-  width: focusPlacement.width,
-  rows: 2,
-  row: focusPlacement.row + focusPlacement.rows,
-  x: focusPlacement.x,
-}
+/** 卡片开关后的重排规则见 docs/ui-lowfi.md 主页；行数固定，只改变卡片位置。 */
+const homeLayout = computed(() => computeHomeLayout(cardVisibility))
+const cardPlacements = computed(() => homeLayout.value.placements)
 
-/** 大卡固定占位后各行的右端；快捷方式从这些位置继续排。 */
-const BASE_ROW_ENDS = (() => {
-  const rowEnds = Array.from({ length: ROW_COUNT }, () => 0)
-
-  for (const item of [
-    schedulePlacement,
-    bykcPlacement,
-    todoPlacement,
-    focusPlacement,
-    ygdkPlacement,
-  ]) {
-    for (let row = item.row; row < item.row + item.rows; row += 1) {
-      rowEnds[row] = Math.max(rowEnds[row] ?? 0, item.x + item.width)
-    }
-  }
-
-  return rowEnds
-})()
-
-const baseBoardWidthRem = Math.max(...BASE_ROW_ENDS)
-const maxRowStartRem = Math.max(...BASE_ROW_ENDS.map((end) => end + ROW_GAP_REM))
-
-/** 即使所有行都为空，也要留出第一张快捷方式的可放置范围。 */
-const MIN_BOARD_WIDTH_REM = Math.max(
-  baseBoardWidthRem,
-  maxRowStartRem + SHORTCUT_MIN_WIDTH_REM,
-)
+const boardHeightRem = ROW_COUNT * ROW_HEIGHT_REM + (ROW_COUNT - 1) * ROW_GAP_REM
 
 const { shortcuts, addShortcut, updateShortcut, removeShortcut, moveShortcutTo } =
   useShortcuts()
@@ -471,37 +478,37 @@ const editingShortcut = ref<Shortcut | null>(null)
 
 /**
  * 每行独立排列，行数固定、行内数量不限。
- * 快捷方式显式保存 row，横向位置由该行前面的卡片顺序推算，不做换行装箱。
+ * 快捷方式显式保存 row，横向位置由该行大卡与前面的卡片顺序推算，不做换行装箱。
  */
 const shortcutLayout = computed(() => {
-  const rowWidths = [...BASE_ROW_ENDS]
+  const rowCursors = [...homeLayout.value.rowStarts]
   const placements: ShortcutPlacement[] = []
+  let maxEndRem = 0
 
   for (const shortcut of shortcuts.value) {
     const row = normalizeShortcutRow(shortcut.row)
     const width = shortcutWidthRem(shortcut.title, isEditing.value)
-    const x = (rowWidths[row] ?? 0) + ROW_GAP_REM
+    const x = rowCursors[row] ?? 0
 
     placements.push({
       id: shortcut.id,
       shortcut,
-      width,
+      widthRem: width,
       rows: 1,
       row,
-      x,
+      xRem: x,
     })
-    rowWidths[row] = x + width
+    rowCursors[row] = x + width + ROW_GAP_REM
+    maxEndRem = Math.max(maxEndRem, x + width)
   }
 
-  return { placements, rowWidths }
+  return { placements, maxEndRem }
 })
 
 const shortcutPlacements = computed(() => shortcutLayout.value.placements)
 
-const boardHeightRem = ROW_COUNT * ROW_HEIGHT_REM + (ROW_COUNT - 1) * ROW_GAP_REM
-
 const boardWidthRem = computed(() =>
-  Math.max(MIN_BOARD_WIDTH_REM, ...shortcutLayout.value.rowWidths),
+  Math.max(homeLayout.value.boardWidthRem, shortcutLayout.value.maxEndRem),
 )
 
 const boardStyle = computed(() => ({
@@ -509,19 +516,22 @@ const boardStyle = computed(() => ({
   height: `${boardHeightRem}rem`,
 }))
 
-function placementStyle(item: WaterfallPlacement) {
+function placementStyle(item: PlacementGeometry | undefined) {
+  if (!item) return {}
+
   return {
-    left: `${item.x}rem`,
+    left: `${item.xRem}rem`,
     top: `${item.row * (ROW_HEIGHT_REM + ROW_GAP_REM)}rem`,
-    width: `${item.width}rem`,
+    width: `${item.widthRem}rem`,
     height: `${item.rows * ROW_HEIGHT_REM + (item.rows - 1) * ROW_GAP_REM}rem`,
   }
 }
 
 const boardElement = ref<HTMLElement | null>(null)
 
+/** 该行快捷方式的起始横坐标；无大卡的行从 0 开始。 */
 function availableStartRem(row: number): number {
-  return (BASE_ROW_ENDS[row] ?? 0) + ROW_GAP_REM
+  return homeLayout.value.rowStarts[row] ?? 0
 }
 
 function rowTopRem(row: number): number {
@@ -639,7 +649,7 @@ function handleBoardDragOver(event: DragEvent): void {
     (placement) => placement.row === row && placement.id !== draggingId.value,
   )
   let index = others.findIndex(
-    (placement) => xRem < placement.x + placement.width / 2,
+    (placement) => xRem < placement.xRem + placement.widthRem / 2,
   )
   if (index < 0) index = others.length
 
@@ -649,7 +659,7 @@ function handleBoardDragOver(event: DragEvent): void {
   dragInsertX.value =
     index === 0 || !previous
       ? start
-      : previous.x + previous.width + ROW_GAP_REM
+      : previous.xRem + previous.widthRem + ROW_GAP_REM
 
   event.preventDefault()
   if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
@@ -688,341 +698,411 @@ function pad(value: number): string {
 </script>
 
 <template>
-  <div class="home-backdrop min-h-screen text-white antialiased">
-    <main class="mx-auto flex min-h-screen w-full max-w-[1440px] flex-col px-6 py-8 sm:px-10">
-      <header class="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-        <div class="home-clock" aria-label="当前日期与时间">
-          <time :datetime="dateTime" class="home-clock-date">{{ dateText }}</time>
-          <time :datetime="dateTime" class="home-clock-time">{{ timeText }}</time>
-        </div>
+  <div
+    class="home-backdrop min-h-screen text-white antialiased"
+    :class="{ 'home-backdrop-minimal': minimalMode }"
+  >
+    <!-- 仅时钟与背景模式：时间在上、日期在下，固定在左下角。 -->
+    <Transition name="minimal-clock">
+      <div v-if="minimalMode" class="minimal-clock" aria-label="当前时间与日期">
+        <time :datetime="dateTime" class="minimal-clock-time">{{ timeText }}</time>
+        <time :datetime="dateTime" class="minimal-clock-date">{{ dateText }}</time>
+      </div>
+    </Transition>
 
-        <div class="flex w-full items-center justify-end gap-3 lg:w-auto">
-          <form
-            class="flex h-[2.43rem] w-full max-w-[26rem] items-center gap-1.5 rounded-full border border-white/20 bg-slate-950/40 pl-4 pr-1.5 backdrop-blur-xl transition focus-within:border-white/35 focus-within:bg-slate-950/55 lg:w-[22rem] lg:max-w-none lg:flex-none xl:w-[24rem]"
-            role="search"
-            @submit.prevent="submitSearch"
-          >
-            <input
-              v-model="keyword"
-              type="text"
-              inputmode="search"
-              enterkeyhint="search"
-              autocomplete="off"
-              spellcheck="false"
-              placeholder="使用 Bing 搜索"
-              aria-label="搜索关键词"
-              class="h-full min-w-0 flex-1 bg-transparent text-[15px] text-white outline-none placeholder:text-white/45"
+    <!-- 点击视口任意位置回到完全功能模式；全屏按钮同时承接键盘 Enter/Space。 -->
+    <button
+      v-if="minimalMode"
+      type="button"
+      class="fixed inset-0 z-0 cursor-default bg-transparent focus-visible:outline focus-visible:-outline-offset-4 focus-visible:outline-2 focus-visible:outline-white/25"
+      aria-label="切换到完全功能模式"
+      @click="exitMinimalMode"
+    ></button>
+
+    <main class="mx-auto flex min-h-screen w-full max-w-[1440px] flex-col px-6 py-8 sm:px-10">
+      <Transition name="home-top">
+        <header
+          v-if="!minimalMode"
+          class="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between"
+        >
+          <div class="home-clock" aria-label="当前日期与时间">
+            <time :datetime="dateTime" class="home-clock-date">{{ dateText }}</time>
+            <time :datetime="dateTime" class="home-clock-time">{{ timeText }}</time>
+          </div>
+
+          <div class="flex w-full items-center justify-end gap-3 lg:w-auto">
+            <form
+              class="flex h-[2.43rem] w-full max-w-[26rem] items-center gap-1.5 rounded-full border border-white/20 bg-slate-950/40 pl-4 pr-1.5 backdrop-blur-xl transition focus-within:border-white/35 focus-within:bg-slate-950/55 lg:w-[22rem] lg:max-w-none lg:flex-none xl:w-[24rem]"
+              role="search"
+              @submit.prevent="submitSearch"
             >
+              <input
+                v-model="keyword"
+                type="text"
+                inputmode="search"
+                enterkeyhint="search"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="使用 Bing 搜索"
+                aria-label="搜索关键词"
+                class="h-full min-w-0 flex-1 bg-transparent text-[15px] text-white outline-none placeholder:text-white/45"
+              >
+              <button
+                type="submit"
+                aria-label="使用 Bing 搜索"
+                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white/60 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40"
+              >
+                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" class="h-[18px] w-[18px]">
+                  <path
+                    d="m14.5 14.5 3 3m-2-8.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </button>
+            </form>
+
             <button
-              type="submit"
-              aria-label="使用 Bing 搜索"
-              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white/60 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40"
+              v-if="homeDisplay.showActionButtons"
+              type="button"
+              :class="topButtonClass"
+              aria-label="新建快捷方式"
+              title="新建快捷方式"
+              @click="openCreateDialog"
             >
-              <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" class="h-[18px] w-[18px]">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" class="h-5 w-5">
                 <path
-                  d="m14.5 14.5 3 3m-2-8.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z"
+                  d="M12 5v14M5 12h14"
                   stroke="currentColor"
                   stroke-width="1.5"
                   stroke-linecap="round"
                 />
               </svg>
             </button>
-          </form>
 
-          <button
-            type="button"
-            :class="topButtonClass"
-            aria-label="新建快捷方式"
-            title="新建快捷方式"
-            @click="openCreateDialog"
-          >
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" class="h-5 w-5">
-              <path
-                d="M12 5v14M5 12h14"
-                stroke="currentColor"
-                stroke-width="1.5"
-                stroke-linecap="round"
-              />
-            </svg>
-          </button>
-
-          <button
-            type="button"
-            :class="[topButtonClass, isEditing ? 'ring-2 ring-white/50 text-white' : '']"
-            :aria-pressed="isEditing"
-            :aria-label="isEditing ? '退出编辑' : '编辑快捷方式'"
-            :title="isEditing ? '退出编辑' : '编辑快捷方式'"
-            @click="toggleEditing"
-          >
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" class="h-5 w-5">
-              <path
-                d="m4 20 4.4-1 9.6-9.6a2.1 2.1 0 0 0-3-3L5.4 16 4 20Z"
-                stroke="currentColor"
-                stroke-width="1.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-          </button>
-
-          <RouterLink
-            to="/settings"
-            :class="topButtonClass"
-            aria-label="设置"
-            title="设置"
-          >
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" class="h-5 w-5">
-              <path
-                d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"
-                stroke="currentColor"
-                stroke-width="1.5"
-              />
-              <path
-                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6h.08A1.65 1.65 0 0 0 10.1 3.09V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 15.2 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.14.6.64 1.04 1.25 1.09H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"
-                stroke="currentColor"
-                stroke-width="1.2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-          </RouterLink>
-        </div>
-      </header>
-
-      <div
-        class="waterfall-scroll -mx-6 mt-6 overflow-x-auto overflow-y-hidden px-6 pb-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white/30 sm:-mx-10 sm:px-10"
-        role="region"
-        aria-label="功能区，可左右滚动"
-        tabindex="0"
-      >
-        <div
-          ref="boardElement"
-          class="waterfall-board"
-          :style="boardStyle"
-          @dragover="handleBoardDragOver"
-          @drop="handleBoardDrop"
-        >
-          <template v-for="row in ROW_COUNT" :key="`row-guide-${row}`">
-            <div
-              v-if="isEditing"
-              :data-row-guide="row - 1"
-              class="pointer-events-none absolute rounded-xl border border-dashed transition-colors"
-              :class="
-                dragRow === row - 1
-                  ? 'border-sky-300/40 bg-sky-300/5'
-                  : 'border-white/10'
-              "
-              :style="rowGuideStyle(row - 1)"
-            ></div>
-          </template>
-
-          <div class="absolute" :style="placementStyle(schedulePlacement)">
-            <HomeCard
-              title="日程"
-              dense
-              class="h-full w-full cursor-pointer"
-              role="link"
-              tabindex="0"
-              aria-label="打开日程详情"
-              @click="openSchedule"
-              @keydown.enter="openSchedule"
-              @keydown.space.prevent="openSchedule"
+            <button
+              v-if="homeDisplay.showActionButtons"
+              type="button"
+              :class="[topButtonClass, isEditing ? 'ring-2 ring-white/50 text-white' : '']"
+              :aria-pressed="isEditing"
+              :aria-label="isEditing ? '退出编辑' : '编辑快捷方式'"
+              :title="isEditing ? '退出编辑' : '编辑快捷方式'"
+              @click="toggleEditing"
             >
-              <div class="flex min-h-0 flex-1 flex-col gap-1">
-                <p
-                  class="shrink-0 truncate text-[11px] leading-tight transition-colors"
-                  :class="nextLineClass"
-                >
-                  {{ nextLine }}
-                </p>
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" class="h-5 w-5">
+                <path
+                  d="m4 20 4.4-1 9.6-9.6a2.1 2.1 0 0 0-3-3L5.4 16 4 20Z"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
 
-                <div class="flex min-h-0 flex-1 flex-col gap-1">
-                  <ScheduleDayRow
-                    :date="todayDate"
-                    :week-number="todayWeekNumber"
-                    relative-label="今天"
-                    :courses="todayCourses"
-                    :section-times="todayView.sectionTimes"
-                    :state="todayState"
-                    :now="now"
-                    :highlight-lead-minutes="highlightLeadMinutes"
-                    compact
-                    class="min-h-0 flex-1"
-                  />
-                  <ScheduleDayRow
-                    :date="tomorrowDate"
-                    :week-number="tomorrowWeekNumber"
-                    relative-label="明天"
-                    :courses="tomorrowCourses"
-                    :section-times="tomorrowView.sectionTimes"
-                    :state="tomorrowState"
-                    :now="now"
-                    :highlight-lead-minutes="highlightLeadMinutes"
-                    compact
-                    class="min-h-0 flex-1"
-                  />
-                </div>
+            <button
+              type="button"
+              :class="topButtonClass"
+              aria-label="进入仅时钟与背景模式"
+              title="仅时钟与背景模式"
+              @click="enterMinimalMode"
+            >
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" class="h-5 w-5">
+                <path
+                  d="M2.75 12S6.2 5.75 12 5.75 21.25 12 21.25 12 17.8 18.25 12 18.25 2.75 12 2.75 12Z"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <circle cx="12" cy="12" r="2.75" stroke="currentColor" stroke-width="1.5" />
+              </svg>
+            </button>
 
+            <RouterLink
+              v-if="homeDisplay.showActionButtons"
+              to="/settings"
+              :class="topButtonClass"
+              aria-label="设置"
+              title="设置"
+            >
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" class="h-5 w-5">
+                <path
+                  d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                />
+                <path
+                  d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6h.08A1.65 1.65 0 0 0 10.1 3.09V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 15.2 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.14.6.64 1.04 1.25 1.09H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"
+                  stroke="currentColor"
+                  stroke-width="1.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </RouterLink>
+          </div>
+        </header>
+      </Transition>
+
+        <Transition name="home-board">
+          <div
+            v-if="homeAreaVisible"
+            class="waterfall-scroll -mx-6 mt-6 overflow-x-auto overflow-y-hidden px-6 pb-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white/30 sm:-mx-10 sm:px-10"
+            role="region"
+            aria-label="功能区，可左右滚动"
+            tabindex="0"
+          >
+            <div
+              ref="boardElement"
+              class="waterfall-board"
+              :style="boardStyle"
+              @dragover="handleBoardDragOver"
+              @drop="handleBoardDrop"
+            >
+              <template v-for="row in ROW_COUNT" :key="`row-guide-${row}`">
                 <div
-                  class="min-w-0 cursor-pointer"
+                  v-if="isEditing"
+                  :data-row-guide="row - 1"
+                  class="pointer-events-none absolute rounded-xl border border-dashed transition-colors"
+                  :class="
+                    dragRow === row - 1
+                      ? 'border-sky-300/40 bg-sky-300/5'
+                      : 'border-white/10'
+                  "
+                  :style="rowGuideStyle(row - 1)"
+                ></div>
+              </template>
+
+              <div
+                v-if="cardPlacements.schedule"
+                class="absolute"
+                :style="placementStyle(cardPlacements.schedule)"
+              >
+                <HomeCard
+                  title="日程"
+                  dense
+                  class="h-full w-full cursor-pointer"
                   role="link"
                   tabindex="0"
-                  aria-label="打开考试详情"
-                  @click.stop="openExams"
-                  @keydown.enter.stop="openExams"
-                  @keydown.space.stop.prevent="openExams"
+                  aria-label="打开日程详情"
+                  @click="openSchedule"
+                  @keydown.enter="openSchedule"
+                  @keydown.space.prevent="openSchedule"
                 >
-                  <div
-                    v-if="recentExams.length > 0"
-                    class="grid min-w-0 auto-cols-fr grid-flow-col gap-2"
-                  >
-                    <ExamCard
-                      v-for="entry in recentExams"
-                      :key="`${entry.exam.courseName}-${entry.exam.examDate}-${entry.exam.startTime}`"
-                      :exam="entry.exam"
-                      :now="now"
-                      compact
-                    />
-                  </div>
-
-                  <div
-                    v-else
-                    class="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-2 py-1.5 text-[9.5px] leading-tight text-white/45 transition hover:border-white/25"
-                  >
-                    <span class="min-w-0 truncate">{{ examEmptyText }}</span>
-                    <button
-                      v-if="examState.status === 'error'"
-                      type="button"
-                      class="shrink-0 text-white/65 transition hover:text-white"
-                      @click.stop="refreshExams"
+                  <div class="flex min-h-0 flex-1 flex-col gap-1">
+                    <p
+                      class="shrink-0 truncate text-[11px] leading-tight transition-colors"
+                      :class="nextLineClass"
                     >
-                      重试
-                    </button>
-                  </div>
+                      {{ nextLine }}
+                    </p>
 
-                  <div
-                    v-if="examNotice"
-                    class="mt-1 flex min-w-0 items-center gap-2 text-[9px] leading-tight text-white/35"
-                  >
-                    <span class="min-w-0 truncate">{{ examNotice }}</span>
-                    <button
-                      v-if="examCanRetry"
-                      type="button"
-                      class="shrink-0 text-white/55 transition hover:text-white"
-                      @click.stop="refreshExams"
+                    <div class="flex min-h-0 flex-1 flex-col gap-1">
+                      <ScheduleDayRow
+                        :date="todayDate"
+                        :week-number="todayWeekNumber"
+                        relative-label="今天"
+                        :courses="todayCourses"
+                        :section-times="todayView.sectionTimes"
+                        :state="todayState"
+                        :now="now"
+                        :highlight-lead-minutes="highlightLeadMinutes"
+                        compact
+                        class="min-h-0 flex-1"
+                      />
+                      <ScheduleDayRow
+                        :date="tomorrowDate"
+                        :week-number="tomorrowWeekNumber"
+                        relative-label="明天"
+                        :courses="tomorrowCourses"
+                        :section-times="tomorrowView.sectionTimes"
+                        :state="tomorrowState"
+                        :now="now"
+                        :highlight-lead-minutes="highlightLeadMinutes"
+                        compact
+                        class="min-h-0 flex-1"
+                      />
+                    </div>
+
+                    <div
+                      class="min-w-0 cursor-pointer"
+                      role="link"
+                      tabindex="0"
+                      aria-label="打开考试详情"
+                      @click.stop="openExams"
+                      @keydown.enter.stop="openExams"
+                      @keydown.space.stop.prevent="openExams"
                     >
-                      重试
-                    </button>
-                  </div>
-                </div>
+                      <div
+                        v-if="recentExams.length > 0"
+                        class="grid min-w-0 auto-cols-fr grid-flow-col gap-2"
+                      >
+                        <ExamCard
+                          v-for="entry in recentExams"
+                          :key="`${entry.exam.courseName}-${entry.exam.examDate}-${entry.exam.startTime}`"
+                          :exam="entry.exam"
+                          :now="now"
+                          compact
+                        />
+                      </div>
 
-                <div @click.stop @keydown.stop>
-                  <SourceStatusLine
-                    :status="statusView.status"
-                    :saved-at="statusView.savedAt"
-                    :error="statusView.error"
-                    :warning="meta.warning"
-                    :refreshing="statusView.loading"
-                    secondary-label="博雅"
-                    :secondary-status="bykcChosenState.status"
-                    :secondary-saved-at="bykcChosenState.savedAt"
-                    :secondary-error="bykcChosenState.error"
-                    :secondary-refreshing="bykcChosenState.loading"
-                    secondary-no-credential-text="未配置 auth_token"
-                    secondary-auth-expired-text="auth_token 已失效，请更新"
-                    compact
-                    @retry="refreshSchedule"
-                    @retry-secondary="refreshBykcChosen"
-                  />
-                </div>
+                      <div
+                        v-else
+                        class="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-2 py-1.5 text-[9.5px] leading-tight text-white/45 transition hover:border-white/25"
+                      >
+                        <span class="min-w-0 truncate">{{ examEmptyText }}</span>
+                        <button
+                          v-if="examState.status === 'error'"
+                          type="button"
+                          class="shrink-0 text-white/65 transition hover:text-white"
+                          @click.stop="refreshExams"
+                        >
+                          重试
+                        </button>
+                      </div>
+
+                      <div
+                        v-if="examNotice"
+                        class="mt-1 flex min-w-0 items-center gap-2 text-[9px] leading-tight text-white/35"
+                      >
+                        <span class="min-w-0 truncate">{{ examNotice }}</span>
+                        <button
+                          v-if="examCanRetry"
+                          type="button"
+                          class="shrink-0 text-white/55 transition hover:text-white"
+                          @click.stop="refreshExams"
+                        >
+                          重试
+                        </button>
+                      </div>
+                    </div>
+
+                    <div @click.stop @keydown.stop>
+                      <SourceStatusLine
+                        :status="statusView.status"
+                        :saved-at="statusView.savedAt"
+                        :error="statusView.error"
+                        :warning="meta.warning"
+                        :refreshing="statusView.loading"
+                        secondary-label="博雅"
+                        :secondary-status="bykcChosenState.status"
+                        :secondary-saved-at="bykcChosenState.savedAt"
+                        :secondary-error="bykcChosenState.error"
+                        :secondary-refreshing="bykcChosenState.loading"
+                        secondary-no-credential-text="未配置 auth_token"
+                        secondary-auth-expired-text="auth_token 已失效，请更新"
+                        compact
+                        @retry="refreshSchedule"
+                        @retry-secondary="refreshBykcChosen"
+                      />
+                    </div>
+                  </div>
+                </HomeCard>
               </div>
-            </HomeCard>
+
+              <div
+                v-if="cardPlacements.bykc"
+                class="absolute"
+                :style="placementStyle(cardPlacements.bykc)"
+              >
+                <BykcSquareCard
+                  class="h-full w-full"
+                  :courses="bykcState.courses"
+                  :status="bykcState.status"
+                  :saved-at="bykcState.savedAt"
+                  :error="bykcState.error"
+                  :loading="bykcState.loading"
+                  @open="openBykcDetail"
+                  @retry="refreshBykc"
+                />
+              </div>
+
+              <div
+                v-if="cardPlacements.todo"
+                class="absolute"
+                :style="placementStyle(cardPlacements.todo)"
+              >
+                <TodoCard
+                  :todos="todos"
+                  :spoc-assignments="openSpocAssignments"
+                  :spoc-status="spocState.status"
+                  :spoc-saved-at="spocState.savedAt"
+                  :spoc-error="spocState.error"
+                  :spoc-loading="spocState.loading"
+                  class="h-full w-full"
+                  @create="addTodo"
+                  @update="updateTodo"
+                  @remove="removeTodo"
+                  @toggle="toggleTodo"
+                  @refresh-spoc="refreshSpoc"
+                  @open-spoc="openSpocDetail"
+                />
+              </div>
+
+              <div
+                v-if="cardPlacements.focus"
+                class="absolute"
+                :style="placementStyle(cardPlacements.focus)"
+              >
+                <FocusCard
+                  :settings="pomodoroSettings"
+                  :phase="pomodoroPhase"
+                  :phase-seconds="pomodoroPhaseSeconds"
+                  :remaining-seconds="pomodoroRemainingSeconds"
+                  :running="pomodoroRunning"
+                  :started="pomodoroStarted"
+                  :paused="pomodoroPaused"
+                  :completed-rounds="pomodoroCompletedRounds"
+                  :expected-finish-at="pomodoroExpectedFinishAt"
+                  @start="startPomodoro"
+                  @settings-change="savePomodoroSettings"
+                  @pause="pausePomodoro"
+                  @resume="resumePomodoro"
+                  @reset="resetPomodoro"
+                  @edit="editPomodoroSettings"
+                />
+              </div>
+
+              <div
+                v-if="cardPlacements.ygdk"
+                class="absolute"
+                :style="placementStyle(cardPlacements.ygdk)"
+              >
+                <YgdkCard
+                  class="h-full w-full"
+                  :status="ygdkState.status"
+                  :overview="ygdkState.overview"
+                  :term-target="ygdkTermTarget"
+                  :week-limit="ygdkWeekLimit"
+                  :saved-at="ygdkState.savedAt"
+                  :error="ygdkState.error"
+                  @retry="refreshYgdk"
+                />
+              </div>
+
+              <ShortcutCard
+                v-for="placement in shortcutPlacements"
+                :key="placement.id"
+                :shortcut="placement.shortcut"
+                :editing="isEditing"
+                :dragging="draggingId === placement.id"
+                :style="placementStyle(placement)"
+                @edit="openEditDialog(placement.shortcut)"
+                @dragstart="handleShortcutDragStart(placement.shortcut)"
+                @dragend="handleShortcutDragEnd"
+              />
+
+              <div
+                v-if="isEditing && draggingId && dragRow !== null && dragInsertX !== null"
+                aria-hidden="true"
+                class="pointer-events-none absolute z-20 w-0.5 rounded-full bg-sky-300 shadow-[0_0_12px_rgba(125,211,252,0.75)]"
+                :style="insertionStyle"
+              ></div>
+            </div>
           </div>
-
-          <div class="absolute" :style="placementStyle(bykcPlacement)">
-            <BykcSquareCard
-              class="h-full w-full"
-              :courses="bykcState.courses"
-              :status="bykcState.status"
-              :saved-at="bykcState.savedAt"
-              :error="bykcState.error"
-              :loading="bykcState.loading"
-              @open="openBykcDetail"
-              @retry="refreshBykc"
-            />
-          </div>
-
-          <div class="absolute" :style="placementStyle(todoPlacement)">
-            <TodoCard
-              :todos="todos"
-              :spoc-assignments="openSpocAssignments"
-              :spoc-status="spocState.status"
-              :spoc-saved-at="spocState.savedAt"
-              :spoc-error="spocState.error"
-              :spoc-loading="spocState.loading"
-              class="h-full w-full"
-              @create="addTodo"
-              @update="updateTodo"
-              @remove="removeTodo"
-              @toggle="toggleTodo"
-              @refresh-spoc="refreshSpoc"
-              @open-spoc="openSpocDetail"
-            />
-          </div>
-
-          <div class="absolute" :style="placementStyle(focusPlacement)">
-            <FocusCard
-              :settings="pomodoroSettings"
-              :phase="pomodoroPhase"
-              :phase-seconds="pomodoroPhaseSeconds"
-              :remaining-seconds="pomodoroRemainingSeconds"
-              :running="pomodoroRunning"
-              :started="pomodoroStarted"
-              :paused="pomodoroPaused"
-              :completed-rounds="pomodoroCompletedRounds"
-              :expected-finish-at="pomodoroExpectedFinishAt"
-              @start="startPomodoro"
-              @settings-change="savePomodoroSettings"
-              @pause="pausePomodoro"
-              @resume="resumePomodoro"
-              @reset="resetPomodoro"
-              @edit="editPomodoroSettings"
-            />
-          </div>
-
-          <div class="absolute" :style="placementStyle(ygdkPlacement)">
-            <YgdkCard
-              class="h-full w-full"
-              :status="ygdkState.status"
-              :overview="ygdkState.overview"
-              :term-target="ygdkTermTarget"
-              :week-limit="ygdkWeekLimit"
-              :saved-at="ygdkState.savedAt"
-              :error="ygdkState.error"
-              @retry="refreshYgdk"
-            />
-          </div>
-
-          <ShortcutCard
-            v-for="placement in shortcutPlacements"
-            :key="placement.id"
-            :shortcut="placement.shortcut"
-            :editing="isEditing"
-            :dragging="draggingId === placement.id"
-            :style="placementStyle(placement)"
-            @edit="openEditDialog(placement.shortcut)"
-            @dragstart="handleShortcutDragStart(placement.shortcut)"
-            @dragend="handleShortcutDragEnd"
-          />
-
-          <div
-            v-if="isEditing && draggingId && dragRow !== null && dragInsertX !== null"
-            aria-hidden="true"
-            class="pointer-events-none absolute z-20 w-0.5 rounded-full bg-sky-300 shadow-[0_0_12px_rgba(125,211,252,0.75)]"
-            :style="insertionStyle"
-          ></div>
-        </div>
-      </div>
+        </Transition>
     </main>
 
     <ShortcutDialog

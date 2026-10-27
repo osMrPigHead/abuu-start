@@ -5,24 +5,93 @@ body {
   font-family: "Source Han Sans VF", sans-serif;
 }
 
+body {
+  background-color: #0b1220;
+}
+
 #app {
   min-height: 100vh;
 }
 
-/* 暂时使用仓库内置背景图；叠层尽量贴近参考 A 的暗角遮罩。 */
-.home-backdrop {
-  background-color: #0b1220;
-  background-image:
-    linear-gradient(180deg, rgb(0 0 0 / 0.5) 0%, rgb(0 0 0 / 0.08) 32%, rgb(0 0 0 / 0.42) 100%),
-    radial-gradient(circle at center, rgb(0 0 0 / 0.12) 0%, rgb(0 0 0 / 0.55) 100%),
-    url('./assets/backgrounds/background.png');
-  background-position: center;
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
+/* 背景层位于所有页面内容之下；用 img 铺满视口，避免 fixed background 随滚动位移。
+   自定义图加载期间不渲染图片，加载成功后由 .is-loaded 渐入；失败时切换到内置图。 */
+.app-shell {
+  position: relative;
+  min-height: 100vh;
 }
 
-/* 参考 A：日期在上、时间在下；字号为 1080P 下原 6vh/16vh 的一半并换算为 rem。 */
+.app-background-image {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  opacity: 0;
+  transition: opacity 500ms ease-out;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.app-background-image.is-loaded {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-background-image {
+    transition-duration: 1ms;
+  }
+}
+
+.app-content {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+}
+
+/* 叠层尽量贴近参考 A 的暗角遮罩；背景图由 App 背景层提供。
+   两个模式的遮罩各占一层，切换时只交叉淡化 opacity（渐变本身不可插值）。 */
+.home-backdrop {
+  isolation: isolate;
+}
+
+.home-backdrop::before,
+.home-backdrop::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  transition: opacity 200ms ease-out;
+}
+
+/* 完全功能模式：遮罩较重、范围较大。 */
+.home-backdrop::before {
+  opacity: 1;
+  background-image:
+    linear-gradient(180deg, rgb(0 0 0 / 0.5) 0%, rgb(0 0 0 / 0.08) 32%, rgb(0 0 0 / 0.42) 100%),
+    radial-gradient(circle at center, rgb(0 0 0 / 0.12) 0%, rgb(0 0 0 / 0.55) 100%);
+}
+
+/* 仅时钟与背景模式：遮罩透明度更低、范围更小，基准为参考 A 去掉 focusing 后的背景。 */
+.home-backdrop::after {
+  opacity: 0;
+  background-image:
+    linear-gradient(180deg, rgb(0 0 0 / 0.3) 0%, rgb(0 0 0 / 0.03) 26%, rgb(0 0 0 / 0.3) 100%),
+    radial-gradient(circle at center, rgb(0 0 0 / 0.06) 0%, rgb(0 0 0 / 0.42) 100%);
+}
+
+.home-backdrop-minimal::before {
+  opacity: 0;
+}
+
+.home-backdrop-minimal::after {
+  opacity: 1;
+}
+
+/* 参考 A 的日期在上、时间在下；字号为 1080P 下原 6vh/16vh 的一半并换算为 rem。 */
 .home-clock {
   display: flex;
   flex-direction: column;
@@ -38,6 +107,29 @@ body {
 
 .home-clock-time {
   font: 275 5.4rem/1.2 "Source Han Sans VF", sans-serif;
+}
+
+/* 仅时钟与背景模式：时间在上、日期在下，固定左下角；
+   字号取参考 A 的 16vh/6vh 按 1080P 换算为 rem，不做完全功能模式的减半。 */
+.minimal-clock {
+  position: fixed;
+  bottom: 4.56rem;
+  left: 4.05rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  color: #fff;
+  text-shadow: 0 0 1.35rem #0003;
+  pointer-events: none;
+}
+
+.minimal-clock-time {
+  font: 275 10.8rem/1.2 "Source Han Sans VF", sans-serif;
+}
+
+.minimal-clock-date {
+  padding-left: 0.675rem;
+  font: 275 4.05rem/1.2 "Source Han Sans VF", sans-serif;
 }
 
 /* 横向瀑布流：以单行高度为基准，按行占位，超出视口后横向滚动。 */
@@ -131,4 +223,54 @@ body {
 .todo-list::-webkit-scrollbar-thumb {
   border-radius: 9999px;
   background: rgb(255 255 255 / 0.2);
+}
+
+/* 模式切换动画：方向见 docs/ui-lowfi.md「仅时钟与背景模式」。 */
+.home-top-enter-active,
+.home-board-enter-active,
+.minimal-clock-enter-active {
+  transition:
+    opacity 200ms ease-out,
+    transform 200ms ease-out;
+}
+
+.home-top-leave-active,
+.home-board-leave-active,
+.minimal-clock-leave-active {
+  transition:
+    opacity 150ms ease-in,
+    transform 150ms ease-in;
+}
+
+/* 完全功能模式：时钟与搜索行向上渐隐、向下渐入；功能区向下渐隐、向上渐入。 */
+.home-top-enter-from,
+.home-top-leave-to {
+  opacity: 0;
+  transform: translateY(-1.25rem);
+}
+
+.home-board-enter-from,
+.home-board-leave-to {
+  opacity: 0;
+  transform: translateY(1.25rem);
+}
+
+/* 仅时钟与背景模式：时钟向左渐隐、向右渐入。 */
+.minimal-clock-enter-from,
+.minimal-clock-leave-to {
+  opacity: 0;
+  transform: translateX(-2.5rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-backdrop::before,
+  .home-backdrop::after,
+  .home-top-enter-active,
+  .home-top-leave-active,
+  .home-board-enter-active,
+  .home-board-leave-active,
+  .minimal-clock-enter-active,
+  .minimal-clock-leave-active {
+    transition-duration: 1ms;
+  }
 }

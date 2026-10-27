@@ -73,8 +73,8 @@ function submitTodo(draft: TodoDraft): void {
 
 <template>
   <HomeCard title="待办" dense class="h-full w-full">
-    <div class="flex min-h-0 flex-1 flex-col gap-2">
-      <section class="flex min-h-0 flex-1 flex-col">
+    <div class="grid min-h-0 flex-1 grid-cols-2">
+      <section class="flex min-h-0 flex-col pr-4">
         <div class="flex items-center justify-between gap-3">
           <h3 class="text-[10px] tracking-[0.18em] text-white/35">自定义待办</h3>
           <button
@@ -112,13 +112,10 @@ function submitTodo(draft: TodoDraft): void {
         </p>
       </section>
 
-      <section
-        class="flex min-h-0 flex-col border-t border-white/10 pt-1.5"
-        :class="spocAssignments.length > 0 ? 'flex-1' : 'shrink-0'"
-      >
+      <section class="flex min-h-0 flex-col border-l border-white/10 pl-4">
         <RouterLink
           to="/spoc"
-          class="flex items-center justify-between gap-3 rounded-lg py-0.5 transition hover:bg-white/[0.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40"
+          class="flex h-6 items-center justify-between gap-3 rounded-lg transition hover:bg-white/[0.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40"
         >
           <span class="flex items-center gap-1 text-[10px] tracking-[0.18em] text-white/35">
             SPOC 作业

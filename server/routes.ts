@@ -1,12 +1,20 @@
 import type { IncomingHttpHeaders } from 'node:http'
+import {
+  getBackgroundManifest,
+  rescanBackground,
+  setBackgroundDirectory,
+} from './background.ts'
 import { bykcChosen, bykcCourseDetail, bykcCourses, bykcStatus } from './bykc.ts'
 import { byxtExams, byxtSchedule, byxtStatus } from './byxt.ts'
+import { RelayError } from './errors.ts'
 import { spocAssignmentDetail, spocAssignments, spocStatus } from './spoc.ts'
 import { ygdkOverview } from './ygdk.ts'
 
 export type RouteContext = {
   url: URL
   headers: IncomingHttpHeaders
+  /** 仅 POST 接口提供；无请求体时为 undefined。 */
+  body?: unknown
 }
 
 export type RouteHandler = (context: RouteContext) => Promise<unknown> | unknown
@@ -26,6 +34,13 @@ export const routes: Record<string, RouteHandler> = {
   '/api/bykc/chosen': ({ headers }) => bykcChosen(headers),
   '/api/bykc/courses': ({ url, headers }) => bykcCourses(headers, url),
   '/api/ygdk/overview': ({ headers }) => ygdkOverview(headers),
+  '/api/background': () => getBackgroundManifest(),
+}
+
+/** 仅白名单 POST；其他路径的 POST 由路由未命中返回 404。 */
+export const postRoutes: Record<string, RouteHandler> = {
+  '/api/background/directory': ({ body }) => setBackgroundDirectory(readDirectoryPath(body)),
+  '/api/background/rescan': () => rescanBackground(),
 }
 
 const SPOC_DETAIL_PREFIX = '/api/spoc/assignments/'
@@ -53,4 +68,19 @@ export function resolveRoute(pathname: string): RouteHandler | null {
   }
 
   return null
+}
+
+/** POST 只做精确匹配，不提供前缀路由。 */
+export function resolvePostRoute(pathname: string): RouteHandler | null {
+  return postRoutes[pathname] ?? null
+}
+
+function readDirectoryPath(body: unknown): unknown {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+    throw new RelayError('INVALID_REQUEST', '请求体必须是 JSON 对象')
+  }
+  if (!('path' in body)) {
+    throw new RelayError('INVALID_REQUEST', '缺少 path')
+  }
+  return (body as { path?: unknown }).path
 }

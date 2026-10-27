@@ -1,5 +1,7 @@
 # 航启主页 / BUAA-Start 二阶段 TRD
 
+> 三阶段变更：认证与凭据来源改为中继统一登录与加密保存，见 [trd-phase3.md](trd-phase3.md)。本文中“前端保存凭据、随请求头发送”的约定自三阶段起不再适用；1.2 的“应用内统一登录、中继加密存储凭据”两项已在三阶段实现。SPOC、博雅、阳光、番茄钟的业务行为与缓存规则仍有效。
+
 ## 1. 技术路线与已确认决策
 
 - 前端继续使用 Vue 3 Composition API + `<script setup lang="ts">`、TypeScript strict、Vite、Tailwind CSS、Vue Router 4；不引入 Pinia、React、SSR。
