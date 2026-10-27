@@ -3,13 +3,13 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import BykcCourseModal from '@/components/BykcCourseModal.vue'
 import BykcSquareCard from '@/components/BykcSquareCard.vue'
+import CardStatusActions from '@/components/CardStatusActions.vue'
 import ExamCard from '@/components/ExamCard.vue'
 import FocusCard from '@/components/FocusCard.vue'
 import HomeCard from '@/components/HomeCard.vue'
 import ScheduleDayRow from '@/components/ScheduleDayRow.vue'
 import ShortcutCard from '@/components/ShortcutCard.vue'
 import ShortcutDialog from '@/components/ShortcutDialog.vue'
-import SourceStatusLine from '@/components/SourceStatusLine.vue'
 import SpocDetailDialog from '@/components/SpocDetailDialog.vue'
 import TodoCard from '@/components/TodoCard.vue'
 import YgdkCard from '@/components/YgdkCard.vue'
@@ -18,6 +18,7 @@ import { useClock } from '@/composables/useClock'
 import { useExams } from '@/composables/useExams'
 import { useHomeCards } from '@/composables/useHomeCards'
 import { useHomeDisplay } from '@/composables/useHomeDisplay'
+import { useHorizontalWheelScroll } from '@/composables/useHorizontalWheelScroll'
 import { usePomodoro } from '@/composables/usePomodoro'
 import { useSchedule, type WeekEntry } from '@/composables/useSchedule'
 import { useScheduleSettings } from '@/composables/useScheduleSettings'
@@ -31,7 +32,6 @@ import { bykcChosenCoursesOnDate } from '@/utils/bykc'
 import {
   addDays,
   formatDateKey,
-  formatStamp,
   startOfWeekMonday,
 } from '@/utils/date'
 import { recentExamEntries } from '@/utils/exams'
@@ -51,6 +51,12 @@ import {
   weekNumberForDate,
 } from '@/utils/schedule'
 import { filterOpenSpocAssignments } from '@/utils/spoc'
+import {
+  canRetrySource,
+  needsSettingsSource,
+  resolveAggregateSourceBadge,
+  type SourceBadgeState,
+} from '@/utils/sourceStatus'
 import { resolveYgdkTermTarget, resolveYgdkWeekLimit } from '@/utils/ygdk'
 import {
   normalizeShortcutRow,
@@ -213,6 +219,42 @@ const statusView = computed(() =>
   meta.currentWeek === null ? todayView.value : weekView(meta.currentWeek),
 )
 
+/** 日程卡片聚合课表、博雅已选课程与考试三个数据源。 */
+const scheduleSyncSources = computed<SourceBadgeState[]>(() => [
+  {
+    status: statusView.value.status,
+    savedAt: statusView.value.savedAt,
+    error: statusView.value.error,
+    loading: statusView.value.loading,
+  },
+  {
+    status: bykcChosenState.status,
+    savedAt: bykcChosenState.savedAt,
+    error: bykcChosenState.error,
+    loading: bykcChosenState.loading,
+  },
+  {
+    status: examState.status,
+    savedAt: examState.savedAt,
+    error: examState.error,
+    loading: examState.loading,
+  },
+])
+
+const scheduleBadge = computed(() => resolveAggregateSourceBadge(scheduleSyncSources.value))
+
+const scheduleCanRetry = computed(() => scheduleSyncSources.value.some(canRetrySource))
+const scheduleNeedsSettings = computed(() =>
+  scheduleSyncSources.value.some(needsSettingsSource),
+)
+
+function retryScheduleSources(): void {
+  const [schedule, bykc, exams] = scheduleSyncSources.value
+  if (schedule && canRetrySource(schedule)) refreshSchedule()
+  if (bykc && canRetrySource(bykc)) void refreshBykcChosen()
+  if (exams && canRetrySource(exams)) void refreshExams()
+}
+
 const courseStates = computed(() =>
   findCourseStates(
     {
@@ -281,7 +323,6 @@ const nextLineClass = computed(() => {
 })
 
 const recentExams = computed(() => recentExamEntries(examState.exams, now.value, 3))
-const examHasData = computed(() => examState.savedAt !== null || examState.exams.length > 0)
 
 const examEmptyText = computed(() => {
   switch (examState.status) {
@@ -289,7 +330,7 @@ const examEmptyText = computed(() => {
     case 'idle':
       return '考试加载中…'
     case 'no-credential':
-      return '配置 Cookie 后查看考试'
+      return '登录后查看考试'
     case 'auth-expired':
       return '考试登录状态已失效'
     case 'error':
@@ -298,25 +339,6 @@ const examEmptyText = computed(() => {
       return '暂无未开始考试'
   }
 })
-
-const examNotice = computed(() => {
-  if (!examHasData.value) return ''
-  if (examState.status === 'auth-expired') return '考试缓存 · 登录状态已失效'
-  if (examState.status === 'no-credential') return '考试缓存 · 未配置 Cookie'
-  if (examState.error) {
-    const stamp = formatStamp(examState.savedAt)
-    return stamp ? `考试缓存于 ${stamp}` : '考试缓存'
-  }
-  return ''
-})
-
-const examCanRetry = computed(
-  () =>
-    examHasData.value &&
-    examState.status !== 'auth-expired' &&
-    examState.status !== 'no-credential' &&
-    examState.error !== null,
-)
 
 function rowState(view: WeekEntry): 'loading' | 'ready' | 'unavailable' {
   if (view.loaded) return 'ready'
@@ -528,6 +550,8 @@ function placementStyle(item: PlacementGeometry | undefined) {
 }
 
 const boardElement = ref<HTMLElement | null>(null)
+const { setScrollElement: setBoardScrollElement, onWheel: handleBoardWheel } =
+  useHorizontalWheelScroll()
 
 /** 该行快捷方式的起始横坐标；无大卡的行从 0 开始。 */
 function availableStartRem(row: number): number {
@@ -704,7 +728,7 @@ function pad(value: number): string {
   >
     <!-- 仅时钟与背景模式：时间在上、日期在下，固定在左下角。 -->
     <Transition name="minimal-clock">
-      <div v-if="minimalMode" class="minimal-clock" aria-label="当前时间与日期">
+      <div v-if="minimalMode" class="minimal-clock route-page-minimal" aria-label="当前时间与日期">
         <time :datetime="dateTime" class="minimal-clock-time">{{ timeText }}</time>
         <time :datetime="dateTime" class="minimal-clock-date">{{ dateText }}</time>
       </div>
@@ -719,12 +743,13 @@ function pad(value: number): string {
       @click="exitMinimalMode"
     ></button>
 
-    <main class="mx-auto flex min-h-screen w-full max-w-[1440px] flex-col px-6 py-8 sm:px-10">
-      <Transition name="home-top">
-        <header
-          v-if="!minimalMode"
-          class="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between"
-        >
+    <main class="flex min-h-screen w-full flex-col py-8">
+      <div class="mx-auto w-full max-w-[1440px] px-6 sm:px-10">
+        <Transition name="home-top">
+          <header
+            v-if="!minimalMode"
+            class="route-page-header flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between"
+          >
           <div class="home-clock" aria-label="当前日期与时间">
             <time :datetime="dateTime" class="home-clock-date">{{ dateText }}</time>
             <time :datetime="dateTime" class="home-clock-time">{{ timeText }}</time>
@@ -844,16 +869,19 @@ function pad(value: number): string {
             </RouterLink>
           </div>
         </header>
-      </Transition>
+        </Transition>
+      </div>
 
-        <Transition name="home-board">
-          <div
-            v-if="homeAreaVisible"
-            class="waterfall-scroll -mx-6 mt-6 overflow-x-auto overflow-y-hidden px-6 pb-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white/30 sm:-mx-10 sm:px-10"
-            role="region"
-            aria-label="功能区，可左右滚动"
-            tabindex="0"
-          >
+      <Transition name="home-board">
+        <div
+          v-if="homeAreaVisible"
+          :ref="setBoardScrollElement"
+          class="waterfall-scroll home-board-fullbleed route-page-body mt-6 overflow-x-auto overflow-y-hidden pb-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white/30"
+          role="region"
+          aria-label="功能区，可左右滚动"
+          tabindex="0"
+          @wheel="handleBoardWheel"
+        >
             <div
               ref="boardElement"
               class="waterfall-board"
@@ -882,6 +910,7 @@ function pad(value: number): string {
               >
                 <HomeCard
                   title="日程"
+                  :badge="scheduleBadge"
                   dense
                   class="h-full w-full cursor-pointer"
                   role="link"
@@ -891,6 +920,14 @@ function pad(value: number): string {
                   @keydown.enter="openSchedule"
                   @keydown.space.prevent="openSchedule"
                 >
+                  <template #actions>
+                    <CardStatusActions
+                      :retryable="scheduleCanRetry"
+                      :needs-settings="scheduleNeedsSettings"
+                      @retry="retryScheduleSources"
+                    />
+                  </template>
+
                   <div class="flex min-h-0 flex-1 flex-col gap-1">
                     <p
                       class="shrink-0 truncate text-[11px] leading-tight transition-colors"
@@ -962,42 +999,15 @@ function pad(value: number): string {
                           重试
                         </button>
                       </div>
-
-                      <div
-                        v-if="examNotice"
-                        class="mt-1 flex min-w-0 items-center gap-2 text-[9px] leading-tight text-white/35"
-                      >
-                        <span class="min-w-0 truncate">{{ examNotice }}</span>
-                        <button
-                          v-if="examCanRetry"
-                          type="button"
-                          class="shrink-0 text-white/55 transition hover:text-white"
-                          @click.stop="refreshExams"
-                        >
-                          重试
-                        </button>
-                      </div>
                     </div>
 
-                    <div @click.stop @keydown.stop>
-                      <SourceStatusLine
-                        :status="statusView.status"
-                        :saved-at="statusView.savedAt"
-                        :error="statusView.error"
-                        :warning="meta.warning"
-                        :refreshing="statusView.loading"
-                        secondary-label="博雅"
-                        :secondary-status="bykcChosenState.status"
-                        :secondary-saved-at="bykcChosenState.savedAt"
-                        :secondary-error="bykcChosenState.error"
-                        :secondary-refreshing="bykcChosenState.loading"
-                        secondary-no-credential-text="未配置 auth_token"
-                        secondary-auth-expired-text="auth_token 已失效，请更新"
-                        compact
-                        @retry="refreshSchedule"
-                        @retry-secondary="refreshBykcChosen"
-                      />
-                    </div>
+                    <p
+                      v-if="meta.warning"
+                      class="shrink-0 truncate text-[9px] leading-tight text-amber-200/65"
+                      :title="meta.warning"
+                    >
+                      {{ meta.warning }}
+                    </p>
                   </div>
                 </HomeCard>
               </div>
@@ -1078,6 +1088,7 @@ function pad(value: number): string {
                   :week-limit="ygdkWeekLimit"
                   :saved-at="ygdkState.savedAt"
                   :error="ygdkState.error"
+                  :loading="ygdkState.loading"
                   @retry="refreshYgdk"
                 />
               </div>

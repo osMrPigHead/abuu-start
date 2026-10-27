@@ -4,9 +4,9 @@
  * 实现只读接口：currentUser、getTermWeeks、getMyScheduleDetail、exams。
  * 本模块不接受任意 URL，所有上游路径都写死在白名单函数里。
  */
-import type { IncomingHttpHeaders } from 'node:http'
+import { byxtCookieHeader } from './authSession.ts'
 import { RelayError } from './errors.ts'
-import { fetchUpstream, looksLikeHtml } from './http.ts'
+import { fetchUpstream, isTransientStatus, looksLikeHtml } from './http.ts'
 import type {
   ByxtEnvelope,
   ByxtStatus,
@@ -63,21 +63,6 @@ type UpstreamRequest = {
   form?: URLSearchParams
 }
 
-/** 从请求头取凭据；缺失时返回 401 NO_CREDENTIAL。 */
-function requireByxtCookie(headers: IncomingHttpHeaders): string {
-  const value = readHeader(headers, 'x-byxt-cookie').trim()
-  if (value.length === 0) {
-    throw new RelayError('NO_CREDENTIAL', '未配置本研教育管理系统 Cookie')
-  }
-  return value
-}
-
-function readHeader(headers: IncomingHttpHeaders, name: string): string {
-  const value = headers[name]
-  if (Array.isArray(value)) return value.join('; ')
-  return typeof value === 'string' ? value : ''
-}
-
 /**
  * 调用 byxt JSON 接口并检查统一响应信封。
  * 按 docs/trd.md 3.3：非 2xx、非 JSON、HTML 登录页、解析失败都视为认证失效。
@@ -106,6 +91,10 @@ async function requestByxt<T>(
   }
 
   const result = await fetchUpstream(url.toString(), { method, headers, body })
+
+  if (isTransientStatus(result.status)) {
+    throw new RelayError('UPSTREAM_ERROR', '本研教育管理系统暂时不可用', result.status)
+  }
 
   if (result.status < 200 || result.status >= 300) {
     throw new RelayError('AUTH_EXPIRED', '登录状态已失效', result.status)
@@ -295,8 +284,8 @@ function parseRequestedWeek(raw: string | null, weeks: readonly Week[]): number 
   return week
 }
 
-export async function byxtStatus(headers: IncomingHttpHeaders): Promise<ByxtStatus> {
-  const cookie = requireByxtCookie(headers)
+export async function byxtStatus(): Promise<ByxtStatus> {
+  const cookie = byxtCookieHeader()
   const current = await fetchCurrentUser(cookie)
 
   return {
@@ -305,11 +294,8 @@ export async function byxtStatus(headers: IncomingHttpHeaders): Promise<ByxtStat
   }
 }
 
-export async function byxtSchedule(
-  headers: IncomingHttpHeaders,
-  url: URL,
-): Promise<ScheduleResponse> {
-  const cookie = requireByxtCookie(headers)
+export async function byxtSchedule(url: URL): Promise<ScheduleResponse> {
+  const cookie = byxtCookieHeader()
   const current = await fetchCurrentUser(cookie)
 
   if (current.term.code.length === 0) {
@@ -343,8 +329,8 @@ export async function byxtSchedule(
   }
 }
 
-export async function byxtExams(headers: IncomingHttpHeaders): Promise<ExamsResponse> {
-  const cookie = requireByxtCookie(headers)
+export async function byxtExams(): Promise<ExamsResponse> {
+  const cookie = byxtCookieHeader()
   const current = await fetchCurrentUser(cookie)
 
   if (current.term.code.length === 0) {

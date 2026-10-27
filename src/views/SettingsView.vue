@@ -1,28 +1,27 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import BackHomeLink from '@/components/BackHomeLink.vue'
-import {
-  useCredentials,
-  type CredentialStatus,
-  type RelayStatus,
-} from '@/composables/useCredentials'
+import LoginSection from '@/components/LoginSection.vue'
+import SourceStateList from '@/components/SourceStateList.vue'
+import { useAuth } from '@/composables/useAuth'
 import { useBackground } from '@/composables/useBackground'
-import { useBykc } from '@/composables/useBykc'
+import { useBykc, useBykcChosen } from '@/composables/useBykc'
 import { useExams } from '@/composables/useExams'
 import {
   HOME_CARD_OPTIONS,
   useHomeCards,
   type HomeCardId,
 } from '@/composables/useHomeCards'
-import { useSchedule } from '@/composables/useSchedule'
 import { usePomodoro } from '@/composables/usePomodoro'
-import { useSpoc } from '@/composables/useSpoc'
-import { useYgdk } from '@/composables/useYgdk'
-import { useYgdkSettings } from '@/composables/useYgdkSettings'
+import { useRelay, type RelayStatus } from '@/composables/useRelay'
+import { useSchedule } from '@/composables/useSchedule'
 import {
   isValidHighlightLeadMinutes,
   useScheduleSettings,
 } from '@/composables/useScheduleSettings'
+import { useSpoc } from '@/composables/useSpoc'
+import { useYgdk } from '@/composables/useYgdk'
+import { useYgdkSettings } from '@/composables/useYgdkSettings'
 import {
   DEFAULT_HIGHLIGHT_LEAD_MINUTES,
   MAX_HIGHLIGHT_LEAD_MINUTES,
@@ -39,36 +38,23 @@ import {
   resolveYgdkWeekLimit,
 } from '@/utils/ygdk'
 import { clearCache, isStorageDegraded } from '@/utils/storage'
+import type { AuthSourceId } from '@/types'
 
 const {
-  state,
-  hasByxt,
-  maskedByxtCookie,
-  hasSpoc,
-  maskedSpocToken,
-  hasBykc,
-  maskedBykcToken,
-  hasYgdk,
-  maskedYgdkToken,
-  saveByxtCookie,
-  validateByxt,
-  clearByxtCookie,
-  saveSpocCredentials,
-  validateSpoc,
-  clearSpocCredentials,
-  saveBykcToken,
-  validateBykc,
-  clearBykcCredentials,
-  saveYgdkCredentials,
-  validateYgdk,
-  clearYgdkCredentials,
-  clearAllCredentials,
-  checkRelay,
-} = useCredentials()
-const { clearScheduleData } = useSchedule()
-const { clearExamsData } = useExams()
-const { clearSpocData } = useSpoc()
-const { clearBykcData } = useBykc()
+  state: authState,
+  refreshStatus: refreshAuthStatus,
+  preload: preloadAuth,
+  login: requestLogin,
+  retrySource: retryAuthSource,
+  logout: logoutAuth,
+  pollWhileDeriving,
+} = useAuth()
+const { state: relayState, checkRelay } = useRelay()
+const { refreshCurrent, clearScheduleData } = useSchedule()
+const { refresh: refreshExams, clearExamsData } = useExams()
+const { refresh: refreshSpoc, clearSpocData } = useSpoc()
+const { refresh: refreshBykc, clearBykcData } = useBykc()
+const { refresh: refreshBykcChosen } = useBykcChosen()
 const { state: ygdkState, refresh: refreshYgdk, clearYgdkData } = useYgdk()
 const { highlightLeadMinutes, setHighlightLeadMinutes } = useScheduleSettings()
 const { visibility: homeCardVisibility, setVisible: setHomeCardVisible } = useHomeCards()
@@ -95,16 +81,6 @@ const {
   setNotificationsEnabled: setPomodoroNotificationsEnabled,
 } = usePomodoro()
 
-const editingByxt = ref(false)
-const byxtDraft = ref('')
-const editingSpoc = ref(false)
-const spocTokenDraft = ref('')
-const spocRoleDraft = ref('')
-const editingYgdk = ref(false)
-const ygdkUidDraft = ref('')
-const ygdkTokenDraft = ref('')
-const editingBykc = ref(false)
-const bykcDraft = ref('')
 const cacheMessage = ref('')
 const degraded = ref(false)
 const leadDraft = ref(String(highlightLeadMinutes.value))
@@ -115,29 +91,19 @@ const ygdkTermDraft = ref(String(ygdkUserTermTarget.value))
 const ygdkWeekDraft = ref(String(ygdkUserWeekTarget.value))
 const ygdkTargetMessage = ref('')
 
-const showInput = computed(() => !hasByxt.value || editingByxt.value)
-const showSpocInput = computed(() => !hasSpoc.value || editingSpoc.value)
-const byxtStatusText = computed(() => credentialStatusText(state.byxtStatus))
-const byxtStatusClass = computed(() => credentialStatusClass(state.byxtStatus))
-const spocStatusText = computed(() => credentialStatusText(state.spocStatus))
-const spocStatusClass = computed(() => credentialStatusClass(state.spocStatus))
-const maskedSpocRole = computed(() => maskSpocRole(state.spocRoleCode))
-const ygdkStatusText = computed(() => credentialStatusText(state.ygdkStatus))
-const ygdkStatusClass = computed(() => credentialStatusClass(state.ygdkStatus))
-const showYgdkInput = computed(() => !hasYgdk.value || editingYgdk.value)
-const bykcStatusText = computed(() => credentialStatusText(state.bykcStatus))
-const bykcStatusClass = computed(() => credentialStatusClass(state.bykcStatus))
-const showBykcInput = computed(() => !hasBykc.value || editingBykc.value)
+let stopDerivationPolling: (() => void) | null = null
+
 /** 学期目标优先系统值；周限制始终用设置值，与主页卡片口径一致。 */
 const ygdkEffectiveTermTarget = computed(() =>
   resolveYgdkTermTarget(ygdkState.overview?.termTarget ?? 0, ygdkUserTermTarget.value),
 )
 const ygdkEffectiveWeekLimit = computed(() => resolveYgdkWeekLimit(ygdkUserWeekTarget.value))
-const relayText = computed(() => relayStatusText(state.relayStatus))
+const relayText = computed(() => relayStatusText(relayState.status))
+const relayMessage = computed(() => relayState.message)
 const relayClass = computed(() =>
-  state.relayStatus === 'ok'
+  relayState.status === 'ok'
     ? 'text-emerald-200/80'
-    : state.relayStatus === 'error'
+    : relayState.status === 'error'
       ? 'text-amber-200/80'
       : 'text-white/45',
 )
@@ -208,132 +174,79 @@ onMounted(() => {
   void checkRelay()
   // 学期目标可能由系统值覆盖，设置页需要当前概览才能显示“当前生效”。
   void refreshYgdk()
+  void refreshAuthStatus(true).then(() => {
+    if (!authState.deriving) return
+    stopDerivationPolling?.()
+    stopDerivationPolling = pollWhileDeriving()
+  })
   refreshPomodoroNotificationPermission()
   void hydrateBackground()
 })
 
-async function saveCookie(): Promise<void> {
-  const saved = await saveByxtCookie(byxtDraft.value)
-  if (!saved) return
+onUnmounted(() => {
+  stopDerivationPolling?.()
+  stopDerivationPolling = null
+})
 
-  byxtDraft.value = ''
-  editingByxt.value = false
+/** 登录成功后四类数据源自动刷新一次，并开始轮询派生状态。 */
+async function handleLogin(values: {
+  username: string
+  password: string
+  captcha: string
+}): Promise<void> {
+  const ok = await requestLogin(values)
+  if (!ok) return
+
+  stopDerivationPolling?.()
+  stopDerivationPolling = pollWhileDeriving()
+
+  void refreshCurrent()
+  void refreshExams()
+  void refreshSpoc()
+  void refreshBykc()
+  void refreshBykcChosen()
+  void refreshYgdk()
 }
 
-function startReplace(): void {
-  byxtDraft.value = ''
-  editingByxt.value = true
+async function handleRefreshCaptcha(): Promise<void> {
+  await preloadAuth()
 }
 
-function cancelReplace(): void {
-  byxtDraft.value = ''
-  editingByxt.value = false
+/** 退出登录：清业务缓存，保留待办、快捷方式、番茄钟、背景与显示开关。 */
+async function handleLogout(): Promise<void> {
+  const ok = await logoutAuth()
+  if (!ok) return
+
+  stopDerivationPolling?.()
+  stopDerivationPolling = null
+
+  clearScheduleData()
+  clearExamsData()
+  clearSpocData()
+  clearBykcData()
+  clearYgdkData()
+  clearCache()
+  cacheMessage.value = '已退出登录，已清除业务缓存'
+  degraded.value = isStorageDegraded()
 }
 
-function clearCookie(): void {
-  clearByxtCookie()
-  byxtDraft.value = ''
-  editingByxt.value = false
+async function handleRetrySource(source: AuthSourceId): Promise<void> {
+  await retryAuthSource(source)
 }
 
-function clearAll(): void {
-  clearAllCredentials()
-  byxtDraft.value = ''
-  editingByxt.value = false
-  spocTokenDraft.value = ''
-  spocRoleDraft.value = ''
-  editingSpoc.value = false
-  bykcDraft.value = ''
-  editingBykc.value = false
-  ygdkUidDraft.value = ''
-  ygdkTokenDraft.value = ''
-  editingYgdk.value = false
-  cacheMessage.value = ''
-}
-
-async function saveSpoc(): Promise<void> {
-  const saved = await saveSpocCredentials(spocTokenDraft.value, spocRoleDraft.value)
-  if (!saved) return
-
-  spocTokenDraft.value = ''
-  spocRoleDraft.value = ''
-  editingSpoc.value = false
-}
-
-function startSpocReplace(): void {
-  spocTokenDraft.value = ''
-  spocRoleDraft.value = ''
-  editingSpoc.value = true
-}
-
-function cancelSpocReplace(): void {
-  spocTokenDraft.value = ''
-  spocRoleDraft.value = ''
-  editingSpoc.value = false
-}
-
-function clearSpoc(): void {
-  clearSpocCredentials()
-  spocTokenDraft.value = ''
-  spocRoleDraft.value = ''
-  editingSpoc.value = false
-}
-
-function maskSpocRole(value: string): string {
-  return value.length > 0 ? '••••' : ''
-}
-
-async function saveBykc(): Promise<void> {
-  const saved = await saveBykcToken(bykcDraft.value)
-  if (!saved) return
-
-  bykcDraft.value = ''
-  editingBykc.value = false
-}
-
-function startBykcReplace(): void {
-  bykcDraft.value = ''
-  editingBykc.value = true
-}
-
-function cancelBykcReplace(): void {
-  bykcDraft.value = ''
-  editingBykc.value = false
-}
-
-function clearBykc(): void {
-  clearBykcCredentials()
-  bykcDraft.value = ''
-  editingBykc.value = false
-}
-
-async function saveYgdk(): Promise<void> {
-  const saved = await saveYgdkCredentials(ygdkUidDraft.value, ygdkTokenDraft.value)
-  if (!saved) return
-
-  ygdkUidDraft.value = ''
-  ygdkTokenDraft.value = ''
-  editingYgdk.value = false
-}
-
-function startYgdkReplace(): void {
-  ygdkUidDraft.value = ''
-  ygdkTokenDraft.value = ''
-  editingYgdk.value = true
-}
-
-function cancelYgdkReplace(): void {
-  ygdkUidDraft.value = ''
-  ygdkTokenDraft.value = ''
-  editingYgdk.value = false
-}
-
-function clearYgdk(): void {
-  clearYgdkCredentials()
-  ygdkUidDraft.value = ''
-  ygdkTokenDraft.value = ''
-  editingYgdk.value = false
-}
+// 派生结束（含登录后的异步派生）后再刷新一次各数据源，回主页即可看到数据。
+watch(
+  () => authState.deriving,
+  (deriving, previous) => {
+    if (!previous || deriving) return
+    void refreshCurrent()
+    void refreshExams()
+    void refreshSpoc()
+    void refreshBykc()
+    void refreshBykcChosen()
+    void refreshYgdk()
+  },
+)
 
 /** 学期目标 1–100、周限制 1–14；非法值不保存并提示。 */
 function saveYgdkTargets(): void {
@@ -418,32 +331,6 @@ async function clearBackground(): Promise<void> {
   await clearBackgroundDirectory()
 }
 
-function credentialStatusText(status: CredentialStatus): string {
-  switch (status) {
-    case 'configured':
-      return '已配置'
-    case 'checking':
-      return '校验中'
-    case 'expired':
-      return '已失效'
-    default:
-      return '未配置'
-  }
-}
-
-function credentialStatusClass(status: CredentialStatus): string {
-  switch (status) {
-    case 'configured':
-      return 'border-emerald-300/25 bg-emerald-300/10 text-emerald-100/85'
-    case 'checking':
-      return 'border-sky-300/25 bg-sky-300/10 text-sky-100/85'
-    case 'expired':
-      return 'border-amber-300/25 bg-amber-300/10 text-amber-100/85'
-    default:
-      return 'border-white/15 bg-white/[0.04] text-white/45'
-  }
-}
-
 function relayStatusText(status: RelayStatus): string {
   switch (status) {
     case 'ok':
@@ -466,348 +353,52 @@ const fieldClass =
 <template>
   <div class="home-backdrop min-h-screen text-white antialiased">
     <main class="mx-auto w-full max-w-3xl px-8 py-10">
-      <header class="flex flex-wrap items-end justify-between gap-4">
+      <header class="route-page-header flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 class="text-2xl font-semibold tracking-wide">设置</h1>
-          <p class="mt-1 text-sm text-white/45">凭据只保存在本机，仅随本地中继请求发送。</p>
+          <p class="mt-1 text-sm text-white/45">登录状态由本地中继加密保存在本机，前端不保存凭据。</p>
         </div>
         <BackHomeLink />
       </header>
 
+      <div class="route-page-body flow-root">
       <p
         v-if="degraded"
         class="mt-4 rounded-2xl border border-amber-200/20 bg-amber-200/[0.07] px-4 py-3 text-xs text-amber-100/75"
       >
-        本地存储不可用，凭据与缓存仅在本次页面内有效。
+        本地存储不可用，缓存仅在本次页面内有效。
       </p>
 
-      <section
-        class="mt-6 rounded-3xl border border-white/12 bg-slate-950/35 p-6 shadow-[0_24px_70px_-36px_rgba(0,0,0,0.95)] backdrop-blur-md"
+      <LoginSection
+        :authenticated="authState.authenticated"
+        :user="authState.user"
+        :authenticated-at="authState.authenticatedAt"
+        :persisted="authState.persisted"
+        :deriving="authState.deriving"
+        :loading="authState.loading"
+        :error="authState.error"
+        :warning="authState.warning"
+        :captcha-required="authState.captchaRequired"
+        :captcha-image="authState.captchaImage"
+        :already-logged-in="authState.alreadyLoggedIn"
+        :last-error-code="authState.lastErrorCode"
+        :sources="authState.sources"
+        @submit="handleLogin"
+        @refresh-captcha="handleRefreshCaptcha"
+        @logout="handleLogout"
       >
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <h2 class="text-base font-medium text-white/90">本研教育管理系统 Cookie</h2>
-            <p class="mt-1 text-xs leading-relaxed text-white/45">
-              在浏览器开发者工具 → Network → 任一 byxt 请求 → Request Headers 中复制 Cookie。
-            </p>
-          </div>
-          <span
-            class="shrink-0 rounded-full border px-2.5 py-1 text-[11px]"
-            :class="byxtStatusClass"
-          >
-            {{ byxtStatusText }}
-          </span>
-        </div>
-
-        <div class="mt-4">
-          <textarea
-            v-if="showInput"
-            v-model="byxtDraft"
-            :class="[fieldClass, 'h-28 resize-y px-4 py-3 font-mono text-[12px] leading-relaxed']"
-            placeholder="Cookie: name=value; name2=value2"
-            aria-label="本研教育管理系统 Cookie"
-            spellcheck="false"
-          ></textarea>
-          <div
-            v-else
-            :class="[fieldClass, 'flex h-12 items-center px-4 font-mono text-[13px] tracking-widest text-white/55']"
-          >
-            {{ maskedByxtCookie }}
-          </div>        </div>
-
-        <p
-          v-if="state.byxtMessage"
-          class="mt-2 text-xs text-white/55"
-          aria-live="polite"
-        >
-          {{ state.byxtMessage }}
-        </p>
-
-        <div class="mt-4 flex flex-wrap items-center gap-2">
-          <template v-if="showInput">
-            <button type="button" :class="buttonClass" @click="saveCookie">保存</button>
-            <button
-              v-if="hasByxt"
-              type="button"
-              :class="buttonClass"
-              @click="cancelReplace"
-            >
-              取消
-            </button>
-          </template>
-          <template v-else>
-            <button type="button" :class="buttonClass" @click="startReplace">替换</button>
-            <button type="button" :class="buttonClass" @click="validateByxt">校验</button>
-          </template>
-          <button
-            v-if="hasByxt"
-            type="button"
-            :class="dangerButtonClass"
-            @click="clearCookie"
-          >
-            清除
-          </button>
-        </div>
-      </section>
+        <SourceStateList
+          v-if="authState.authenticated"
+          :sources="authState.sources"
+          @retry="handleRetrySource"
+        />
+      </LoginSection>
 
       <section
         class="mt-4 rounded-3xl border border-white/12 bg-slate-950/35 p-6 shadow-[0_24px_70px_-36px_rgba(0,0,0,0.95)] backdrop-blur-md"
       >
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <h2 class="text-base font-medium text-white/90">SPOC 凭据</h2>
-            <p class="mt-1 text-xs leading-relaxed text-white/45">
-              Token 与 RoleCode 来自开发者工具 Network 中任一 SPOC 请求的 Request Headers。
-            </p>
-          </div>
-          <span
-            class="shrink-0 rounded-full border px-2.5 py-1 text-[11px]"
-            :class="spocStatusClass"
-          >
-            {{ spocStatusText }}
-          </span>
-        </div>
-
-        <div v-if="showSpocInput" class="mt-4 grid gap-3">
-          <label class="flex flex-col gap-2">
-            <span class="text-xs text-white/45">Token</span>
-            <input
-              v-model="spocTokenDraft"
-              :class="[fieldClass, 'h-11 px-4 text-[13px]']"
-              placeholder="Inco-…"
-              aria-label="SPOC Token"
-              autocomplete="off"
-              spellcheck="false"
-            >
-          </label>
-          <label class="flex flex-col gap-2">
-            <span class="text-xs text-white/45">RoleCode</span>
-            <input
-              v-model="spocRoleDraft"
-              :class="[fieldClass, 'h-11 px-4 text-[13px]']"
-              placeholder="例如 01"
-              aria-label="SPOC RoleCode"
-              autocomplete="off"
-              spellcheck="false"
-            >
-          </label>
-        </div>
-
-        <div v-else class="mt-4 grid gap-3">
-          <div
-            :class="[fieldClass, 'flex h-11 items-center gap-3 px-4 text-[13px]']"
-          >
-            <span class="shrink-0 text-white/35">Token</span>
-            <span class="font-mono tracking-widest text-white/55">{{ maskedSpocToken }}</span>
-          </div>
-          <div
-            :class="[fieldClass, 'flex h-11 items-center gap-3 px-4 text-[13px]']"
-          >
-            <span class="shrink-0 text-white/35">RoleCode</span>
-            <span class="font-mono tracking-widest text-white/55">{{ maskedSpocRole }}</span>
-          </div>
-        </div>
-
-        <p
-          v-if="state.spocMessage"
-          class="mt-2 text-xs text-white/55"
-          aria-live="polite"
-        >
-          {{ state.spocMessage }}
-        </p>
-
-        <div class="mt-4 flex flex-wrap items-center gap-2">
-          <template v-if="showSpocInput">
-            <button type="button" :class="buttonClass" @click="saveSpoc">保存</button>
-            <button
-              v-if="hasSpoc"
-              type="button"
-              :class="buttonClass"
-              @click="cancelSpocReplace"
-            >
-              取消
-            </button>
-          </template>
-          <template v-else>
-            <button type="button" :class="buttonClass" @click="startSpocReplace">替换</button>
-            <button type="button" :class="buttonClass" @click="validateSpoc">校验</button>
-          </template>
-          <button
-            v-if="hasSpoc"
-            type="button"
-            :class="dangerButtonClass"
-            @click="clearSpoc"
-          >
-            清除
-          </button>
-        </div>
-      </section>
-
-      <section
-        class="mt-4 rounded-3xl border border-white/12 bg-slate-950/35 p-6 shadow-[0_24px_70px_-36px_rgba(0,0,0,0.95)] backdrop-blur-md"
-      >
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <h2 class="text-base font-medium text-white/90">博雅课程 auth_token</h2>
-            <p class="mt-1 text-xs leading-relaxed text-white/45">
-              auth_token 来自开发者工具 Network 中任一 sscv 请求的 Request Headers（auth_token 与 authtoken 同值）。
-            </p>
-          </div>
-          <span
-            class="shrink-0 rounded-full border px-2.5 py-1 text-[11px]"
-            :class="bykcStatusClass"
-          >
-            {{ bykcStatusText }}
-          </span>
-        </div>
-
-        <div v-if="showBykcInput" class="mt-4">
-          <label class="flex flex-col gap-2">
-            <span class="text-xs text-white/45">auth_token</span>
-            <input
-              v-model="bykcDraft"
-              :class="[fieldClass, 'h-11 px-4 font-mono text-[12px]']"
-              placeholder="auth_token"
-              aria-label="博雅课程 auth_token"
-              autocomplete="off"
-              spellcheck="false"
-            >
-          </label>
-        </div>
-
-        <div v-else class="mt-4">
-          <div :class="[fieldClass, 'flex h-11 items-center gap-3 px-4 text-[13px]']">
-            <span class="shrink-0 text-white/35">auth_token</span>
-            <span class="font-mono tracking-widest text-white/55">{{ maskedBykcToken }}</span>
-          </div>
-        </div>
-
-        <p
-          v-if="state.bykcMessage"
-          class="mt-2 text-xs text-white/55"
-          aria-live="polite"
-        >
-          {{ state.bykcMessage }}
-        </p>
-
-        <div class="mt-4 flex flex-wrap items-center gap-2">
-          <template v-if="showBykcInput">
-            <button type="button" :class="buttonClass" @click="saveBykc">保存</button>
-            <button
-              v-if="hasBykc"
-              type="button"
-              :class="buttonClass"
-              @click="cancelBykcReplace"
-            >
-              取消
-            </button>
-          </template>
-          <template v-else>
-            <button type="button" :class="buttonClass" @click="startBykcReplace">替换</button>
-            <button type="button" :class="buttonClass" @click="validateBykc">校验</button>
-          </template>
-          <button
-            v-if="hasBykc"
-            type="button"
-            :class="dangerButtonClass"
-            @click="clearBykc"
-          >
-            清除
-          </button>
-        </div>
-      </section>
-
-      <section
-        class="mt-4 rounded-3xl border border-white/12 bg-slate-950/35 p-6 shadow-[0_24px_70px_-36px_rgba(0,0,0,0.95)] backdrop-blur-md"
-      >
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <h2 class="text-base font-medium text-white/90">阳光打卡</h2>
-            <p class="mt-1 text-xs leading-relaxed text-white/45">
-              UID 与 token 来自开发者工具 Network 中任一 ygdk 请求的 Form Data。
-            </p>
-          </div>
-          <span
-            class="shrink-0 rounded-full border px-2.5 py-1 text-[11px]"
-            :class="ygdkStatusClass"
-          >
-            {{ ygdkStatusText }}
-          </span>
-        </div>
-
-        <div v-if="showYgdkInput" class="mt-4 grid gap-3">
-          <label class="flex flex-col gap-2">
-            <span class="text-xs text-white/45">UID</span>
-            <input
-              v-model="ygdkUidDraft"
-              :class="[fieldClass, 'h-11 px-4 text-[13px]']"
-              placeholder="例如 20231234"
-              inputmode="numeric"
-              aria-label="阳光打卡 UID"
-              autocomplete="off"
-              spellcheck="false"
-            >
-          </label>
-          <label class="flex flex-col gap-2">
-            <span class="text-xs text-white/45">Token</span>
-            <input
-              v-model="ygdkTokenDraft"
-              :class="[fieldClass, 'h-11 px-4 text-[13px]']"
-              placeholder="token"
-              aria-label="阳光打卡 token"
-              autocomplete="off"
-              spellcheck="false"
-            >
-          </label>
-        </div>
-
-        <div v-else class="mt-4 grid gap-3">
-          <div :class="[fieldClass, 'flex h-11 items-center gap-3 px-4 text-[13px]']">
-            <span class="shrink-0 text-white/35">UID</span>
-            <span class="font-mono text-white/55">{{ state.ygdkUid }}</span>
-          </div>
-          <div :class="[fieldClass, 'flex h-11 items-center gap-3 px-4 text-[13px]']">
-            <span class="shrink-0 text-white/35">Token</span>
-            <span class="font-mono tracking-widest text-white/55">{{ maskedYgdkToken }}</span>
-          </div>
-        </div>
-
-        <p
-          v-if="state.ygdkMessage"
-          class="mt-2 text-xs text-white/55"
-          aria-live="polite"
-        >
-          {{ state.ygdkMessage }}
-        </p>
-
-        <div class="mt-4 flex flex-wrap items-center gap-2">
-          <template v-if="showYgdkInput">
-            <button type="button" :class="buttonClass" @click="saveYgdk">保存</button>
-            <button
-              v-if="hasYgdk"
-              type="button"
-              :class="buttonClass"
-              @click="cancelYgdkReplace"
-            >
-              取消
-            </button>
-          </template>
-          <template v-else>
-            <button type="button" :class="buttonClass" @click="startYgdkReplace">替换</button>
-            <button type="button" :class="buttonClass" @click="validateYgdk">校验</button>
-          </template>
-          <button
-            v-if="hasYgdk"
-            type="button"
-            :class="dangerButtonClass"
-            @click="clearYgdk"
-          >
-            清除
-          </button>
-        </div>
-
-        <div class="mt-5 border-t border-white/10 pt-4">
-          <h3 class="text-sm font-medium text-white/80">打卡目标</h3>
+        <div>
+          <h2 class="text-base font-medium text-white/90">打卡目标</h2>
           <p class="mt-1 text-xs leading-relaxed text-white/45">
             系统未给出学期目标时使用此值；周限制始终使用此值。
           </p>
@@ -1110,9 +701,6 @@ const fieldClass =
         </p>
 
         <div class="mt-4 flex flex-wrap items-center gap-2">
-          <button type="button" :class="dangerButtonClass" @click="clearAll">
-            清除全部凭据
-          </button>
           <button type="button" :class="dangerButtonClass" @click="clearCaches">
             清除缓存
           </button>
@@ -1128,7 +716,7 @@ const fieldClass =
         <div class="flex items-center justify-between gap-4">
           <div>
             <h2 class="text-base font-medium text-white/90">本地中继</h2>
-            <p class="mt-1 text-xs text-white/45">{{ state.relayMessage }}</p>
+            <p class="mt-1 text-xs text-white/45">{{ relayMessage }}</p>
           </div>
           <div class="flex items-center gap-3">
             <span class="text-sm" :class="relayClass">{{ relayText }}</span>
@@ -1136,6 +724,7 @@ const fieldClass =
           </div>
         </div>
       </section>
+      </div>
     </main>
   </div>
 </template>

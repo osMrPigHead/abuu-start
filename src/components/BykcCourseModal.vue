@@ -60,7 +60,7 @@ const statusNotice = computed(() => {
     case 'cached':
       return stamp.value ? `缓存于 ${stamp.value}` : '缓存数据'
     case 'no-credential':
-      return '未配置博雅课程 auth_token'
+      return '未登录，请前往设置完成登录'
     case 'auth-expired':
       return '博雅登录状态已失效'
     case 'error':
@@ -84,7 +84,7 @@ const descriptionNotice = computed(() => {
     case 'loading':
       return '正在加载课程简介…'
     case 'no-credential':
-      return '配置博雅 auth_token 后可查看课程简介'
+      return '登录后可查看课程简介'
     case 'auth-expired':
       return '登录状态已失效，暂无课程简介'
     case 'error':

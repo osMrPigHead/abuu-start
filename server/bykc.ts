@@ -4,10 +4,10 @@
  * 只读白名单：getUserProfile、queryStudentSemesterCourseByPage、queryCourseById。
  * 不调用选课、退课、签到等写接口；上游路径全部写死，不接受任意 URL。
  */
-import type { IncomingHttpHeaders } from 'node:http'
+import { bykcToken as sessionBykcToken } from './authSession.ts'
 import { decryptResponse, encryptRequest } from './bykcCrypto.ts'
 import { RelayError } from './errors.ts'
-import { fetchUpstream } from './http.ts'
+import { fetchUpstream, isTransientStatus } from './http.ts'
 import type {
   BykcChosenCourse,
   BykcChosenResponse,
@@ -39,8 +39,8 @@ type BykcEnvelope = {
 }
 
 /** 校验博雅 auth_token：调用 getUserProfile。 */
-export async function bykcStatus(headers: IncomingHttpHeaders): Promise<BykcStatusResponse> {
-  const token = requireBykcToken(headers)
+export async function bykcStatus(): Promise<BykcStatusResponse> {
+  const token = requireBykcToken()
   const data = await callBykc(token, 'getUserProfile', {})
 
   if (!isRecord(data)) {
@@ -57,8 +57,8 @@ export async function bykcStatus(headers: IncomingHttpHeaders): Promise<BykcStat
  * 已选博雅课程：先用 getAllConfig 解析当前学期起止日期，再调 queryChosenCourse。
  * 只读：不调用选课、退课、签到。
  */
-export async function bykcChosen(headers: IncomingHttpHeaders): Promise<BykcChosenResponse> {
-  const token = requireBykcToken(headers)
+export async function bykcChosen(): Promise<BykcChosenResponse> {
+  const token = requireBykcToken()
   const config = await callBykc(token, 'getAllConfig', {})
   const term = resolveChosenTerm(config)
 
@@ -88,11 +88,8 @@ export async function bykcChosen(headers: IncomingHttpHeaders): Promise<BykcChos
 }
 
 /** 课程广场分页；不做状态过滤，状态由中继计算。 */
-export async function bykcCourses(
-  headers: IncomingHttpHeaders,
-  url: URL,
-): Promise<BykcCoursePage> {
-  const token = requireBykcToken(headers)
+export async function bykcCourses(url: URL): Promise<BykcCoursePage> {
+  const token = requireBykcToken()
   const { page, pageSize } = readPageQuery(url)
   const data = await callBykc(token, 'queryStudentSemesterCourseByPage', { pageNumber: page, pageSize })
 
@@ -115,11 +112,8 @@ export async function bykcCourses(
 }
 
 /** 课程详情；简介转为纯文本后返回。 */
-export async function bykcCourseDetail(
-  headers: IncomingHttpHeaders,
-  idValue: string,
-): Promise<BykcCourseResponse> {
-  const token = requireBykcToken(headers)
+export async function bykcCourseDetail(idValue: string): Promise<BykcCourseResponse> {
+  const token = requireBykcToken()
   const id = parseCourseId(idValue)
   const data = await callBykc(token, 'queryCourseById', { id })
 
@@ -142,13 +136,8 @@ export async function bykcCourseDetail(
 
 /* ------------------------------- 上游调用 ------------------------------- */
 
-function requireBykcToken(headers: IncomingHttpHeaders): string {
-  const token = readHeader(headers, 'x-bykc-token').trim()
-  if (token.length === 0) {
-    throw new RelayError('NO_CREDENTIAL', '未配置博雅课程 auth_token')
-  }
-
-  return token
+function requireBykcToken(): string {
+  return sessionBykcToken()
 }
 
 /**
@@ -173,6 +162,10 @@ async function callBykc(token: string, apiName: string, payload: unknown): Promi
     },
     body: encrypted.body,
   })
+
+  if (isTransientStatus(result.status)) {
+    throw new RelayError('UPSTREAM_ERROR', '博雅课程暂时不可用', result.status)
+  }
 
   if (result.status < 200 || result.status >= 300) {
     throw new RelayError('AUTH_EXPIRED', '博雅登录状态已失效', result.status)
@@ -402,11 +395,6 @@ function decodeEntities(text: string): string {
 
 /* ------------------------------- 基础辅助 ------------------------------- */
 
-function readHeader(headers: IncomingHttpHeaders, name: string): string {
-  const value = headers[name]
-  if (Array.isArray(value)) return value.join('; ')
-  return typeof value === 'string' ? value : ''
-}
 
 function readText(value: unknown): string | null {
   if (typeof value !== 'string') return null

@@ -5,9 +5,9 @@
  * queryKczyInfoByid、queryXsSubmitKczyInfo。
  * 本模块不接受任意 URL，所有上游路径都写死在白名单函数里。
  */
-import type { IncomingHttpHeaders } from 'node:http'
+import { spocCredentials as sessionSpocCredentials } from './authSession.ts'
 import { RelayError } from './errors.ts'
-import { fetchUpstream, looksLikeHtml } from './http.ts'
+import { fetchUpstream, isTransientStatus, looksLikeHtml } from './http.ts'
 import { encryptSpocParam } from './spocCrypto.ts'
 import type {
   SpocAssignment,
@@ -50,25 +50,13 @@ type SpocRequest = {
   body?: unknown
 }
 
-/** 从请求头取 SPOC 凭据；缺失时返回 401 NO_CREDENTIAL。 */
-function requireSpocCredentials(headers: IncomingHttpHeaders): SpocCredentials {
-  const token = readHeader(headers, 'x-spoc-token').trim()
-  const roleCode = readHeader(headers, 'x-spoc-role').trim()
-
-  if (token.length === 0 || roleCode.length === 0) {
-    throw new RelayError('NO_CREDENTIAL', '未配置 SPOC Token 与 RoleCode')
-  }
-
+/** 从认证会话取 SPOC 凭据；Token 统一补 Inco- 前缀。 */
+function requireSpocCredentials(): SpocCredentials {
+  const stored = sessionSpocCredentials()
   return {
-    token: /^inco-/i.test(token) ? token : `Inco-${token}`,
-    roleCode,
+    token: /^inco-/i.test(stored.token) ? stored.token : `Inco-${stored.token}`,
+    roleCode: stored.roleCode,
   }
-}
-
-function readHeader(headers: IncomingHttpHeaders, name: string): string {
-  const value = headers[name]
-  if (Array.isArray(value)) return value.join('; ')
-  return typeof value === 'string' ? value : ''
 }
 
 /**
@@ -100,6 +88,10 @@ async function requestSpoc<T>(
   }
 
   const result = await fetchUpstream(url.toString(), { method, headers, body })
+
+  if (isTransientStatus(result.status)) {
+    throw new RelayError('UPSTREAM_ERROR', 'SPOC 暂时不可用', result.status)
+  }
 
   if (result.status >= 300 && result.status < 400) {
     throw new RelayError('AUTH_EXPIRED', 'SPOC 登录状态已失效', result.status)
@@ -295,16 +287,14 @@ function submissionStatusText(status: SpocAssignment['submissionStatus']): strin
   }
 }
 
-export async function spocStatus(headers: IncomingHttpHeaders): Promise<SpocStatusResponse> {
-  const credentials = requireSpocCredentials(headers)
+export async function spocStatus(): Promise<SpocStatusResponse> {
+  const credentials = requireSpocCredentials()
   const term = await fetchTerm(credentials)
   return { term }
 }
 
-export async function spocAssignments(
-  headers: IncomingHttpHeaders,
-): Promise<SpocAssignmentsResponse> {
-  const credentials = requireSpocCredentials(headers)
+export async function spocAssignments(): Promise<SpocAssignmentsResponse> {
+  const credentials = requireSpocCredentials()
   const term = await fetchTerm(credentials)
   const teachers = await fetchCourseTeachers(credentials, term.code)
   const assignments = await fetchAssignmentList(credentials, term.code, teachers)
@@ -313,14 +303,13 @@ export async function spocAssignments(
 }
 
 export async function spocAssignmentDetail(
-  headers: IncomingHttpHeaders,
   assignmentId: string,
 ): Promise<SpocAssignmentDetailResponse> {
   if (!ASSIGNMENT_ID_RE.test(assignmentId)) {
     throw new RelayError('INVALID_REQUEST', '作业 id 格式不正确')
   }
 
-  const credentials = requireSpocCredentials(headers)
+  const credentials = requireSpocCredentials()
   const term = await fetchTerm(credentials)
   const teachers = await fetchCourseTeachers(credentials, term.code)
   const assignments = await fetchAssignmentList(credentials, term.code, teachers)

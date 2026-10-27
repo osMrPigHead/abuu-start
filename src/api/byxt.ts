@@ -1,22 +1,13 @@
+/** 本研教育管理系统；凭据由中继按当前登录会话注入，见 docs/api.md 1。 */
 import { request } from './client'
 import type {
   ByxtStatusResponse,
   ExamsResponse,
   ScheduleResponse,
 } from '@/types'
-import { readCredentials } from '@/utils/storage'
-
-function byxtHeaders(): HeadersInit {
-  return {
-    'X-Byxt-Cookie': readCredentials().byxtCookie,
-  }
-}
 
 export function fetchByxtStatus(signal?: AbortSignal): Promise<ByxtStatusResponse> {
-  return request<ByxtStatusResponse>('/api/byxt/status', {
-    headers: byxtHeaders(),
-    signal,
-  })
+  return request<ByxtStatusResponse>('/api/byxt/status', { signal })
 }
 
 export function fetchByxtSchedule(
@@ -25,15 +16,9 @@ export function fetchByxtSchedule(
 ): Promise<ScheduleResponse> {
   const search = week === undefined ? '' : `?week=${encodeURIComponent(String(week))}`
 
-  return request<ScheduleResponse>(`/api/byxt/schedule${search}`, {
-    headers: byxtHeaders(),
-    signal,
-  })
+  return request<ScheduleResponse>(`/api/byxt/schedule${search}`, { signal })
 }
 
 export function fetchByxtExams(signal?: AbortSignal): Promise<ExamsResponse> {
-  return request<ExamsResponse>('/api/byxt/exams', {
-    headers: byxtHeaders(),
-    signal,
-  })
+  return request<ExamsResponse>('/api/byxt/exams', { signal })
 }

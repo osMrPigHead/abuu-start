@@ -2,9 +2,14 @@
 import { computed, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import BykcCourseCard from '@/components/BykcCourseCard.vue'
+import CardStatusActions from '@/components/CardStatusActions.vue'
 import HomeCard from '@/components/HomeCard.vue'
 import type { BykcCourse, SourceStatus } from '@/types'
-import { formatStamp } from '@/utils/date'
+import {
+  canRetrySource,
+  needsSettingsSource,
+  resolveSourceBadge,
+} from '@/utils/sourceStatus'
 
 const props = withDefaults(
   defineProps<{
@@ -85,37 +90,22 @@ function shuffle<T>(items: T[]): T[] {
   return result
 }
 
-const stamp = computed(() => formatStamp(props.savedAt))
-const hasCourses = computed(() => props.courses.length > 0)
-const cacheLabel = computed(() => (stamp.value ? `缓存于 ${stamp.value}` : '缓存'))
-
-const badge = computed(() => {
-  switch (props.status) {
-    case 'ok':
-      return '已同步'
-    case 'loading':
-      return '同步中'
-    case 'cached':
-      return cacheLabel.value
-    case 'auth-expired':
-      return hasCourses.value ? cacheLabel.value : '已失效'
-    case 'error':
-      return hasCourses.value ? cacheLabel.value : '加载失败'
-    case 'no-credential':
-      return hasCourses.value ? cacheLabel.value : '未配置'
-    default:
-      return '未配置'
-  }
-})
+const badge = computed(() =>
+  resolveSourceBadge({
+    status: props.status,
+    savedAt: props.savedAt,
+    loading: props.loading,
+  }),
+)
 
 const emptyText = computed(() => {
   switch (props.status) {
     case 'loading':
       return '正在加载课程广场…'
     case 'no-credential':
-      return '配置博雅 auth_token 后查看推荐课程'
+      return '登录后查看推荐课程'
     case 'auth-expired':
-      return '凭据已失效，请到设置页更新'
+      return '登录状态已失效，请到设置页重新登录'
     case 'error':
       return props.error || '课程广场加载失败'
     default:
@@ -123,32 +113,18 @@ const emptyText = computed(() => {
   }
 })
 
-const canRetry = computed(
-  () => props.status === 'error' || (props.status === 'cached' && props.error !== null),
-)
-const showSettingsLink = computed(
-  () => props.status === 'no-credential' || props.status === 'auth-expired',
-)
+const canRetry = computed(() => canRetrySource({ status: props.status, error: props.error }))
+const showSettingsLink = computed(() => needsSettingsSource({ status: props.status }))
 </script>
 
 <template>
   <HomeCard title="博雅课程广场" :badge="badge" dense class="h-full w-full">
     <template #actions>
-      <button
-        v-if="canRetry"
-        type="button"
-        class="shrink-0 rounded-full border border-white/15 px-2 py-0.5 text-[9px] text-white/65 transition hover:border-white/30 hover:text-white"
-        @click="emit('retry')"
-      >
-        重试
-      </button>
-      <RouterLink
-        v-if="showSettingsLink"
-        to="/settings"
-        class="shrink-0 rounded-full border border-white/15 px-2 py-0.5 text-[9px] text-white/65 transition hover:border-white/30 hover:text-white"
-      >
-        设置
-      </RouterLink>
+      <CardStatusActions
+        :retryable="canRetry"
+        :needs-settings="showSettingsLink"
+        @retry="emit('retry')"
+      />
     </template>
 
     <div class="flex min-h-0 flex-1 flex-col gap-1.5">

@@ -36,9 +36,9 @@ type HomeCardDef = {
  * 左列日程 5 行 + 待办 6 行，右列博雅 5 行 + 专注 4 行 + 阳光 2 行。
  */
 const HOME_CARD_DEFS: readonly HomeCardDef[] = [
-  { id: 'schedule', column: 'left', rows: 5, widthRem: 38 },
+  { id: 'schedule', column: 'left', rows: 5, widthRem: 36 },
   { id: 'bykc', column: 'right', rows: 5, widthRem: 22.4 },
-  { id: 'todo', column: 'left', rows: 6, widthRem: 34 },
+  { id: 'todo', column: 'left', rows: 6, widthRem: 36 },
   { id: 'focus', column: 'right', rows: 4, widthRem: 22.4 },
   { id: 'ygdk', column: 'right', rows: 2, widthRem: 22.4 },
 ]

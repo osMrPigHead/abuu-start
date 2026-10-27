@@ -63,7 +63,7 @@ const descriptionNotice = computed(() => {
     case 'loading':
       return '正在加载作业说明…'
     case 'no-credential':
-      return '配置 SPOC 凭据后可查看作业说明'
+      return '登录后可查看作业说明'
     case 'auth-expired':
       return '登录状态已失效，暂无作业说明'
     case 'error':
@@ -190,7 +190,7 @@ function handleKeydown(event: KeyboardEvent): void {
               :error="error"
               :refreshing="loading"
               compact
-              no-credential-text="未配置 SPOC 凭据"
+              no-credential-text="未登录，请前往设置完成登录"
               auth-expired-text="SPOC 登录状态已失效"
               fallback-error-text="SPOC 作业加载失败"
               @retry="emit('retry')"
@@ -252,7 +252,7 @@ function handleKeydown(event: KeyboardEvent): void {
               v-else-if="status === 'no-credential'"
               class="rounded-2xl border border-dashed border-white/12 px-5 py-8 text-center text-sm text-white/55"
             >
-              配置 SPOC Token 与 RoleCode 后查看作业详情。
+              登录后查看作业详情。
             </div>
 
             <div

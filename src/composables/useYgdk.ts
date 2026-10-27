@@ -2,11 +2,10 @@
 import { reactive } from 'vue'
 import { ApiError } from '@/api/client'
 import { fetchYgdkOverview } from '@/api/ygdk'
-import { markYgdkAuthExpired } from '@/composables/useCredentials'
+import { isAuthenticated, markSourceExpired } from '@/composables/useAuth'
 import type { SourceStatus, YgdkOverview, YgdkOverviewCache } from '@/types'
 import {
   clearYgdkCaches,
-  readCredentials,
   readJson,
   STORAGE_KEYS,
   writeJson,
@@ -57,13 +56,13 @@ function hydrate(): void {
 
   state.overview = cache.overview
   state.savedAt = cache.savedAt
-  state.status = hasYgdkCredentials() ? 'cached' : 'no-credential'
+  state.status = isAuthenticated() ? 'cached' : 'no-credential'
 }
 
 async function refresh(): Promise<void> {
   hydrate()
 
-  if (!hasYgdkCredentials()) {
+  if (!isAuthenticated()) {
     state.status = 'no-credential'
     state.error = null
     state.loading = false
@@ -95,7 +94,7 @@ async function refresh(): Promise<void> {
     if (currentRequest !== requestId) return
 
     const mapped = mapYgdkError(error)
-    if (mapped.status === 'auth-expired') markYgdkAuthExpired()
+    if (mapped.status === 'auth-expired') markSourceExpired('ygdk')
 
     state.loading = false
     state.error = mapped.message
@@ -170,12 +169,12 @@ function mapYgdkError(error: unknown): MappedError {
   if (error instanceof ApiError) {
     switch (error.code) {
       case 'NO_CREDENTIAL':
-        return { status: 'no-credential', message: '未配置阳光打卡 UID 与 token' }
+      case 'AUTH_REQUIRED':
+        return { status: 'no-credential', message: '未登录，请前往设置完成登录' }
       case 'AUTH_EXPIRED':
-        return {
-          status: 'auth-expired',
-          message: '阳光打卡登录状态已失效，请到设置页更新 UID 与 token',
-        }
+        return { status: 'auth-expired', message: '登录状态已失效，请到设置页重新登录' }
+      case 'SOURCE_BUSY':
+        return { status: 'error', message: '数据源正在派生，请稍后重试' }
       default:
         return { status: 'error', message: error.message || '阳光打卡概览加载失败' }
     }
@@ -186,10 +185,6 @@ function mapYgdkError(error: unknown): MappedError {
 
 /* ------------------------------- 基础辅助 ------------------------------- */
 
-function hasYgdkCredentials(): boolean {
-  const credentials = readCredentials()
-  return credentials.ygdkUid.trim().length > 0 && credentials.ygdkToken.trim().length > 0
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)

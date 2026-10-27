@@ -66,7 +66,11 @@ onMounted(() => {
       @error="onBackgroundError"
     >
     <div class="app-content">
-      <RouterView />
+      <RouterView v-slot="{ Component }">
+        <Transition name="route-page" mode="out-in">
+          <component :is="Component" />
+        </Transition>
+      </RouterView>
     </div>
   </div>
 </template>

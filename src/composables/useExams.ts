@@ -2,14 +2,14 @@
 import { reactive } from 'vue'
 import { fetchByxtExams } from '@/api/byxt'
 import { ApiError } from '@/api/client'
-import { markByxtAuthExpired } from '@/composables/useCredentials'
+import { isAuthenticated, markSourceExpired } from '@/composables/useAuth'
 import type {
   Exam,
   ExamsCache,
   SourceStatus,
   Term,
 } from '@/types'
-import { readCredentials, readJson, remove, STORAGE_KEYS, writeJson } from '@/utils/storage'
+import { readJson, remove, STORAGE_KEYS, writeJson } from '@/utils/storage'
 
 type ExamsState = {
   status: SourceStatus
@@ -59,13 +59,13 @@ function hydrate(): void {
   state.term = cache.term
   state.exams = cache.exams
   state.savedAt = cache.savedAt || null
-  state.status = hasByxtCookie() ? 'cached' : 'no-credential'
+  state.status = isAuthenticated() ? 'cached' : 'no-credential'
 }
 
 async function refresh(): Promise<void> {
   hydrate()
 
-  if (!hasByxtCookie()) {
+  if (!isAuthenticated()) {
     state.status = 'no-credential'
     state.error = null
     state.loading = false
@@ -98,7 +98,7 @@ async function refresh(): Promise<void> {
     if (currentRequest !== requestId) return
 
     const mapped = mapExamsError(error)
-    if (mapped.status === 'auth-expired') markByxtAuthExpired()
+    if (mapped.status === 'auth-expired') markSourceExpired('byxt')
 
     state.loading = false
     state.error = mapped.message
@@ -204,9 +204,12 @@ function mapExamsError(error: unknown): MappedError {
   if (error instanceof ApiError) {
     switch (error.code) {
       case 'NO_CREDENTIAL':
-        return { status: 'no-credential', message: '未配置本研教育管理系统 Cookie' }
+      case 'AUTH_REQUIRED':
+        return { status: 'no-credential', message: '未登录，请前往设置完成登录' }
       case 'AUTH_EXPIRED':
-        return { status: 'auth-expired', message: '登录状态已失效，请到设置页更新 Cookie' }
+        return { status: 'auth-expired', message: '登录状态已失效，请到设置页重新登录' }
+      case 'SOURCE_BUSY':
+        return { status: 'error', message: '数据源正在派生，请稍后重试' }
       default:
         return { status: 'error', message: error.message || '考试加载失败' }
     }
@@ -217,9 +220,6 @@ function mapExamsError(error: unknown): MappedError {
 
 /* ------------------------------- 基础辅助 ------------------------------- */
 
-function hasByxtCookie(): boolean {
-  return readCredentials().byxtCookie.trim().length > 0
-}
 
 function toPositiveInteger(value: unknown): number | null {
   const number =

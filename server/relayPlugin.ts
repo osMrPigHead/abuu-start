@@ -14,7 +14,7 @@ const JSON_CONTENT_TYPE = /^application\/json(?:\s*;|$)/i
 
 /**
  * 本地只读中继：以 Vite 插件形式挂到 dev server 与 preview server。
- * 业务数据只读；仅背景目录设置与本机背景扫描使用白名单 POST。
+ * 业务数据只读；写方法仅限认证（登录、登出、预加载、单源重试）与背景目录设置。
  * 约束见 docs/trd.md 3.1、docs/trd-phase3.md 3.1 / 3.3 / 9。
  */
 export function relayPlugin(): Plugin {
@@ -67,7 +67,7 @@ async function handleApiRequest(
       assertPostOrigin(req)
       const body = await readJsonBody(req)
       const url = new URL(req.url ?? pathname, 'http://127.0.0.1')
-      const data = await handler({ url, headers: req.headers, body })
+      const data = await handler({ url, body })
 
       status = 200
       sendJson(res, status, data)
@@ -92,7 +92,7 @@ async function handleApiRequest(
       throw new RelayError('NOT_FOUND', '未找到')
     }
 
-    const data = await handler({ url, headers: req.headers })
+    const data = await handler({ url })
 
     status = 200
     sendJson(res, status, data)

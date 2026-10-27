@@ -2,7 +2,7 @@
 import { reactive } from 'vue'
 import { ApiError } from '@/api/client'
 import { fetchSpocAssignmentDetail, fetchSpocAssignments } from '@/api/spoc'
-import { markSpocAuthExpired } from '@/composables/useCredentials'
+import { isAuthenticated, markSourceExpired } from '@/composables/useAuth'
 import type {
   SourceStatus,
   SpocAssignment,
@@ -14,7 +14,6 @@ import type {
 import { isValidSpocAssignmentId } from '@/utils/spoc'
 import {
   clearSpocCaches,
-  readCredentials,
   readJson,
   spocDetailCacheKey,
   STORAGE_KEYS,
@@ -104,13 +103,13 @@ function hydrate(): void {
   state.term = cache.term
   state.assignments = cache.assignments
   state.savedAt = cache.savedAt || null
-  state.status = hasSpocCredentials() ? 'cached' : 'no-credential'
+  state.status = isAuthenticated() ? 'cached' : 'no-credential'
 }
 
 async function refresh(): Promise<void> {
   hydrate()
 
-  if (!hasSpocCredentials()) {
+  if (!isAuthenticated()) {
     state.status = 'no-credential'
     state.error = null
     state.loading = false
@@ -143,7 +142,7 @@ async function refresh(): Promise<void> {
     if (currentRequest !== requestId) return
 
     const mapped = mapSpocError(error)
-    if (mapped.status === 'auth-expired') markSpocAuthExpired()
+    if (mapped.status === 'auth-expired') markSourceExpired('spoc')
 
     state.loading = false
     state.error = mapped.message
@@ -186,7 +185,7 @@ function openDetailById(assignmentId: string, preview: SpocAssignment | null = n
   if (cache) {
     detailState.assignment = cache.assignment
     detailState.savedAt = cache.savedAt || null
-    detailState.status = hasSpocCredentials() ? 'cached' : 'no-credential'
+    detailState.status = isAuthenticated() ? 'cached' : 'no-credential'
   }
 
   void refreshDetail()
@@ -196,7 +195,7 @@ async function refreshDetail(): Promise<void> {
   const assignmentId = detailState.assignmentId
   if (assignmentId === null || !isValidSpocAssignmentId(assignmentId)) return
 
-  if (!hasSpocCredentials()) {
+  if (!isAuthenticated()) {
     detailState.status = 'no-credential'
     detailState.error = null
     detailState.loading = false
@@ -229,7 +228,7 @@ async function refreshDetail(): Promise<void> {
     if (currentRequest !== detailRequestId || detailState.assignmentId !== assignmentId) return
 
     const mapped = mapSpocError(error)
-    if (mapped.status === 'auth-expired') markSpocAuthExpired()
+    if (mapped.status === 'auth-expired') markSourceExpired('spoc')
 
     detailState.loading = false
     detailState.error = mapped.message
@@ -407,12 +406,12 @@ function mapSpocError(error: unknown): MappedError {
   if (error instanceof ApiError) {
     switch (error.code) {
       case 'NO_CREDENTIAL':
-        return { status: 'no-credential', message: '未配置 SPOC Token 与 RoleCode' }
+      case 'AUTH_REQUIRED':
+        return { status: 'no-credential', message: '未登录，请前往设置完成登录' }
       case 'AUTH_EXPIRED':
-        return {
-          status: 'auth-expired',
-          message: 'SPOC 登录状态已失效，请到设置页更新 Token 与 RoleCode',
-        }
+        return { status: 'auth-expired', message: '登录状态已失效，请到设置页重新登录' }
+      case 'SOURCE_BUSY':
+        return { status: 'error', message: '数据源正在派生，请稍后重试' }
       case 'INVALID_REQUEST':
       case 'NOT_FOUND':
         return { status: 'error', message: error.message || '未找到该 SPOC 作业', notFound: true }
@@ -426,10 +425,6 @@ function mapSpocError(error: unknown): MappedError {
 
 /* ------------------------------- 基础辅助 ------------------------------- */
 
-function hasSpocCredentials(): boolean {
-  const credentials = readCredentials()
-  return credentials.spocToken.trim().length > 0 && credentials.spocRoleCode.trim().length > 0
-}
 
 function nullableText(value: unknown): string | null {
   if (typeof value !== 'string') return null

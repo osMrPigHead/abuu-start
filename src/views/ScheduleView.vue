@@ -126,75 +126,79 @@ function refresh(): void {
 <template>
   <div class="home-backdrop min-h-screen text-white antialiased">
     <main class="mx-auto w-full max-w-6xl px-8 py-10">
-      <WeekSwitcher
-        :selected-week="selectedWeek"
-        :current-week="meta.currentWeek"
-        :weeks="weekOptions"
-        :can-prev="canPrev"
-        :can-next="canNext"
-        label="周次切换（页首）"
-        class="mb-6"
-        @select="selectWeek"
-      />
-
-      <header class="flex items-end justify-between gap-6">
-        <div>
-          <h1 class="text-2xl font-semibold tracking-wide">第 {{ selectedWeek }} 周</h1>
-          <p class="mt-1 text-sm text-white/45">{{ rangeLabel }}</p>
-        </div>
-        <BackHomeLink />
-      </header>
-
-      <div class="mt-4 rounded-2xl border border-white/10 bg-slate-950/30 px-4 py-3 backdrop-blur-md">
-        <SourceStatusLine
-          :status="selectedView.status"
-          :saved-at="selectedView.savedAt"
-          :error="selectedView.error"
-          :warning="displayWarning"
-          :refreshing="selectedView.loading"
-          secondary-label="博雅"
-          :secondary-status="bykcChosenState.status"
-          :secondary-saved-at="bykcChosenState.savedAt"
-          :secondary-error="bykcChosenState.error"
-          :secondary-refreshing="bykcChosenState.loading"
-          secondary-no-credential-text="未配置 auth_token"
-          secondary-auth-expired-text="auth_token 已失效，请更新"
-          @retry="refresh"
-          @retry-secondary="refreshBykcChosen"
+      <div class="route-page-header">
+        <WeekSwitcher
+          :selected-week="selectedWeek"
+          :current-week="meta.currentWeek"
+          :weeks="weekOptions"
+          :can-prev="canPrev"
+          :can-next="canNext"
+          label="周次切换（页首）"
+          class="mb-6"
+          @select="selectWeek"
         />
+
+        <header class="flex items-end justify-between gap-6">
+          <div>
+            <h1 class="text-2xl font-semibold tracking-wide">第 {{ selectedWeek }} 周</h1>
+            <p class="mt-1 text-sm text-white/45">{{ rangeLabel }}</p>
+          </div>
+          <BackHomeLink />
+        </header>
       </div>
 
-      <section
-        class="mt-4 rounded-3xl border border-white/12 bg-slate-950/35 px-5 py-2 shadow-[0_24px_70px_-36px_rgba(0,0,0,0.95)] backdrop-blur-md"
-        aria-label="一周课表"
-      >
-        <div
-          v-for="day in weekRows"
-          :key="formatDateKey(day.date)"
-          class="border-b border-white/8 last:border-b-0"
-        >
-          <ScheduleDayRow
-            :date="day.date"
-            :week-number="day.weekNumber"
-            :courses="day.courses"
-            :section-times="selectedView.sectionTimes"
-            :state="rowState(selectedView)"
-            :now="now"
-            :highlight-lead-minutes="highlightLeadMinutes"
+      <div class="route-page-body flow-root">
+        <div class="mt-4 rounded-2xl border border-white/10 bg-slate-950/30 px-4 py-3 backdrop-blur-md">
+          <SourceStatusLine
+            :status="selectedView.status"
+            :saved-at="selectedView.savedAt"
+            :error="selectedView.error"
+            :warning="displayWarning"
+            :refreshing="selectedView.loading"
+            secondary-label="博雅"
+            :secondary-status="bykcChosenState.status"
+            :secondary-saved-at="bykcChosenState.savedAt"
+            :secondary-error="bykcChosenState.error"
+            :secondary-refreshing="bykcChosenState.loading"
+            secondary-no-credential-text="未登录，请前往设置完成登录"
+            secondary-auth-expired-text="登录状态已失效，请重新登录"
+            @retry="refresh"
+            @retry-secondary="refreshBykcChosen"
           />
         </div>
-      </section>
 
-      <WeekSwitcher
-        :selected-week="selectedWeek"
-        :current-week="meta.currentWeek"
-        :weeks="weekOptions"
-        :can-prev="canPrev"
-        :can-next="canNext"
-        label="周次切换（页尾）"
-        class="mt-5"
-        @select="selectWeek"
-      />
+        <section
+          class="mt-4 rounded-3xl border border-white/12 bg-slate-950/35 px-5 py-2 shadow-[0_24px_70px_-36px_rgba(0,0,0,0.95)] backdrop-blur-md"
+          aria-label="一周课表"
+        >
+          <div
+            v-for="day in weekRows"
+            :key="formatDateKey(day.date)"
+            class="border-b border-white/8 last:border-b-0"
+          >
+            <ScheduleDayRow
+              :date="day.date"
+              :week-number="day.weekNumber"
+              :courses="day.courses"
+              :section-times="selectedView.sectionTimes"
+              :state="rowState(selectedView)"
+              :now="now"
+              :highlight-lead-minutes="highlightLeadMinutes"
+            />
+          </div>
+        </section>
+
+        <WeekSwitcher
+          :selected-week="selectedWeek"
+          :current-week="meta.currentWeek"
+          :weeks="weekOptions"
+          :can-prev="canPrev"
+          :can-next="canNext"
+          label="周次切换（页尾）"
+          class="mt-5"
+          @select="selectWeek"
+        />
+      </div>
     </main>
   </div>
 </template>

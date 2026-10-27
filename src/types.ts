@@ -104,14 +104,6 @@ export type PomodoroRuntime = {
   oneMinuteNotified: boolean
 }
 
-export type Credentials = {
-  byxtCookie: string
-  spocToken: string
-  spocRoleCode: string
-  bykcToken: string
-  ygdkUid: string
-  ygdkToken: string
-}
 
 /* ---------- 中继响应 ---------- */
 
@@ -254,6 +246,71 @@ export type BackgroundManifest = {
   warning: string | null
 }
 
+/* ---------- 认证 ---------- */
+
+export type AuthSourceId = 'byxt' | 'spoc' | 'bykc' | 'ygdk'
+
+export type AuthSourceStatus = 'unconfigured' | 'pending' | 'ready' | 'failed' | 'expired'
+
+export type AuthSourceError = {
+  code: string
+  message: string
+}
+
+export type AuthSourceState = {
+  status: AuthSourceStatus
+  updatedAt: string | null
+  error: AuthSourceError | null
+}
+
+export type AuthUser = {
+  name: string
+  schoolid: string
+}
+
+export type AuthSources = Record<AuthSourceId, AuthSourceState>
+
+export type AuthStatusResponse = {
+  authenticated: boolean
+  user: AuthUser | null
+  authenticatedAt: string | null
+  persisted: boolean
+  deriving: boolean
+  sources: AuthSources
+  warning?: string
+}
+
+export type AuthPreloadResponse = {
+  loginId: string
+  captchaRequired: boolean
+  captcha?: {
+    image: string
+    expiresAt: string
+  }
+  alreadyLoggedIn: boolean
+}
+
+export type AuthLoginResponse = {
+  authenticated: true
+  user: AuthUser
+  authenticatedAt: string
+  persisted: boolean
+  sources: AuthSources
+  warning?: string
+}
+
+export type AuthSourceRetryResponse = {
+  source: AuthSourceId
+  status: AuthSourceStatus
+  updatedAt: string | null
+  error: AuthSourceError | null
+}
+
+export type AuthLogoutResponse = {
+  ok: true
+  warning?: string
+}
+
 /* ---------- 缓存 ---------- */
 
 export type WeekCache = {
@@ -329,7 +386,15 @@ export type SourceStatus =
 
 export type RelayErrorCode =
   | 'NO_CREDENTIAL'
+  | 'AUTH_REQUIRED'
+  | 'INVALID_CREDENTIALS'
+  | 'CAPTCHA_REQUIRED'
+  | 'CAPTCHA_INVALID'
+  | 'PASSWORD_EXPIRED'
   | 'AUTH_EXPIRED'
+  | 'LOGIN_IN_PROGRESS'
+  | 'SOURCE_UNKNOWN'
+  | 'SOURCE_BUSY'
   | 'INVALID_REQUEST'
   | 'INVALID_WEEK'
   | 'INVALID_PAGE'
