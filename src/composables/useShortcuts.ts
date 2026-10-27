@@ -11,9 +11,24 @@ import { readJson, STORAGE_KEYS, writeJson } from '@/utils/storage'
 /** 预置快捷方式，见 docs/prd.md 3.2；默认分到前两行。 */
 const PRESET_SHORTCUTS: readonly Shortcut[] = [
   { id: 'preset-it', title: '智慧北航', url: 'https://it.buaa.edu.cn/', row: 0 },
-  { id: 'preset-spoc', title: 'SPOC', url: 'https://spoc.buaa.edu.cn/', row: 1 },
-  { id: 'preset-bykc', title: '博雅课程', url: 'https://bykc.buaa.edu.cn/', row: 2 },
-  { id: 'preset-ygdk', title: '阳光打卡', url: 'https://ygdk.buaa.edu.cn/', row: 3 },
+  { id: 'preset-spoc', title: '智学北航', url: 'https://spoc.buaa.edu.cn/', row: 0 },
+  { id: 'preset-accoding', title: 'ACCoding', url: 'https://accoding.buaa.edu.cn/', row: 0 },
+  { id: 'preset-bykc', title: '博雅课程', url: 'https://bykc.buaa.edu.cn/', row: 1 },
+  { id: 'preset-ygdk', title: '阳光打卡', url: 'https://ygdk.buaa.edu.cn/', row: 1 },
+  { id: 'preset-wifi', title: '校园网自助服务', url: 'https://zfw.buaa.edu.cn/', row: 2 },
+  { id: 'preset-baidu', title: '百度', url: 'https://www.baidu.com/', row: 5 },
+  { id: 'preset-bing', title: 'Bing', url: 'https://cn.bing.com/', row: 5 },
+  { id: 'preset-google', title: 'Google', url: 'https://google.com/', row: 5 },
+  { id: 'preset-runoob', title: '菜鸟教程', url: 'https://www.runoob.com/', row: 6 },
+  { id: 'preset-oiwiki', title: 'OI-Wiki', url: 'https://oi-wiki.org/', row: 6 },
+  { id: 'preset-luogu', title: '洛谷', url: 'https://www.luogu.com.cn/', row: 7 },
+  { id: 'preset-leetcode', title: 'LeetCode', url: 'https://leetcode.com/', row: 7 },
+  { id: 'preset-codeforces', title: 'CodeForces', url: 'https://codeforces.com/', row: 7 },
+  { id: 'preset-github', title: 'GitHub', url: 'https://github.com/', row: 8 },
+  { id: 'preset-gitee', title: 'Gitee', url: 'https://gitee.com/', row: 8 },
+  { id: 'preset-arc', title: 'Arcaea', url: 'https://arcaea.lowiro.com/', row: 10 },
+  { id: 'preset-phi', title: '林泊百科', url: 'https://wiki.pigeon-games.com/', row: 10 },
+  { id: 'preset-pjsk', title: 'Moesekai', url: 'https://pjsk.moe/', row: 10 },
 ]
 
 /** 旧数据没有 row 字段时的迁移密度。 */
