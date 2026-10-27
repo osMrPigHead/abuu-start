@@ -2,21 +2,24 @@
 
 ## 0. 来源与状态
 
+- 统一认证：参考 B 的 `LocalConnectionAuth.kt`、`LocalCasParser`、`LocalSpocApi.kt`、`LocalBykcApi.kt`、`LocalYgdkApi.kt`，以及 `docs/_audit/2026-10-21-login-har.md` 对 `uc.buaa.edu.cn.har`、`byxt.buaa.edu.cn.har` 的审计。
 - 本研教育管理系统：参考 A 的 `js/schedule-data.js`、`api/buaa.asp`，参考 B 的 `ScheduleService.kt`、`ExamService.kt`。
 - SPOC：参考 B 的 `SpocClient.kt`、`SpocSupport.kt`，以及 `private/har/spoc_query1`、`private/har/spoc_query2`。
 - 博雅：参考 B 的 `BykcClient.kt`、`BykcCrypto.kt`、`BykcService.kt`、`BykcModels.kt`，以及 `private/har/sscv`。
 - 阳光：参考 B 的 `YgdkClient.kt`、`LocalYgdkApi.kt`、`YgdkService.kt`。
 - `private/har/sscv` 捕获了博雅 `getUserProfile`、`getAllConfig`、`queryChosenCourse`、`queryStudentSemesterCourseByPage` 等请求；HAR 未导出 Cookie，因此博雅“仅 `auth_token` 是否足够”仍需真实联调确认。
 - 阳光没有 HAR；路径、表单字段与响应结构来自参考 B 源码，真实联调需验证。
+- 登录流程没有原始 HAR；页面结构、表单字段与错误判定来自参考 B 与登录审计文档，见第 2 节。
 - HAR 已确认的结论直接写入本文；仍无法确定的内容会在条目中注明。
-- 本项目只做只读查询，不调用任何提交、打卡、选退课、签到接口。
+- 本项目只做只读查询，不调用任何提交、打卡、选退课、签到接口；三阶段的登录、登出、验证码、会话状态是唯一写方法例外。
+
 
 ## 1. 本研教育管理系统（byxt）
 
 ### 1.1 通用
 
 - 基址：`https://byxt.buaa.edu.cn/jwapp/sys/homeapp/`
-- 认证：浏览器中复制的 Cookie，由本地中继原样转发。
+- 认证：三阶段由中继统一登录派生 CAS 会话 Cookie，按 byxt 域注入，见 2.3.1；前端不再接触 Cookie。
 - 常用请求头：
   - `Accept: application/json, text/javascript, */*; q=0.01`
   - `X-Requested-With: XMLHttpRequest`
@@ -120,9 +123,200 @@
 - `api/home/student/getSections.do`：周课表已带作息表。
 - `api/home/teachingSchedule/list.do`、`classWeek.do`、`display_range.do`：参考 A 白名单中出现但未使用。
 
-## 2. SPOC
+## 2. 统一认证（SSO / UC）
 
-### 2.1 认证
+### 2.1 范围与来源
+
+三阶段新增：用户在设置页输入一次学号与密码，由本地中继完成学校统一身份认证，并派生 byxt、SPOC、博雅、阳光四类凭据。
+
+来源：
+
+- 参考 B 的 `LocalConnectionAuth.kt`、`LocalCasParser`、`LocalSpocApi.kt`、`LocalBykcApi.kt`、`LocalYgdkApi.kt`。
+- 参考 B 的登录链审计文档 `docs/_audit/2026-10-21-login-har.md`，基于用户的 `uc.buaa.edu.cn.har`（131 个请求）与 `byxt.buaa.edu.cn.har`（90 个请求）。
+- 本项目尚未收到登录流程的原始 HAR；以下页面结构、表单字段与错误判定来自上述源码与审计文档。若学校更新登录页，需重新提供 HAR。
+- 仅支持直连（校内网络或用户自行连接的 VPN）；不支持 WebVPN。所有请求共用一个按域隔离的 Cookie 罐。
+
+### 2.2 登录流程
+
+#### 1. 预加载登录页
+
+`GET https://sso.buaa.edu.cn/login`
+
+- `200`：解析登录页。
+  - `execution`：`<input name="execution" value="...">`，提交时必须原样带回。
+  - 验证码配置：页面脚本中的 `config.captcha = { type: '...', id: '...' }`。
+- `302`：SSO 已有会话。跳过密码提交，直接进入第 4 步的 UC 激活。
+- 其他状态码：按上游失败处理。
+
+`execution` 与登录页的 SSO Cookie 绑定；中继必须把预加载与后续提交放在同一个 Cookie 会话中，不能只把 `execution` 返回前端后另起会话提交。
+
+#### 2. 验证码
+
+页面出现 `config.captcha` 时：
+
+`GET https://sso.buaa.edu.cn/captcha?captchaId=<id>`
+
+- 返回 JPEG 图片字节。
+- 前端展示为图片；中继可返回 `data:image/jpeg;base64,...`。
+- 验证码类型目前只处理图片；`type` 不是图片时提示用户在当前浏览器完成登录或稍后重试，不做识别。
+- 刷新验证码：重新预加载登录页，取得新的 `captchaId` 与 `execution`；旧验证码立即失效。
+
+#### 3. 提交学号与密码
+
+`POST https://sso.buaa.edu.cn/login`
+
+- `Content-Type: application/x-www-form-urlencoded; charset=UTF-8`
+- 表单字段：
+
+| 字段 | 值 |
+| --- | --- |
+| `username` | 学号 |
+| `password` | 密码 |
+| `execution` | 登录页的 `execution` |
+| `_eventId` | `submit` |
+| `submit` | `登录` |
+| `type` | `username_password` |
+| `captcha` | 验证码，仅需要验证码时 |
+| `captchaResponse` | 与 `captcha` 同值，仅需要验证码时 |
+
+- 登录页 `form#fm1` 中的其他 hidden 字段应一并复制；上面是必须保证的字段。
+- 成功时返回 `302`，`Location` 指向 SSO 的票据回调或目标系统。
+- 失败时通常返回 `200` 并重新渲染登录页，页面含错误提示、`execution`，可能重新出现验证码。
+
+#### 4. 跟随跳转
+
+- 手动跟随 `300–399`，最多 10 次；超过按登录失败处理。
+- `Location` 可能是相对路径，也可能是绝对 URL，需要按当前请求 URL 解析。
+- 参考 B 的实测：SSO 可能返回 `http://sso.buaa.edu.cn/...`，浏览器会自动升级为 HTTPS，原生 HTTP 客户端不会。中继只对 `sso.buaa.edu.cn` 的默认 HTTP 端口升级为 HTTPS，并保留 `service` 等查询参数的原始编码；其他业务系统的地址不擅自改写。
+- 每跳都要保存 `Set-Cookie`。
+
+#### 5. 激活 UC 会话
+
+`GET https://uc.buaa.edu.cn/api/login?target=https%3A%2F%2Fuc.buaa.edu.cn%2F%23%2Fuser%2Flogin`
+
+- 同样手动跟随跳转，最多 10 次，并保存 Cookie。
+- 该请求完成 SSO 与 UC 之间的票据交换；SSO 返回 302 不等于 UC 已登录。
+- 参考 B 的实测：该地址可能先跳到 `http://sso.buaa.edu.cn`，需要按第 4 步的规则升级为 HTTPS。
+
+#### 6. 校验登录结果
+
+`GET https://uc.buaa.edu.cn/api/uc/status`
+
+请求头：
+
+- `Accept: application/json, text/javascript, */*; q=0.01`
+- `X-Requested-With: XMLHttpRequest`
+
+成功响应：
+
+```json
+{
+  "code": 0,
+  "data": {
+    "name": "张三",
+    "schoolid": "2418xxxx",
+    "username": "2418xxxx"
+  }
+}
+```
+
+- `code === 0` 且 `data` 非空才算登录成功；`data.name`、`data.schoolid` 用于设置页显示姓名与学号。
+- 响应不是 JSON（例如 SSO 登录页 HTML）、HTTP 非 200、`code !== 0` 都视为未登录。
+- `GET https://uc.buaa.edu.cn/api/uc/userinfo` 可返回更完整的用户资料（`phone`、`email`、`idCardTypeName` 等），三阶段只需要姓名与学号，可不调用。
+
+#### 7. 退出登录
+
+`GET https://sso.buaa.edu.cn/logout`
+
+- 尽力调用；失败不阻塞本地清理。
+- 随后清除中继保存的 Cookie、派生凭据、密码与会话状态。
+
+### 2.3 派生凭据
+
+统一认证成功后，四个业务系统分别用自己的入口完成 CAS/UC 票据交换。它们共用同一个 Cookie 罐；每次请求都要把匹配域的 Cookie 带上，并保存响应中的 `Set-Cookie`。
+
+#### 2.3.1 byxt Cookie
+
+1. `GET https://byxt.buaa.edu.cn/jwapp/sys/homeapp/api/home/currentUser.do`，跟随跳转（最多 10 次）。
+   - 请求头：`Accept: application/json, text/javascript, */*; q=0.01`、`X-Requested-With: XMLHttpRequest`、`Referer: https://byxt.buaa.edu.cn/jwapp/sys/homeapp/index.html`。
+   - 若尚未建立 byxt 会话，该请求会 302 到 SSO，再由 SSO 带 ticket 跳回 byxt；跟随过程中 byxt 域会写入 Cookie。
+2. 最终响应为 JSON 且 `code === "0"`，说明 byxt Cookie 可用；取 `datas.userId`、`datas.userName` 与 `welcomeInfo`。
+3. 最终 URL 仍含 `sso.buaa.edu.cn`，或响应是含 `input name="execution"` 的 HTML，视为派生失败。
+4. 参考 B 不额外访问 byxt 首页；若真实联调中 `currentUser` 不触发票据交换，可先 `GET https://byxt.buaa.edu.cn/jwapp/sys/homeapp/index.html` 一次，再重试 `currentUser`。
+
+Cookie 范围：保存 `byxt.buaa.edu.cn` 与其父域 `.buaa.edu.cn` 下匹配的 Cookie；不把其他业务系统的 Cookie 发给 byxt。
+
+#### 2.3.2 SPOC Token + RoleCode
+
+1. `GET https://spoc.buaa.edu.cn/spocnewht/cas`，手动跟随跳转，最多 8 次。
+2. 在任意一跳的 URL 或 `Location` 中匹配 `/spocnew/cas`，取查询参数：
+   - `token`：SPOC Token。
+   - `refreshToken`：可保存，三阶段不使用。
+3. `POST https://spoc.buaa.edu.cn/spocnewht/sys/casLogin`
+   - `Content-Type: application/json`
+   - `X-Requested-With: XMLHttpRequest`
+   - `Token: Inco-<token>`
+   - 请求体：`{ "token": "<token>" }`
+4. 响应信封 `{ code: 200, msg, msg_en, content }`；从 `content` 取 RoleCode：
+   - 优先 `content.jsdm`。
+   - 其次 `content.rolecode`（可能是字符串、数字或数组）。
+   - 再次 `content.jsdmList` 的第一个非空值。
+5. 用 `queryOne` 或 `queryKclb` 校验；失败按派生失败处理，不影响其他数据源。
+
+HAR 已确认 SPOC 业务请求不带 Cookie，只带 `Token` 与 `RoleCode`。
+
+#### 2.3.3 博雅 auth_token
+
+1. `GET https://bykc.buaa.edu.cn/sscv/cas/login`，跟随跳转，最多 10 次。
+2. 最终 URL 或某一跳的 `Location` 形如：
+
+```text
+https://bykc.buaa.edu.cn/cas-login?token=<auth_token>
+```
+
+3. 取 `token` 查询参数并做一次 URL 解码，得到 `auth_token`；不要重复解码，避免破坏 `+`、`/`、`=`。
+4. 用 `POST /sscv/getUserProfile` 校验；请求头同时发送 `auth_token` 与 `authtoken`，见 4.1。
+5. 参考 B 在拿不到 token 时会再 `GET https://bykc.buaa.edu.cn/cas-login?token=` 一次，但忽略结果；该请求不是必需步骤，可作为最后的兜底尝试。
+
+HAR 未导出 Cookie；若真实请求在只带 `auth_token` 时返回会话失效，需要重新评估是否补充 Cookie。
+
+#### 2.3.4 阳光 uid + token
+
+1. `GET https://app.buaa.edu.cn/uc/api/oauth/index?redirect=https%3A%2F%2Fygdk.buaa.edu.cn%2F%23%2Fhome&appid=200230221144501510&state=STATE&qrcode=1`
+   - 手动跟随跳转，最多 10 次。
+   - 在任意一跳的 URL 或 `Location` 中取 `code` 查询参数。
+2. `GET https://ygdk.buaa.edu.cn/api/Front/Clockin/User/campusAppLogin?code=<code>`
+   - 注意：这是 `GET`，不是表单 `POST`；与本文件 5.2 的业务接口不同。
+3. 响应 `{ "code": 1, "result": ... }`，`result` 可能是 `{ "data": { "uid": 123, "token": "..." } }`，也可能直接是 `{ "uid": ..., "token": ... }`。
+   - `uid`：十进制整数。
+   - `token`：URL 编码字符串，取出后解码一次。
+4. 用 `Classify/getList` 与 `Clockin/getCount` 校验；`code === -98` 表示认证失效。
+
+### 2.4 错误判定
+
+| 上游现象 | 含义 |
+| --- | --- |
+| 登录页含 `tip-text`、`#errorDiv`、`.errors` 文案 | 账号、密码或验证码错误；以页面文案为准 |
+| 提交后仍返回含 `input name="execution"` 的登录页 | 凭据未被接受 |
+| URL 含 `exception.message=` | 登录异常，取参数值作为提示 |
+| HTTP 401 | 未认证或凭据错误 |
+| 登录页出现 `continueForm`、`ignoreAndContinue`、`账号存在安全风险`、`密码过期` | 需要用户处理密码过期或安全风险；三阶段中止登录并提示用户，不自动提交 `ignoreAndContinue` |
+| 响应为 HTML 登录页、非 JSON | 会话失效，不是业务数据为空 |
+| 5xx、连接失败、超时 | 上游或网络失败，可重试 |
+
+验证码错误与账号密码错误要分开提示：验证码错误时保留学号，刷新验证码后可直接重试，不要求重新输入密码。
+
+### 2.5 三阶段不做的认证能力
+
+- WebVPN 与校外加密接入；不提供连接模式选择。
+- 注册、找回密码、修改密码。
+- 验证码识别、自动填写或第三方打码。
+- 多用户、账号切换、云端同步。
+- 除登录、登出、验证码、会话状态外的认证类写操作。
+
+## 3. SPOC
+
+### 3.1 认证
 
 HAR 中所有 SPOC 业务请求都带以下两个请求头，且 **没有 Cookie 请求头**（HAR 的 `cookies` 为空）：
 
@@ -130,16 +324,16 @@ HAR 中所有 SPOC 业务请求都带以下两个请求头，且 **没有 Cookie
 - `RoleCode: <jsdm>`，HAR 中为 `01`
 - `X-Requested-With: XMLHttpRequest`
 
-因此 SPOC 的凭据不是 Cookie，而是 **Token + RoleCode**。浏览器中的 SPOC 前端通过参考 B 的 CAS 流程取得这两个值：
+因此 SPOC 的凭据不是 Cookie，而是 **Token + RoleCode**。三阶段由中继统一登录后派生：
 
 1. `GET https://spoc.buaa.edu.cn/spocnewht/cas`，跟随跳转，从 `/spocnew/cas?token=...&refreshToken=...` 中取 `token`。
 2. `POST https://spoc.buaa.edu.cn/spocnewht/sys/casLogin`，请求头 `Token: Inco-<token>`，请求体 `{ "token": "<token>" }`，返回 `content.jsdm` 作为 `RoleCode`。
 
-本项目不实现 CAS 登录，也不需要中继保存 SSO Cookie；由用户在设置页直接提供 `Token` 与 `RoleCode`，中继原样转发。这样与 byxt 的 Cookie 输入方式一致，也避免跨域 Cookie 罐。
+派生细节与失败回退见 2.3.2；中继保存派生值，前端不再持有。
 
 响应信封：`{ "code": 200, "msg": null, "msg_en": null, "content": ... }`；`content` 可能为 `null`。
 
-### 2.2 接口
+### 3.2 接口
 
 #### 当前学期
 
@@ -259,7 +453,7 @@ HAR 中所有 SPOC 业务请求都带以下两个请求头，且 **没有 Cookie
 
 用途：详情页的提交状态与提交时间；列表状态以作业分页的 `tjzt` 为准。
 
-### 2.3 字段映射
+### 3.3 字段映射
 
 | 上游 | 本项目 |
 | --- | --- |
@@ -276,12 +470,12 @@ HAR 中所有 SPOC 业务请求都带以下两个请求头，且 **没有 Cookie
 
 时间统一转换为 `Asia/Shanghai` 的 `YYYY-MM-DD HH:mm:ss`；上游可能是带时区偏移的 ISO 8601。
 
-## 3. 博雅课程（bykc）
+## 4. 博雅课程（bykc）
 
-### 3.1 认证与加密
+### 4.1 认证与加密
 
 - 基址：`https://bykc.buaa.edu.cn/sscv/`。
-- 浏览器完成 CAS 后最终跳到 `https://bykc.buaa.edu.cn/cas-login?token=<auth_token>`；`token` 即业务请求使用的 `auth_token`。本项目不实现 CAS，由用户在设置页提供。
+- 浏览器完成 CAS 后最终跳到 `https://bykc.buaa.edu.cn/cas-login?token=<auth_token>`；`token` 即业务请求使用的 `auth_token`。三阶段由中继统一登录后从跳转链派生，见 2.3.3。
 - 业务请求使用 `POST`，请求头：
   - `Accept: application/json`
   - `Content-Type: application/json;charset=UTF-8`
@@ -291,7 +485,7 @@ HAR 中所有 SPOC 业务请求都带以下两个请求头，且 **没有 Cookie
   - `authtoken: <token>`（与 `auth_token` 同值）
   - `ak`、`sk`、`ts`
 - 参考 B 固定使用 `/system/course-select` 作为 `Referer`；HAR 中不同页面分别为 `/system/home`、`/system/course-mine`，说明该值不严格。
-- 本项目按二阶段决策只发送 `auth_token`，不发送 Cookie。HAR 的 `cookies` 为空且没有 `cookie` 请求头，但 HAR 未导出 Cookie，因此“无 Cookie 也可用”仍需真实联调确认。
+- 本项目只发送 `auth_token`，不发送额外 Cookie。HAR 的 `cookies` 为空且没有 `cookie` 请求头，但 HAR 未导出 Cookie，因此“仅 `auth_token` 可用”仍需真实联调确认。
 
 请求加密：
 
@@ -316,7 +510,7 @@ MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDlHMQ3B5GsWnCe7Nlo1YiG/YmHdlOiKOST5aRm4iaq
 - 认证失效：HTTP 3xx/非 200、响应含 `会话已失效` 或 `未登录`、或 `status !== "0"` 且 `errmsg` 含登录/会话/未登录/认证。
 - 解密后不是 JSON 或无法解析：按响应异常处理。
 
-### 3.2 接口
+### 4.2 接口
 
 #### 用户资料
 
@@ -422,7 +616,7 @@ MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDlHMQ3B5GsWnCe7Nlo1YiG/YmHdlOiKOST5aRm4iaq
 - `courseNewKind1.kindName`、`courseNewKind2.kindName`：课程分类，可不用
 - `courseSignType`、`courseSignConfig`：签到配置，二阶段不使用
 
-### 3.3 状态与字段映射
+### 4.3 状态与字段映射
 
 课程状态由本项目计算，不是上游字段。按以下顺序判定（时间按 `Asia/Shanghai`）：
 
@@ -448,19 +642,19 @@ MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDlHMQ3B5GsWnCe7Nlo1YiG/YmHdlOiKOST5aRm4iaq
 - 广场展示全部状态，不按状态过滤；已过期、选课结束也要展示。
 - 已选课程只用于日程合并，不显示状态标签。
 
-## 4. 阳光打卡（ygdk）
+## 5. 阳光打卡（ygdk）
 
-### 4.1 认证
+### 5.1 认证
 
 - 基址：`https://ygdk.buaa.edu.cn/api`。
 - 业务请求全部为 `POST application/x-www-form-urlencoded; charset=UTF-8`。
 - 表单固定追加 `uid`、`token`；`uid` 为十进制整数。
 - 请求头：`X-Requested-With: XMLHttpRequest`。
 - `uid` / `token` 只放表单，不放 URL。
-- 参考 B 通过 `campusAppLogin` 换取 `uid` 与 `token`；本项目不实现该登录，由用户提供。
+- 三阶段由中继统一登录后派生，见 2.3.4；不再由用户手动填写。
 - 响应：`{ "code": 1, "result": ... }`；`code === -98` 表示认证失效；其他 `code` 为业务错误。
 
-### 4.2 接口
+### 5.2 接口
 
 #### 分类列表
 
@@ -505,7 +699,7 @@ MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDlHMQ3B5GsWnCe7Nlo1YiG/YmHdlOiKOST5aRm4iaq
 
 用途：卡片显示学期名称；失败不阻塞概览。
 
-### 4.3 字段映射
+### 5.3 字段映射
 
 | 上游 | 本项目 |
 | --- | --- |
@@ -519,7 +713,7 @@ MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDlHMQ3B5GsWnCe7Nlo1YiG/YmHdlOiKOST5aRm4iaq
 - 周限制使用用户设置，默认 4；范围 1–14。
 - 阳光不调用 `Item/getList`、`Clockin/getList`、`Upload/File/post`、`Clockin/clockin`。
 
-## 5. 本项目实际调用
+## 6. 本项目实际调用
 
 | 页面/功能 | 中继接口 | 上游调用 |
 | --- | --- | --- |
@@ -531,15 +725,46 @@ MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDlHMQ3B5GsWnCe7Nlo1YiG/YmHdlOiKOST5aRm4iaq
 | 博雅广场（`/bykc`） | `GET /api/bykc/courses?page=&pageSize=12` | `queryStudentSemesterCourseByPage` |
 | 博雅详情（`/bykc` modal） | `GET /api/bykc/courses/:id` | `queryCourseById` |
 | 阳光概览（主页） | `GET /api/ygdk/overview` | `Classify/getList` → `Clockin/getCount` → `Term/get`（可选） |
+| 统一登录预加载（`/settings`） | `POST /api/auth/preload` | `sso/login`（含验证码配置）→ `sso/captcha`（按需） |
+| 统一登录提交（`/settings`） | `POST /api/auth/login` | `sso/login` 提交 → UC 激活 → UC status；四源派生在后台继续 |
+| 登录状态（`/settings`） | `GET /api/auth/status` | `uc/status`（仅 `?validate=1`） |
+| 退出登录（`/settings`） | `POST /api/auth/logout` | `sso/logout` → 清除本地凭据 |
+| 单源重试（`/settings`、卡片） | `POST /api/auth/sources/:source/retry` | 对应源派生链 |
 | 认证状态（`/settings`） | `GET /api/byxt/status`、`GET /api/spoc/status`、`GET /api/bykc/status` | `currentUser`、`queryOne`（失败回退 `queryList`）、`getUserProfile` |
 | 阳光认证校验（`/settings`） | `GET /api/ygdk/overview` | `Classify/getList` → `Clockin/getCount` |
 
-- SPOC 请求头固定带用户提供的 `Token` 与 `RoleCode`，不发送 Cookie。
-- 博雅请求头固定带用户提供的 `auth_token`（中继同时发送 `auth_token` 与 `authtoken`），不发送 Cookie。
+- 统一登录相关路由的方法与请求/响应以 `docs/trd-phase3.md` 为准；业务数据路由仍只读 `GET`。
+- SPOC 请求头由中继注入 `Token` 与 `RoleCode`，不发送 Cookie。
+- 博雅请求头由中继注入 `auth_token`（同时发送 `auth_token` 与 `authtoken`），不发送额外 Cookie。
 - 阳光请求头只带 `X-Requested-With`；`uid`、`token` 由中继放入表单，不放入 URL。
+- 前端不再发送任何凭据请求头；凭据由中继按当前登录会话注入。
+- 背景目录的 `GET /api/background`、`GET /api/background/image`、`POST /api/background/directory`、`POST /api/background/rescan` 属于本机文件系统能力，不是北航上游接口；设计见 `docs/trd-phase3.md` 3.3，不列入本表上游调用。
 
-## 6. 未确定与不在本期范围
+### 6.1 本机中继扩展
 
+以下路径由本项目本地中继提供，不是北航上游接口；请求/响应细节以 `docs/trd-phase3.md` 为准。
+
+| 路径 | 方法 | 用途 |
+| --- | --- | --- |
+| `/api/auth/preload` | `POST` | 获取登录页验证码与本次登录尝试 |
+| `/api/auth/login` | `POST` | 提交学号、密码、验证码，完成 SSO 与 UC 登录 |
+| `/api/auth/status` | `GET` | 读取登录状态与四源派生状态 |
+| `/api/auth/sources/:source/retry` | `POST` | 重试单个数据源派生 |
+| `/api/auth/logout` | `POST` | 退出登录并清除中继凭据 |
+| `/api/background` | `GET` | 读取背景目录与图片清单 |
+| `/api/background/image` | `GET` | 读取指定图片字节 |
+| `/api/background/directory` | `POST` | 保存或清除背景目录 |
+| `/api/background/rescan` | `POST` | 重新扫描背景目录 |
+
+- 除上述 `POST` 外，业务数据接口仍只接受 `GET`；未列路径返回 `404`。
+- 所有路径只监听 `127.0.0.1`，并校验 Host；前端不接触上游地址。
+
+## 7. 未确定与不在本期范围
+
+- 统一认证没有原始登录 HAR；SSO 登录页结构、验证码配置与错误文案来自参考 B 与登录审计文档。若学校更新页面，需重新提供登录 HAR。
+- 验证码只处理图片类型；若上游改成滑块、点选或第三方验证码，三阶段不实现。
+- 参考 B 会在一处密码过期/安全风险页面提交 `_eventId=ignoreAndContinue` 跳过；三阶段已确认中止并提示用户处理，不自动跳过。
+- byxt Cookie 依赖跟随 `byxt → SSO → byxt` 的票据链；参考 B 不额外访问 byxt 首页，真实联调若拿不到 Cookie，需补一次首页访问。
 - 博雅“仅 `auth_token` 可用”尚未被 HAR 最终证明：`private/har/sscv` 的 `cookies` 为空且无 `cookie` 头，但 Cookie 未导出；若真实请求返回认证失效，需重新评估是否增加可选 Cookie 字段。
 - 博雅响应是加密的；HAR 无法离线解密响应体，课程字段与状态判定来自参考 B 的模型、业务代码与测试，真实响应需联调验证。
 - 博雅 `Referer` 在 HAR 中随页面变化（`/system/home`、`/system/course-mine`），参考 B 固定为 `/system/course-select`；实现按固定值，若上游拒绝再调整。
@@ -548,3 +773,4 @@ MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDlHMQ3B5GsWnCe7Nlo1YiG/YmHdlOiKOST5aRm4iaq
 - 考试接口日期/时间的实际字符串格式（参考 B 未固定，代码按多格式兼容）。
 - 研究生 GSMIS 课表不在本期范围。
 - 博雅选课/退课/签到、阳光打卡/上传、SPOC 提交/附件下载均不在本期范围。
+- WebVPN、注册/找回密码/修改密码、验证码识别不在本期范围。

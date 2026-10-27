@@ -138,11 +138,19 @@ function handleKeydown(event: KeyboardEvent): void {
 
 <template>
   <Teleport to="body">
-    <div
-      v-if="open"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm"
-      @click.self="emit('close')"
+    <Transition
+      enter-active-class="transition duration-150 ease-out"
+      enter-from-class="opacity-0"
+      enter-to-class="opacity-100"
+      leave-active-class="transition duration-100 ease-in"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
     >
+      <div
+        v-if="open"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm"
+        @click.self="emit('close')"
+      >
       <section
         role="dialog"
         aria-modal="true"
@@ -243,6 +251,7 @@ function handleKeydown(event: KeyboardEvent): void {
           </button>
         </footer>
       </section>
-    </div>
+      </div>
+    </Transition>
   </Teleport>
 </template>

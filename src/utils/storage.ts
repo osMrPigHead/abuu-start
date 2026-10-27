@@ -17,6 +17,8 @@ export const STORAGE_KEYS = {
   pomodoroSettings: 'buaa-start.pomodoro.settings.v1',
   pomodoroNotifications: 'buaa-start.pomodoro.notifications.v1',
   scheduleHighlightLeadMinutes: 'buaa-start.schedule.highlightLeadMinutes.v1',
+  homeCards: 'buaa-start.home.cards.v1',
+  homeDisplay: 'buaa-start.home.display.v1',
 } as const
 
 const CACHE_PREFIX = 'buaa-start.cache.'

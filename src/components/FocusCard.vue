@@ -210,7 +210,7 @@ function parseInteger(value: string | number): number {
       <button type="submit" :class="[actionClass, 'w-full']">开始</button>
     </form>
 
-    <div v-else class="flex min-h-0 flex-1 flex-col items-center justify-between gap-1.5">
+    <div v-else class="flex min-h-0 flex-1 flex-col items-center justify-between gap-1">
       <p class="text-center text-[10.5px] leading-tight tracking-wide text-white/55">
         {{ phaseLabel }}
       </p>

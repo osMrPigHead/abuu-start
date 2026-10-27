@@ -1,5 +1,7 @@
 # 航启主页 / BUAA-Start TRD
 
+> 三阶段变更：统一登录、中继加密凭据、背景目录、主页显示开关与卡片开关以 [trd-phase3.md](trd-phase3.md) 为准。本文第 1 节“凭据随请求头发送”的机制自三阶段起不再适用。
+
 ## 1. 技术路线
 
 - 前端：Vue 3 Composition API + `<script setup lang="ts">`，TypeScript strict，Vite，Tailwind CSS，Vue Router 4。

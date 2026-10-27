@@ -1,13 +1,19 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import BackHomeLink from '@/components/BackHomeLink.vue'
 import {
   useCredentials,
   type CredentialStatus,
   type RelayStatus,
 } from '@/composables/useCredentials'
+import { useBackground } from '@/composables/useBackground'
 import { useBykc } from '@/composables/useBykc'
 import { useExams } from '@/composables/useExams'
+import {
+  HOME_CARD_OPTIONS,
+  useHomeCards,
+  type HomeCardId,
+} from '@/composables/useHomeCards'
 import { useSchedule } from '@/composables/useSchedule'
 import { usePomodoro } from '@/composables/usePomodoro'
 import { useSpoc } from '@/composables/useSpoc'
@@ -65,6 +71,14 @@ const { clearSpocData } = useSpoc()
 const { clearBykcData } = useBykc()
 const { state: ygdkState, refresh: refreshYgdk, clearYgdkData } = useYgdk()
 const { highlightLeadMinutes, setHighlightLeadMinutes } = useScheduleSettings()
+const { visibility: homeCardVisibility, setVisible: setHomeCardVisible } = useHomeCards()
+const {
+  state: backgroundState,
+  hydrate: hydrateBackground,
+  saveDirectory: saveBackgroundDirectory,
+  clearDirectory: clearBackgroundDirectory,
+  rescan: rescanBackground,
+} = useBackground()
 const {
   termTarget: ygdkUserTermTarget,
   weekTarget: ygdkUserWeekTarget,
@@ -95,6 +109,8 @@ const cacheMessage = ref('')
 const degraded = ref(false)
 const leadDraft = ref(String(highlightLeadMinutes.value))
 const leadMessage = ref('')
+const homeCardMessage = ref('')
+const backgroundPathDraft = ref('')
 const ygdkTermDraft = ref(String(ygdkUserTermTarget.value))
 const ygdkWeekDraft = ref(String(ygdkUserWeekTarget.value))
 const ygdkTargetMessage = ref('')
@@ -138,12 +154,62 @@ const pomodoroPermissionText = computed(() => {
   }
 })
 
+const backgroundBusy = computed(() => backgroundState.busy !== null)
+const backgroundStatusText = computed(() => {
+  if (!backgroundState.configured) return '内置背景'
+  if (backgroundState.images.length === 0) {
+    return backgroundState.warning?.includes('没有可用图片') ? '无可用图片' : '目录异常'
+  }
+  return `已配置 · ${backgroundState.images.length} 张`
+})
+const backgroundStatusClass = computed(() => {
+  if (backgroundState.configured && backgroundState.images.length > 0) {
+    return 'border-emerald-300/25 bg-emerald-300/10 text-emerald-100/85'
+  }
+  if (backgroundState.configured) {
+    return 'border-amber-300/25 bg-amber-300/10 text-amber-100/85'
+  }
+  return 'border-white/15 bg-white/[0.04] text-white/45'
+})
+const backgroundCurrentImage = computed(() =>
+  backgroundState.selectedName !== null && !backgroundState.fallback
+    ? backgroundState.selectedName
+    : '内置背景',
+)
+const backgroundCanSave = computed(
+  () => backgroundPathDraft.value.trim().length > 0 && !backgroundBusy.value,
+)
+const backgroundCanRescan = computed(
+  () => backgroundState.configured && !backgroundBusy.value,
+)
+const backgroundCanClear = computed(
+  () => backgroundState.configured && !backgroundBusy.value,
+)
+const backgroundSaveText = computed(() =>
+  backgroundState.busy === 'save' ? '保存中' : '保存',
+)
+const backgroundRescanText = computed(() =>
+  backgroundState.busy === 'rescan' ? '扫描中' : '重新扫描',
+)
+const backgroundClearText = computed(() =>
+  backgroundState.busy === 'clear' ? '清除中' : '清除',
+)
+
+watch(
+  () => backgroundState.directory,
+  (directory) => {
+    backgroundPathDraft.value = directory ?? ''
+  },
+  { immediate: true },
+)
+
 onMounted(() => {
   degraded.value = isStorageDegraded()
   void checkRelay()
   // 学期目标可能由系统值覆盖，设置页需要当前概览才能显示“当前生效”。
   void refreshYgdk()
   refreshPomodoroNotificationPermission()
+  void hydrateBackground()
 })
 
 async function saveCookie(): Promise<void> {
@@ -323,6 +389,33 @@ function saveLead(): void {
 
 async function togglePomodoroNotifications(): Promise<void> {
   await setPomodoroNotificationsEnabled(!pomodoroNotificationsEnabled.value)
+}
+
+/** 主页卡片开关立即生效并持久化，无保存按钮，见 docs/ui-lowfi.md 设置。 */
+function toggleHomeCard(id: HomeCardId): void {
+  const stored = setHomeCardVisible(id, !homeCardVisibility[id])
+  homeCardMessage.value = stored
+    ? '已保存，立即生效'
+    : '已保存到本次会话，但本地存储不可用'
+}
+
+async function saveBackground(): Promise<void> {
+  if (!backgroundCanSave.value) return
+
+  const saved = await saveBackgroundDirectory(backgroundPathDraft.value)
+  if (saved) backgroundPathDraft.value = backgroundState.directory ?? ''
+}
+
+async function rescanBackgroundFiles(): Promise<void> {
+  if (!backgroundCanRescan.value) return
+
+  const scanned = await rescanBackground()
+  if (scanned) backgroundPathDraft.value = backgroundState.directory ?? ''
+}
+
+async function clearBackground(): Promise<void> {
+  if (!backgroundCanClear.value) return
+  await clearBackgroundDirectory()
 }
 
 function credentialStatusText(status: CredentialStatus): string {
@@ -809,6 +902,155 @@ const fieldClass =
             进行中
           </span>
         </div>
+      </section>
+
+      <section
+        class="mt-4 rounded-3xl border border-white/12 bg-slate-950/35 p-6 shadow-[0_24px_70px_-36px_rgba(0,0,0,0.95)] backdrop-blur-md"
+      >
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h2 class="text-base font-medium text-white/90">主页卡片</h2>
+            <p class="mt-1 text-xs leading-relaxed text-white/45">
+              关闭后主页不显示该卡片，并停止请求对应数据源；重新开启后按缓存优先刷新。
+            </p>
+          </div>
+          <span
+            class="shrink-0 rounded-full border border-white/15 bg-white/[0.04] px-2.5 py-1 text-[11px] text-white/45"
+          >
+            默认全部开启
+          </span>
+        </div>
+
+        <div class="mt-2">
+          <div
+            v-for="option in HOME_CARD_OPTIONS"
+            :key="option.id"
+            class="flex items-center justify-between gap-4 border-b border-white/10 py-3 last:border-b-0"
+          >
+            <div class="min-w-0">
+              <p class="text-sm text-white/80">{{ option.title }}</p>
+              <p class="mt-1 text-xs leading-relaxed text-white/45">{{ option.hint }}</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              :aria-checked="homeCardVisibility[option.id]"
+              :aria-label="`${option.title}卡片开关`"
+              class="relative h-6 w-11 shrink-0 rounded-full border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40"
+              :class="
+                homeCardVisibility[option.id]
+                  ? 'border-sky-300/40 bg-sky-300/25'
+                  : 'border-white/20 bg-white/10'
+              "
+              @click="toggleHomeCard(option.id)"
+            >
+              <span
+                class="absolute top-1 h-4 w-4 rounded-full bg-white transition-all"
+                :class="homeCardVisibility[option.id] ? 'left-6' : 'left-0.5'"
+              ></span>
+            </button>
+          </div>
+        </div>
+
+        <p v-if="homeCardMessage" class="mt-2 text-xs text-white/55" aria-live="polite">
+          {{ homeCardMessage }}
+        </p>
+      </section>
+
+      <section
+        class="mt-4 rounded-3xl border border-white/12 bg-slate-950/35 p-6 shadow-[0_24px_70px_-36px_rgba(0,0,0,0.95)] backdrop-blur-md"
+      >
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h2 class="text-base font-medium text-white/90">背景</h2>
+            <p class="mt-1 text-xs leading-relaxed text-white/45">
+              从本机目录第一层随机取一张图片，支持 jpg、jpeg、png、webp、gif、bmp、avif；图片不复制进仓库。
+            </p>
+          </div>
+          <span
+            class="shrink-0 rounded-full border px-2.5 py-1 text-[11px]"
+            :class="backgroundStatusClass"
+          >
+            {{ backgroundStatusText }}
+          </span>
+        </div>
+
+        <div class="mt-4">
+          <input
+            v-model="backgroundPathDraft"
+            :class="[fieldClass, 'h-11 px-4 font-mono text-[12px]']"
+            placeholder="D:\Pictures\wallpapers"
+            aria-label="背景目录绝对路径"
+            autocomplete="off"
+            spellcheck="false"
+            @keydown.enter="saveBackground"
+          >
+        </div>
+
+        <div class="mt-4 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            :class="buttonClass"
+            :disabled="!backgroundCanSave"
+            @click="saveBackground"
+          >
+            {{ backgroundSaveText }}
+          </button>
+          <button
+            type="button"
+            :class="buttonClass"
+            :disabled="!backgroundCanRescan"
+            @click="rescanBackgroundFiles"
+          >
+            {{ backgroundRescanText }}
+          </button>
+          <button
+            type="button"
+            :class="dangerButtonClass"
+            :disabled="!backgroundCanClear"
+            @click="clearBackground"
+          >
+            {{ backgroundClearText }}
+          </button>
+        </div>
+
+        <div class="mt-3 space-y-1">
+          <p class="flex min-w-0 items-center gap-1 text-xs text-white/40">
+            <span class="shrink-0">当前目录：</span>
+            <span
+              class="truncate font-mono text-white/60"
+              :title="backgroundState.directory ?? ''"
+            >
+              {{ backgroundState.directory ?? '未配置，使用内置背景' }}
+            </span>
+          </p>
+          <p class="flex min-w-0 items-center gap-1 text-xs text-white/40">
+            <span class="shrink-0">当前背景：</span>
+            <span class="truncate font-mono text-white/60" :title="backgroundCurrentImage">
+              {{ backgroundCurrentImage }}
+            </span>
+          </p>
+        </div>
+
+        <p
+          v-if="backgroundState.warning"
+          class="mt-2 text-xs leading-relaxed text-amber-100/75"
+          aria-live="polite"
+        >
+          {{ backgroundState.warning }}
+        </p>
+        <p
+          v-if="backgroundState.message"
+          class="mt-2 text-xs"
+          :class="
+            backgroundState.messageKind === 'error'
+              ? 'text-amber-100/75'
+              : 'text-white/55'
+          "
+          aria-live="polite"
+        >
+          {{ backgroundState.message }}
+        </p>
       </section>
 
       <section
