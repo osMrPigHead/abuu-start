@@ -23,7 +23,7 @@
 - 专注：可以自定义时间的番茄钟，有谁不想看着自推美图写作业呢？
 - 阳光打卡：学期和当周打卡次数统计，告别电脑前久坐，远离痔疮（x
 
-![背景图模式](preview-head.png)![专注](preview-focus.png)![日程页](preview-schedule.png)![博雅课程广场](preview-byxk.png)![高自由度的书签](preview-shortcut.png)
+![背景图模式](readme-images/preview-head.png)![专注](readme-images/preview-focus.png)![日程页](readme-images/preview-schedule.png)![博雅课程广场](readme-images/preview-byxk.png)![高自由度的书签](readme-images/preview-shortcut.png)
 
 ## 技术方案
 
