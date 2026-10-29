@@ -1,0 +1,189 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="第 1 页" id="aKTHj5pXyO_HYe_eTGda">
+    <mxGraphModel dx="2274" dy="2156" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-4" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" value="浏览器localStorage" vertex="1">
+          <mxGeometry height="112.5" width="100" x="-140" y="-1037.5" as="geometry" />
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-12" parent="1" style="swimlane;horizontal=0;whiteSpace=wrap;html=1;" value="前端" vertex="1">
+          <mxGeometry height="155" width="560" x="-780" y="-1080" as="geometry">
+            <mxRectangle height="50" width="40" x="60" y="120" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-2" parent="UYRSxyziS_bpQJ9hP5Vf-12" style="rounded=0;whiteSpace=wrap;html=1;" value="其他非北航系统功能" vertex="1">
+          <mxGeometry height="40" width="130" x="410" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-17" parent="UYRSxyziS_bpQJ9hP5Vf-12" style="rounded=0;whiteSpace=wrap;html=1;" value="壁纸功能" vertex="1">
+          <mxGeometry height="40" width="80" x="300" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-72" edge="1" parent="UYRSxyziS_bpQJ9hP5Vf-12" source="UYRSxyziS_bpQJ9hP5Vf-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.25;exitDx=0;exitDy=0;defaultLabelBackgroundColor=page;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="640" y="80.2222222222224" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-73" connectable="0" parent="UYRSxyziS_bpQJ9hP5Vf-72" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];inheritText=1;defaultLabelBackgroundColor=page;" value="信息缓存" vertex="1">
+          <mxGeometry relative="1" x="0.7961" as="geometry">
+            <mxPoint x="1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-1" parent="UYRSxyziS_bpQJ9hP5Vf-12" style="rounded=0;whiteSpace=wrap;html=1;" value="信息功能" vertex="1">
+          <mxGeometry height="80" width="80" x="60" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-9" parent="UYRSxyziS_bpQJ9hP5Vf-12" style="rounded=0;whiteSpace=wrap;html=1;" value="认证功能" vertex="1">
+          <mxGeometry height="40" width="80" x="170" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-10" parent="UYRSxyziS_bpQJ9hP5Vf-12" style="swimlane;whiteSpace=wrap;html=1;" value="北航系统功能" vertex="1">
+          <mxGeometry height="127.5" width="220" x="50" y="20" as="geometry">
+            <mxRectangle height="30" width="110" x="40" y="7.5" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-13" parent="1" style="swimlane;horizontal=0;whiteSpace=wrap;html=1;" value="后端中继" vertex="1">
+          <mxGeometry height="210" width="410" x="-780" y="-880" as="geometry" />
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-76" edge="1" parent="UYRSxyziS_bpQJ9hP5Vf-13" source="UYRSxyziS_bpQJ9hP5Vf-30" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;defaultLabelBackgroundColor=page;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="89.91907514450872" y="-60.00000000000023" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-77" connectable="0" parent="UYRSxyziS_bpQJ9hP5Vf-76" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];inheritText=1;defaultLabelBackgroundColor=page;" value="信息" vertex="1">
+          <mxGeometry relative="1" x="0.0487" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-30" parent="UYRSxyziS_bpQJ9hP5Vf-13" style="rounded=0;whiteSpace=wrap;html=1;" value="信息服务" vertex="1">
+          <mxGeometry height="40" width="80" x="50" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-14" parent="UYRSxyziS_bpQJ9hP5Vf-13" style="swimlane;whiteSpace=wrap;html=1;" value="认证服务" vertex="1">
+          <mxGeometry height="170" width="120" x="150" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-11" parent="UYRSxyziS_bpQJ9hP5Vf-14" style="rounded=0;whiteSpace=wrap;html=1;" value="认证 API" vertex="1">
+          <mxGeometry height="40" width="80" x="20" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-53" edge="1" parent="UYRSxyziS_bpQJ9hP5Vf-14" source="UYRSxyziS_bpQJ9hP5Vf-15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;defaultLabelBackgroundColor=page;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="-60" y="130.1730769230769" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-55" connectable="0" parent="UYRSxyziS_bpQJ9hP5Vf-53" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];inheritText=1;defaultLabelBackgroundColor=page;" value="凭据" vertex="1">
+          <mxGeometry relative="1" x="0.1251" y="-1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-15" parent="UYRSxyziS_bpQJ9hP5Vf-14" style="rounded=0;whiteSpace=wrap;html=1;" value="凭据派生" vertex="1">
+          <mxGeometry height="40" width="80" x="20" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-32" parent="UYRSxyziS_bpQJ9hP5Vf-13" style="rounded=0;whiteSpace=wrap;html=1;" value="壁纸服务" vertex="1">
+          <mxGeometry height="40" width="80" x="300" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-16" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" value="本地加密文件" vertex="1">
+          <mxGeometry height="70" width="100" x="-140" y="-765" as="geometry" />
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-21" parent="1" style="swimlane;horizontal=0;whiteSpace=wrap;html=1;" value="北航系统" vertex="1">
+          <mxGeometry height="60" width="340" x="-780" y="-600" as="geometry" />
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-23" parent="UYRSxyziS_bpQJ9hP5Vf-21" style="rounded=0;whiteSpace=wrap;html=1;" value="其他各系统" vertex="1">
+          <mxGeometry height="40" width="160" x="50" y="10" as="geometry" />
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-22" parent="UYRSxyziS_bpQJ9hP5Vf-21" style="rounded=0;whiteSpace=wrap;html=1;" value="SSO" vertex="1">
+          <mxGeometry height="40" width="80" x="240" y="10" as="geometry" />
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-29" edge="1" parent="1" source="UYRSxyziS_bpQJ9hP5Vf-15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;defaultLabelBackgroundColor=page;startArrow=classic;startFill=1;" target="UYRSxyziS_bpQJ9hP5Vf-16">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-43" connectable="0" parent="UYRSxyziS_bpQJ9hP5Vf-29" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];inheritText=1;defaultLabelBackgroundColor=page;" value="用户凭据" vertex="1">
+          <mxGeometry relative="1" x="-0.0485" as="geometry">
+            <mxPoint x="4" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-31" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" value="本地配置文件" vertex="1">
+          <mxGeometry height="70" width="100" x="-140" y="-850" as="geometry" />
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-34" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" value="壁纸目录" vertex="1">
+          <mxGeometry height="70" width="100" x="-140" y="-890" as="geometry" />
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-36" edge="1" parent="1" source="UYRSxyziS_bpQJ9hP5Vf-32" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=-0.003;entryY=0.579;entryDx=0;entryDy=0;entryPerimeter=0;defaultLabelBackgroundColor=page;startArrow=classic;startFill=1;" target="UYRSxyziS_bpQJ9hP5Vf-31">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-44" connectable="0" parent="UYRSxyziS_bpQJ9hP5Vf-36" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];inheritText=1;defaultLabelBackgroundColor=page;" value="壁纸配置" vertex="1">
+          <mxGeometry relative="1" x="-0.5179" as="geometry">
+            <mxPoint x="-8" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-38" edge="1" parent="1" source="UYRSxyziS_bpQJ9hP5Vf-32" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=-0.009;entryY=0.573;entryDx=0;entryDy=0;entryPerimeter=0;defaultLabelBackgroundColor=page;endArrow=none;endFill=0;startArrow=classic;startFill=1;" target="UYRSxyziS_bpQJ9hP5Vf-34">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-45" connectable="0" parent="UYRSxyziS_bpQJ9hP5Vf-38" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];inheritText=1;defaultLabelBackgroundColor=page;" value="图片资源" vertex="1">
+          <mxGeometry relative="1" x="-0.5192" y="3" as="geometry">
+            <mxPoint x="-2" y="3" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-40" edge="1" parent="1" source="UYRSxyziS_bpQJ9hP5Vf-32" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;defaultLabelBackgroundColor=page;startArrow=classic;startFill=1;" target="UYRSxyziS_bpQJ9hP5Vf-17" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-62" connectable="0" parent="UYRSxyziS_bpQJ9hP5Vf-40" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];inheritText=1;defaultLabelBackgroundColor=page;" value="图片资源&lt;div&gt;壁纸配置&lt;/div&gt;" vertex="1">
+          <mxGeometry relative="1" x="0.1213" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-46" edge="1" parent="1" source="UYRSxyziS_bpQJ9hP5Vf-22" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.75;exitY=0;exitDx=0;exitDy=0;entryX=0.75;entryY=1;entryDx=0;entryDy=0;defaultLabelBackgroundColor=page;startArrow=classic;startFill=1;" target="UYRSxyziS_bpQJ9hP5Vf-15">
+          <mxGeometry relative="1" x="-0.1429" as="geometry">
+            <Array as="points">
+              <mxPoint x="-480" y="-620" />
+              <mxPoint x="-550" y="-620" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-47" connectable="0" parent="UYRSxyziS_bpQJ9hP5Vf-46" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];inheritText=1;defaultLabelBackgroundColor=page;" value="认证信息" vertex="1">
+          <mxGeometry relative="1" x="0.0457" y="-1" as="geometry">
+            <mxPoint x="29" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-48" edge="1" parent="1" source="UYRSxyziS_bpQJ9hP5Vf-23" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.75;exitY=0;exitDx=0;exitDy=0;entryX=0.25;entryY=1;entryDx=0;entryDy=0;defaultLabelBackgroundColor=page;" target="UYRSxyziS_bpQJ9hP5Vf-15">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-610" y="-620" />
+              <mxPoint x="-590" y="-620" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-49" connectable="0" parent="UYRSxyziS_bpQJ9hP5Vf-48" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];inheritText=1;defaultLabelBackgroundColor=page;" value="派生凭据" vertex="1">
+          <mxGeometry relative="1" x="-0.0482" as="geometry">
+            <mxPoint x="-10" y="17" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-50" edge="1" parent="1" source="UYRSxyziS_bpQJ9hP5Vf-23" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.25;exitY=0;exitDx=0;exitDy=0;defaultLabelBackgroundColor=page;" target="UYRSxyziS_bpQJ9hP5Vf-30">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-52" connectable="0" parent="UYRSxyziS_bpQJ9hP5Vf-50" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];inheritText=1;defaultLabelBackgroundColor=page;" value="信息" vertex="1">
+          <mxGeometry relative="1" x="-0.4878" y="1" as="geometry">
+            <mxPoint y="29" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-64" edge="1" parent="1" style="endArrow=none;dashed=1;html=1;dashPattern=1 2;strokeWidth=2;rounded=0;defaultLabelBackgroundColor=page;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="-800" y="-650" as="sourcePoint" />
+            <mxPoint x="-40" y="-650" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-69" edge="1" parent="1" source="UYRSxyziS_bpQJ9hP5Vf-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=-0.028;entryY=0.684;entryDx=0;entryDy=0;entryPerimeter=0;defaultLabelBackgroundColor=page;startArrow=classic;startFill=1;" target="UYRSxyziS_bpQJ9hP5Vf-4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-70" connectable="0" parent="UYRSxyziS_bpQJ9hP5Vf-69" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];inheritText=1;defaultLabelBackgroundColor=page;" value="配置信息" vertex="1">
+          <mxGeometry relative="1" x="-0.1107" as="geometry">
+            <mxPoint x="7" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-74" edge="1" parent="1" source="UYRSxyziS_bpQJ9hP5Vf-11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;defaultLabelBackgroundColor=page;startArrow=classic;startFill=1;endArrow=none;endFill=0;" target="UYRSxyziS_bpQJ9hP5Vf-9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="UYRSxyziS_bpQJ9hP5Vf-78" connectable="0" parent="UYRSxyziS_bpQJ9hP5Vf-74" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];inheritText=1;defaultLabelBackgroundColor=page;" value="认证信息" vertex="1">
+          <mxGeometry relative="1" x="0.4277" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
