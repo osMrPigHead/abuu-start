@@ -13,6 +13,8 @@
 
 该项目尚处早期阶段，部分功能尚不成熟或有待完善，暂不提供预编译版本。
 
+项目主页：[点这里](https://osmrpighead.github.io/abuu-start)
+
 ## 核心功能
 
 - 随机壁纸：支持自选壁纸目录，打开浏览器就能看到自推各式美图多是一件美事啊哈哈哈哈哈）
@@ -41,6 +43,11 @@ npm run dev
 
 1. 整理文档及源码：减少 AI 率，提高可维护性
 2. 提供浏览器插件与本地代理的稳定版
+
+## LICENSE
+
+- 本项目采用 MIT License 开源，部分基于 [BUAASubnet/UBAA](https://github.com/BUAASubnet/UBAA) (MIT License) 开发
+- [项目主页](slides/) 使用 [reveal.js](https://reveal.js/) (MIT License) 构建，使用了 [TonyCrane/slides-template](https://github.com/TonyCrane/slide-template) 作为模板。该模板仓库未包含 LICENSE 文件。模板相关权利归原作者所有，本作品仅用于个人课程项目展示，不将模板部分纳入本仓库根目录 MIT License 的授权范围。如原作者认为使用不当，请联系我删除或调整。
 
 ## 碎碎念：为什么会有这个项目
 
