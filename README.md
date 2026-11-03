@@ -36,6 +36,7 @@
 ```bash
 npm run dev     # 开发：Vite + 中继，127.0.0.1:5173
 npm run build   # 构建前端
+npm test        # 运行测试
 npm start       # 生产：Express 同源提供 dist 与 /api，127.0.0.1:3000
 ```
 
