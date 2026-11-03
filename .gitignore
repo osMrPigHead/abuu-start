@@ -2,6 +2,7 @@ private
 .obsidian
 *.tmp
 _site
+.eslintcache
 
 # Logs
 logs

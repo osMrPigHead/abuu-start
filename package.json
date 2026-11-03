@@ -18,7 +18,7 @@
     "lint:fix": "eslint . --fix --cache",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "npm-run-all --parallel lint type-check test"
+    "check": "npx npm-run-all --parallel lint type-check test"
   },
   "dependencies": {
     "express": "^5.3.0",
