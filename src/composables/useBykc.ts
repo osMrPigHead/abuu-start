@@ -9,13 +9,15 @@ import {
 } from '@/api/bykc'
 import { isAuthBlocked, markSourceExpired } from '@/composables/useAuth'
 import type {
-  BykcChosenCache,
   BykcChosenCourse,
   BykcChosenTerm,
   BykcCourse,
-  BykcCourseCache,
   BykcCourseDetail,
   BykcCourseStatus,
+} from '@shared/api'
+import type {
+  BykcChosenCache,
+  BykcCourseCache,
   BykcCoursesCache,
   SourceStatus,
 } from '@/types'

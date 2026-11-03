@@ -2,7 +2,11 @@
 /** 统一登录区的四源状态行，见 docs/ui-lowfi.md 设置。 */
 import { computed, ref, watch } from 'vue'
 import { AUTH_SOURCE_LABELS, AUTH_SOURCE_ORDER } from '@/composables/useAuth'
-import type { AuthSourceId, AuthSources, AuthSourceState } from '@/types'
+import type {
+  AuthSourceId,
+  AuthSources,
+  AuthSourceState,
+} from '@shared/auth'
 import { formatStamp } from '@/utils/date'
 
 const props = defineProps<{

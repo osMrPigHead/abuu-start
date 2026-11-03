@@ -2,7 +2,8 @@
 import { computed } from 'vue'
 import CourseBlock from '@/components/CourseBlock.vue'
 import { useHorizontalWheelScroll } from '@/composables/useHorizontalWheelScroll'
-import type { Course, SectionTime } from '@/types'
+import type { SectionTime } from '@shared/api'
+import type { Course } from '@/types'
 import { formatDayNumber, weekdayCn } from '@/utils/date'
 import {
   courseHighlightState,

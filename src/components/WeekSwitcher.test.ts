@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
 import WeekSwitcher from '@/components/WeekSwitcher.vue'
-import type { Week } from '@/types'
+import type { Week } from '@shared/api'
 
 const weeks: Week[] = [
   { serialNumber: 1, name: '第1周', startDate: '', endDate: '', curWeek: false },

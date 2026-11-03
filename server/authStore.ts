@@ -6,20 +6,22 @@ import type { FileHandle } from 'node:fs/promises'
 import { chmod, mkdir, open, readFile, rename, unlink } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { decryptCredentials, encryptCredentials, generateKey, isValidKey } from './authCrypto.ts'
-import {
-  emptySourceState,
-  SOURCE_IDS,
-  type CredentialEnvelope,
-  type CredentialFile,
-  type SourceId,
-  type SourceStatus,
-  type StoredCookie,
+import type {
+  CredentialEnvelope,
+  CredentialFile,
+  StoredCookie,
 } from './authTypes.ts'
+import {
+  AUTH_SOURCE_IDS,
+  emptyAuthSourceState,
+  type AuthSourceId,
+  type AuthSourceStatus,
+} from '../shared/auth.ts'
 import { appDataDirectory } from './settingsStore.ts'
 
 const ENCRYPTED_FILE = 'credentials.enc'
 const KEY_FILE = 'credentials.key'
-const SOURCE_STATUSES: readonly SourceStatus[] = [
+const SOURCE_STATUSES: readonly AuthSourceStatus[] = [
   'unconfigured',
   'pending',
   'ready',
@@ -254,16 +256,16 @@ function normalizeYgdk(value: unknown): CredentialFile['ygdk'] {
 
 function normalizeSources(value: Record<string, unknown>): CredentialFile['sources'] {
   const sources = {} as CredentialFile['sources']
-  for (const source of SOURCE_IDS) {
+  for (const source of AUTH_SOURCE_IDS) {
     const raw = value[source]
     if (!isRecord(raw)) {
       sources[source] = { status: 'unconfigured', updatedAt: null }
       continue
     }
 
-    const status = SOURCE_STATUSES.includes(raw.status as SourceStatus)
-      ? (raw.status as SourceStatus)
-      : emptySourceState().status
+    const status = SOURCE_STATUSES.includes(raw.status as AuthSourceStatus)
+      ? (raw.status as AuthSourceStatus)
+      : emptyAuthSourceState().status
     sources[source] = {
       status,
       updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : null,
@@ -284,7 +286,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-/** 仅用于类型收敛：sources 键必须来自 SOURCE_IDS。 */
-export function isSourceKey(value: string): value is SourceId {
-  return (SOURCE_IDS as readonly string[]).includes(value)
+/** 仅用于类型收敛：sources 键必须来自 AUTH_SOURCE_IDS。 */
+export function isSourceKey(value: string): value is AuthSourceId {
+  return (AUTH_SOURCE_IDS as readonly string[]).includes(value)
 }

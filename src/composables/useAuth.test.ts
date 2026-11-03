@@ -4,7 +4,7 @@ import type {
   AuthPreloadResponse,
   AuthSourceState,
   AuthStatusResponse,
-} from '@/types'
+} from '@shared/auth'
 
 vi.mock('@/api/auth', () => ({
   fetchAuthStatus: vi.fn(),

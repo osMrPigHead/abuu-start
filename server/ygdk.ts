@@ -8,7 +8,7 @@
 import { ygdkCredentials as sessionYgdkCredentials } from './authSession.ts'
 import { RelayError } from './errors.ts'
 import { fetchUpstream } from './http.ts'
-import type { YgdkOverview } from './types.ts'
+import type { YgdkOverview } from '../shared/api.ts'
 
 const BASE_URL = 'https://ygdk.buaa.edu.cn/api'
 const FORM_CONTENT_TYPE = 'application/x-www-form-urlencoded; charset=UTF-8'

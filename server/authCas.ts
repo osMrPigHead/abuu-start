@@ -4,7 +4,7 @@
  */
 import { RelayError } from './errors.ts'
 import { requestWithJar, type CookieJar } from './authHttp.ts'
-import type { AuthUser } from './authTypes.ts'
+import type { AuthUser } from '../shared/auth.ts'
 import { isTransientStatus } from './http.ts'
 
 export const SSO_LOGIN_URL = 'https://sso.buaa.edu.cn/login'

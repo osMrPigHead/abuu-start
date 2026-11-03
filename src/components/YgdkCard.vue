@@ -2,7 +2,8 @@
 import { computed } from 'vue'
 import CardStatusActions from '@/components/CardStatusActions.vue'
 import HomeCard from '@/components/HomeCard.vue'
-import type { SourceStatus, YgdkOverview } from '@/types'
+import type { YgdkOverview } from '@shared/api'
+import type { SourceStatus } from '@/types'
 import {
   canRetrySource,
   needsSettingsSource,

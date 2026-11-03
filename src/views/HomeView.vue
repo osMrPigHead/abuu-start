@@ -27,7 +27,10 @@ import { useSpoc, useSpocDetail } from '@/composables/useSpoc'
 import { useTodos } from '@/composables/useTodos'
 import { useYgdk } from '@/composables/useYgdk'
 import { useYgdkSettings } from '@/composables/useYgdkSettings'
-import type { Course, Shortcut } from '@/types'
+import type {
+  Course,
+  Shortcut,
+} from '@/types'
 import { bykcChosenCoursesOnDate } from '@/utils/bykc'
 import {
   addDays,

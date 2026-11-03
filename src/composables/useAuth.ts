@@ -12,15 +12,15 @@ import {
   type LoginRequest,
 } from '@/api/auth'
 import { ApiError } from '@/api/client'
+import { AUTH_SOURCE_IDS, emptyAuthSources } from '@shared/auth'
 import type {
   AuthLoginResponse,
   AuthPreloadResponse,
   AuthSourceId,
-  AuthSourceState,
   AuthSources,
   AuthStatusResponse,
   AuthUser,
-} from '@/types'
+} from '@shared/auth'
 
 export type AuthState = {
   authenticated: boolean
@@ -40,7 +40,7 @@ export type AuthState = {
   sources: AuthSources
 }
 
-export const AUTH_SOURCE_ORDER: readonly AuthSourceId[] = ['byxt', 'spoc', 'bykc', 'ygdk']
+export const AUTH_SOURCE_ORDER: readonly AuthSourceId[] = AUTH_SOURCE_IDS
 
 export const AUTH_SOURCE_LABELS: Record<AuthSourceId, string> = {
   byxt: '本研教育管理系统',
@@ -51,19 +51,6 @@ export const AUTH_SOURCE_LABELS: Record<AuthSourceId, string> = {
 
 const POLL_INTERVAL_MS = 1500
 const POLL_MAX_MS = 60_000
-
-function emptySource(): AuthSourceState {
-  return { status: 'unconfigured', updatedAt: null, error: null }
-}
-
-function emptySources(): AuthSources {
-  return {
-    byxt: emptySource(),
-    spoc: emptySource(),
-    bykc: emptySource(),
-    ygdk: emptySource(),
-  }
-}
 
 const state = reactive<AuthState>({
   authenticated: false,
@@ -80,7 +67,7 @@ const state = reactive<AuthState>({
   captchaRequired: false,
   captchaImage: null,
   alreadyLoggedIn: false,
-  sources: emptySources(),
+  sources: emptyAuthSources(),
 })
 
 /** loginId 只存内存，不写 localStorage。 */
@@ -336,7 +323,7 @@ function resetAuthState(): void {
   state.deriving = false
   state.checking = false
   state.checkFailed = false
-  state.sources = emptySources()
+  state.sources = emptyAuthSources()
   state.warning = ''
   resetLoginAttemptState()
   loginId = null

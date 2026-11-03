@@ -2,7 +2,10 @@
 /** 设置页统一登录区；props 输入、emits 输出，不直接请求或读写存储。 */
 import { computed, ref, watch } from 'vue'
 import { AUTH_SOURCE_ORDER } from '@/composables/useAuth'
-import type { AuthSources, AuthUser } from '@/types'
+import type {
+  AuthSources,
+  AuthUser,
+} from '@shared/auth'
 import { formatStamp } from '@/utils/date'
 
 const props = defineProps<{

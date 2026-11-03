@@ -3,7 +3,11 @@ import { reactive } from 'vue'
 import { ApiError } from '@/api/client'
 import { fetchYgdkOverview } from '@/api/ygdk'
 import { isAuthBlocked, markSourceExpired } from '@/composables/useAuth'
-import type { SourceStatus, YgdkOverview, YgdkOverviewCache } from '@/types'
+import type { YgdkOverview } from '@shared/api'
+import type {
+  SourceStatus,
+  YgdkOverviewCache,
+} from '@/types'
 import {
   clearYgdkCaches,
   readJson,

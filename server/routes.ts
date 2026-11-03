@@ -27,6 +27,7 @@ import {
 } from './relayHttp.ts'
 import { spocAssignmentDetail, spocAssignments, spocStatus } from './spoc.ts'
 import { ygdkOverview } from './ygdk.ts'
+import type { RelayHealthResponse } from '../shared/api.ts'
 
 /**
  * 只读白名单路由。
@@ -39,7 +40,7 @@ export function createApiRouter(): Router {
 
   router.use(apiBoundary())
 
-  router.get('/api/health', jsonRoute(() => ({ ok: true })))
+  router.get('/api/health', jsonRoute((): RelayHealthResponse => ({ ok: true })))
   router.get('/api/auth/status', jsonRoute(({ url }) =>
     getAuthStatus(url.searchParams.get('validate') === '1'),
   ))

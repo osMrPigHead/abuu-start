@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import type { Course, SectionTime, Week } from '@/types'
+import type {
+  SectionTime,
+  Week,
+} from '@shared/api'
+import type { Course } from '@/types'
 import {
   DEFAULT_SECTION_TIMES,
   buildWeekDays,

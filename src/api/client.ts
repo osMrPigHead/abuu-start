@@ -1,36 +1,11 @@
-import type { ApiErrorCode, ErrorEnvelope, RelayErrorCode } from '@/types'
+import { isRelayErrorCode } from '@shared/errors'
+import type { ErrorEnvelope } from '@shared/errors'
+import type { ApiErrorCode } from '@/types'
 
 type RequestOptions = {
   headers?: HeadersInit
   signal?: AbortSignal
 }
-
-const RELAY_ERROR_CODES: readonly RelayErrorCode[] = [
-  'NO_CREDENTIAL',
-  'AUTH_REQUIRED',
-  'INVALID_CREDENTIALS',
-  'CAPTCHA_REQUIRED',
-  'CAPTCHA_INVALID',
-  'PASSWORD_EXPIRED',
-  'AUTH_EXPIRED',
-  'LOGIN_IN_PROGRESS',
-  'SOURCE_UNKNOWN',
-  'SOURCE_BUSY',
-  'INVALID_REQUEST',
-  'INVALID_WEEK',
-  'INVALID_PAGE',
-  'INVALID_PATH',
-  'PATH_UNAVAILABLE',
-  'NOT_FOUND',
-  'METHOD_NOT_ALLOWED',
-  'FORBIDDEN_ORIGIN',
-  'UNSUPPORTED_MEDIA',
-  'PAYLOAD_TOO_LARGE',
-  'UPSTREAM_TIMEOUT',
-  'UPSTREAM_ERROR',
-  'BAD_RESPONSE',
-  'INTERNAL',
-]
 
 export class ApiError extends Error {
   readonly code: ApiErrorCode
@@ -159,8 +134,4 @@ function readErrorEnvelope(body: unknown): ErrorEnvelope | null {
   }
 
   return envelope
-}
-
-function isRelayErrorCode(value: string): value is RelayErrorCode {
-  return (RELAY_ERROR_CODES as readonly string[]).includes(value)
 }

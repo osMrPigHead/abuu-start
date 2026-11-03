@@ -24,25 +24,29 @@ import {
 } from './authDerive.ts'
 import { CookieJar, downloadWithJar, requestWithJar } from './authHttp.ts'
 import { deleteCredentials, loadCredentials, saveCredentials } from './authStore.ts'
-import {
-  emptySources,
-  isSourceId,
-  SOURCE_IDS,
-  type AuthLoginResponse,
-  type AuthLogoutResponse,
-  type AuthPreloadResponse,
-  type AuthSession,
-  type AuthSourceRetryResponse,
-  type AuthStatusResponse,
-  type BykcCredential,
-  type CredentialFile,
-  type LoginAttempt,
-  type SourceError,
-  type SourceId,
-  type SourceState,
-  type SpocCredential,
-  type YgdkCredential,
+import type {
+  AuthSession,
+  BykcCredential,
+  CredentialFile,
+  LoginAttempt,
+  SpocCredential,
+  YgdkCredential,
 } from './authTypes.ts'
+import {
+  AUTH_SOURCE_IDS,
+  emptyAuthSources,
+  isAuthSourceId,
+} from '../shared/auth.ts'
+import type {
+  AuthLoginResponse,
+  AuthLogoutResponse,
+  AuthPreloadResponse,
+  AuthSourceError,
+  AuthSourceId,
+  AuthSourceRetryResponse,
+  AuthSourceState,
+  AuthStatusResponse,
+} from '../shared/auth.ts'
 import { RelayError } from './errors.ts'
 
 const MAX_LOGIN_ATTEMPTS = 5
@@ -54,7 +58,7 @@ const TRANSIENT_COOLDOWN_MS = 30 * 1000
 const LOGIN_TIMEOUT_MS = 15_000
 const LOGOUT_TIMEOUT_MS = 5_000
 
-const SOURCE_LABELS: Record<SourceId, string> = {
+const SOURCE_LABELS: Record<AuthSourceId, string> = {
   byxt: '本研教育管理系统',
   spoc: 'SPOC',
   bykc: '博雅课程',
@@ -73,7 +77,7 @@ let lastReloginFailedAt = 0
 let lastReloginFailureReason: ReloginFailureReason | null = null
 const attempts = new Map<string, LoginAttempt>()
 /** 同一源并发派生时复用同一个 Promise，避免重复请求与状态互相覆盖。 */
-const derivePromises = new Map<SourceId, { gen: number; promise: Promise<boolean> }>()
+const derivePromises = new Map<AuthSourceId, { gen: number; promise: Promise<boolean> }>()
 
 type LoginInput = {
   loginId: string
@@ -106,7 +110,7 @@ export async function getAuthStatus(validate: boolean): Promise<AuthStatusRespon
       authenticatedAt: null,
       persisted: false,
       deriving: false,
-      sources: emptySources(),
+      sources: emptyAuthSources(),
     }
     if (startupWarning !== null) response.warning = startupWarning
     return response
@@ -216,7 +220,7 @@ export async function loginAuth(raw: unknown): Promise<AuthLoginResponse> {
 export async function retryAuthSource(sourceValue: string): Promise<AuthSourceRetryResponse> {
   await ensureAuthReady()
 
-  if (!isSourceId(sourceValue)) {
+  if (!isAuthSourceId(sourceValue)) {
     throw new RelayError('SOURCE_UNKNOWN', '未知数据源')
   }
 
@@ -269,7 +273,7 @@ export async function logoutAuth(): Promise<AuthLogoutResponse> {
 
 /** 业务请求的自动重登包装，见 docs/trd-phase3.md 3.5 / 6.4。 */
 export async function withSourceRetry<T>(
-  source: SourceId,
+  source: AuthSourceId,
   handler: () => Promise<T> | T,
 ): Promise<T> {
   await ensureAuthReady()
@@ -314,7 +318,7 @@ export async function withSourceRetry<T>(
 }
 
 /** 等待单个数据源派生完成；未轮到该源时短轮询，最长 20 秒。 */
-async function waitForSource(source: SourceId): Promise<void> {
+async function waitForSource(source: AuthSourceId): Promise<void> {
   if (!session || session.sources[source].status !== 'pending') return
 
   const inFlight = derivePromises.get(source)
@@ -440,7 +444,7 @@ async function performLogin(attempt: LoginAttempt, input: LoginInput): Promise<A
   persisted = await saveCurrentCredentials()
   previousJar?.clear()
 
-  void runDerivation(generation, SOURCE_IDS)
+  void runDerivation(generation, AUTH_SOURCE_IDS)
 
   const response: AuthLoginResponse = {
     authenticated: true,
@@ -528,7 +532,7 @@ async function validateCurrentSession(): Promise<void> {
   }
 
   startupWarning = '登录状态已失效，请重新登录'
-  for (const source of SOURCE_IDS) markSourceExpired(source)
+  for (const source of AUTH_SOURCE_IDS) markSourceExpired(source)
 }
 
 /* -------------------------------- 自动重登 -------------------------------- */
@@ -609,7 +613,7 @@ async function performAutoRelogin(current: AuthSession): Promise<ReloginResult> 
     sessionJar = nextJar
     startNewGeneration()
 
-    const stale = SOURCE_IDS.filter((source) => session?.sources[source].status !== 'ready')
+    const stale = AUTH_SOURCE_IDS.filter((source) => session?.sources[source].status !== 'ready')
     for (const source of stale) setSourceState(source, 'pending', null)
     persisted = await saveCurrentCredentials()
     void runDerivation(generation, stale)
@@ -635,14 +639,14 @@ function failRelogin(reason: ReloginFailureReason, error?: RelayError): ReloginR
 
 /* -------------------------------- 四源派生 -------------------------------- */
 
-async function runDerivation(gen: number, sources: readonly SourceId[]): Promise<void> {
+async function runDerivation(gen: number, sources: readonly AuthSourceId[]): Promise<void> {
   for (const source of sources) {
     if (gen !== generation) return
     await deriveOne(source, gen)
   }
 }
 
-function deriveOne(source: SourceId, gen: number): Promise<boolean> {
+function deriveOne(source: AuthSourceId, gen: number): Promise<boolean> {
   const existing = derivePromises.get(source)
   if (existing && existing.gen === gen) return existing.promise
 
@@ -654,7 +658,7 @@ function deriveOne(source: SourceId, gen: number): Promise<boolean> {
   return promise
 }
 
-async function runDerive(source: SourceId, gen: number): Promise<boolean> {
+async function runDerive(source: AuthSourceId, gen: number): Promise<boolean> {
   if (!session || !sessionJar) return false
 
   const targetJar = sessionJar
@@ -696,7 +700,7 @@ type DerivationResult =
   | { kind: 'bykc'; value: BykcCredential }
   | { kind: 'ygdk'; value: YgdkCredential }
 
-async function deriveSource(source: SourceId, jar: CookieJar): Promise<DerivationResult> {
+async function deriveSource(source: AuthSourceId, jar: CookieJar): Promise<DerivationResult> {
   switch (source) {
     case 'byxt':
       await deriveByxt(jar)
@@ -710,7 +714,7 @@ async function deriveSource(source: SourceId, jar: CookieJar): Promise<Derivatio
   }
 }
 
-function applyDerived(source: SourceId, result: DerivationResult): void {
+function applyDerived(source: AuthSourceId, result: DerivationResult): void {
   if (!session) return
 
   switch (source) {
@@ -753,8 +757,8 @@ async function restoreSession(): Promise<void> {
   const restoredJar = new CookieJar()
   restoredJar.load(cookies)
 
-  const sources = emptySources()
-  for (const source of SOURCE_IDS) {
+  const sources = emptyAuthSources()
+  for (const source of AUTH_SOURCE_IDS) {
     const stored = file.sources[source]
     if (stored.status === 'pending') {
       sources[source] = {
@@ -790,7 +794,7 @@ async function restoreSession(): Promise<void> {
 
 /* -------------------------------- 基础辅助 -------------------------------- */
 
-function markSourceExpired(source: SourceId): void {
+function markSourceExpired(source: AuthSourceId): void {
   setSourceState(source, 'expired', {
     code: 'AUTH_EXPIRED',
     message: '登录状态已失效，请重新登录',
@@ -805,7 +809,7 @@ function upstreamError(error: RelayError | undefined, fallback: string): RelayEr
   return new RelayError('UPSTREAM_ERROR', fallback)
 }
 
-function requireSourceReady(source: SourceId): AuthSession {
+function requireSourceReady(source: AuthSourceId): AuthSession {
   if (!session) throw new RelayError('AUTH_REQUIRED', '尚未登录')
 
   const state = session.sources[source]
@@ -830,7 +834,7 @@ function snapshot(): AuthStatusResponse {
     persisted,
     deriving:
       current !== null &&
-      SOURCE_IDS.some((source) => current.sources[source].status === 'pending'),
+      AUTH_SOURCE_IDS.some((source) => current.sources[source].status === 'pending'),
     sources: cloneSources(),
   }
 
@@ -838,11 +842,11 @@ function snapshot(): AuthStatusResponse {
   return response
 }
 
-function cloneSources(): Record<SourceId, SourceState> {
-  const sources = emptySources()
+function cloneSources(): Record<AuthSourceId, AuthSourceState> {
+  const sources = emptyAuthSources()
   if (!session) return sources
 
-  for (const source of SOURCE_IDS) {
+  for (const source of AUTH_SOURCE_IDS) {
     const state = session.sources[source]
     sources[source] = {
       status: state.status,
@@ -853,18 +857,18 @@ function cloneSources(): Record<SourceId, SourceState> {
   return sources
 }
 
-function pendingSources(): Record<SourceId, SourceState> {
-  const sources = emptySources()
-  for (const source of SOURCE_IDS) {
+function pendingSources(): Record<AuthSourceId, AuthSourceState> {
+  const sources = emptyAuthSources()
+  for (const source of AUTH_SOURCE_IDS) {
     sources[source] = { status: 'pending', updatedAt: null, error: null }
   }
   return sources
 }
 
 function setSourceState(
-  source: SourceId,
-  status: SourceState['status'],
-  error: SourceError | null,
+  source: AuthSourceId,
+  status: AuthSourceState['status'],
+  error: AuthSourceError | null,
 ): void {
   if (!session) return
   session.sources[source] = {
@@ -879,7 +883,7 @@ async function saveCurrentCredentials(): Promise<boolean> {
   if (sessionJar) session.cookies = sessionJar.serialize()
 
   const sources = {} as CredentialFile['sources']
-  for (const source of SOURCE_IDS) {
+  for (const source of AUTH_SOURCE_IDS) {
     const state = session.sources[source]
     sources[source] = { status: state.status, updatedAt: state.updatedAt }
   }

@@ -1,5 +1,9 @@
 /** 课表纯计算：节次/时间、周视图、今日明日与下一节课，见 docs/trd.md 7.2。 */
-import type { Course, SectionTime, Week } from '@/types'
+import type {
+  SectionTime,
+  Week,
+} from '@shared/api'
+import type { Course } from '@/types'
 import {
   addDays,
   formatDateKey,

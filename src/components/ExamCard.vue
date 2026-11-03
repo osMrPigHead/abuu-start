@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Exam } from '@/types'
+import type { Exam } from '@shared/api'
 import {
   formatExamCountdown,
   formatExamPlace,

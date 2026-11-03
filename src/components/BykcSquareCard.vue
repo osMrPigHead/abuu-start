@@ -4,7 +4,8 @@ import { RouterLink } from 'vue-router'
 import BykcCourseCard from '@/components/BykcCourseCard.vue'
 import CardStatusActions from '@/components/CardStatusActions.vue'
 import HomeCard from '@/components/HomeCard.vue'
-import type { BykcCourse, SourceStatus } from '@/types'
+import type { BykcCourse } from '@shared/api'
+import type { SourceStatus } from '@/types'
 import {
   canRetrySource,
   needsSettingsSource,

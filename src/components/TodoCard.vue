@@ -6,7 +6,11 @@ import HomeCard from '@/components/HomeCard.vue'
 import SpocTodoItem from '@/components/SpocTodoItem.vue'
 import TodoDialog from '@/components/TodoDialog.vue'
 import TodoItem from '@/components/TodoItem.vue'
-import type { SourceStatus, SpocAssignment, Todo } from '@/types'
+import type { SpocAssignment } from '@shared/api'
+import type {
+  SourceStatus,
+  Todo,
+} from '@/types'
 import {
   canRetrySource,
   needsSettingsSource,

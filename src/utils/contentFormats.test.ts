@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import type { BykcChosenCourse, SpocAssignment } from '@/types'
+import type {
+  BykcChosenCourse,
+  SpocAssignment,
+} from '@shared/api'
 import {
   bykcChosenCourseOnDate,
   bykcChosenCoursesOnDate,

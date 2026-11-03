@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { SpocAssignment } from '@/types'
+import type { SpocAssignment } from '@shared/api'
 import { formatSpocDateTime, spocCourseLine, spocSubmissionLabel } from '@/utils/spoc'
 
 const props = defineProps<{

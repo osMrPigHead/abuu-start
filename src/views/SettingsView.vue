@@ -38,7 +38,7 @@ import {
   resolveYgdkWeekLimit,
 } from '@/utils/ygdk'
 import { clearCache, isStorageDegraded } from '@/utils/storage'
-import type { AuthSourceId } from '@/types'
+import type { AuthSourceId } from '@shared/auth'
 
 const {
   state: authState,

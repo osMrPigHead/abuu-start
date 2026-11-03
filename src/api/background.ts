@@ -1,4 +1,4 @@
-import type { BackgroundManifest } from '@/types'
+import type { BackgroundManifest } from '@shared/api'
 import { postJson, request } from './client'
 
 /** 背景接口映射，见 docs/trd-phase3.md 3.3。 */

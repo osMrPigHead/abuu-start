@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Course, ScheduleCache, ScheduleResponse } from '@/types'
+import type { ScheduleResponse } from '@shared/api'
+import type {
+  Course,
+  ScheduleCache,
+} from '@/types'
 import { STORAGE_KEYS } from '@/utils/storage'
 
 vi.mock('@/api/byxt', () => ({

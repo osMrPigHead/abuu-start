@@ -5,9 +5,11 @@ import { ApiError } from '@/api/client'
 import { isAuthBlocked, markSourceExpired } from '@/composables/useAuth'
 import type {
   Exam,
+  Term,
+} from '@shared/api'
+import type {
   ExamsCache,
   SourceStatus,
-  Term,
 } from '@/types'
 import { readJson, remove, STORAGE_KEYS, writeJson } from '@/utils/storage'
 

@@ -18,7 +18,7 @@ import type {
   BykcCourseResponse,
   BykcCourseStatus,
   BykcStatusResponse,
-} from './types.ts'
+} from '../shared/api.ts'
 
 const BASE_URL = 'https://bykc.buaa.edu.cn/sscv/'
 const REFERER = 'https://bykc.buaa.edu.cn/system/course-select'

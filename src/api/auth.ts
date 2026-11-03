@@ -7,7 +7,7 @@ import type {
   AuthSourceId,
   AuthSourceRetryResponse,
   AuthStatusResponse,
-} from '@/types'
+} from '@shared/auth'
 
 export type LoginRequest = {
   loginId: string

@@ -4,7 +4,7 @@ import type {
   SpocAssignmentDetailResponse,
   SpocAssignmentsResponse,
   SpocStatusResponse,
-} from '@/types'
+} from '@shared/api'
 
 export function fetchSpocStatus(signal?: AbortSignal): Promise<SpocStatusResponse> {
   return request<SpocStatusResponse>('/api/spoc/status', { signal })

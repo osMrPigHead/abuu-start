@@ -3,21 +3,9 @@ import { access, open, readFile, readdir, realpath, stat } from 'node:fs/promise
 import { basename, extname, isAbsolute, join, normalize, relative } from 'node:path'
 import { RelayError } from './errors.ts'
 import { readSettings, writeSettings } from './settingsStore.ts'
+import type { BackgroundImage, BackgroundManifest } from '../shared/api.ts'
 
 /** 背景扫描与图片读取，规则见 docs/trd-phase3.md 3.3 / 3.4。 */
-export type BackgroundImage = {
-  name: string
-  size: number
-  modifiedAt: string
-}
-
-export type BackgroundManifest = {
-  directory: string | null
-  configured: boolean
-  images: BackgroundImage[]
-  warning: string | null
-}
-
 export type BackgroundImageResult = {
   contentType: string
   data: Buffer

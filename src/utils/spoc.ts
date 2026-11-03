@@ -1,5 +1,5 @@
 /** SPOC 作业过滤、排序与展示文案，见 docs/trd.md 7.3。 */
-import type { SpocAssignment } from '@/types'
+import type { SpocAssignment } from '@shared/api'
 import { pad2 } from '@/utils/date'
 
 const SPOC_DATE_TIME_RE = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/

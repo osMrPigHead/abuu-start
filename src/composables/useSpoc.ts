@@ -4,12 +4,14 @@ import { ApiError } from '@/api/client'
 import { fetchSpocAssignmentDetail, fetchSpocAssignments } from '@/api/spoc'
 import { isAuthBlocked, markSourceExpired } from '@/composables/useAuth'
 import type {
-  SourceStatus,
   SpocAssignment,
   SpocAssignmentDetail,
+  Term,
+} from '@shared/api'
+import type {
+  SourceStatus,
   SpocAssignmentsCache,
   SpocDetailCache,
-  Term,
 } from '@/types'
 import { isValidSpocAssignmentId } from '@/utils/spoc'
 import {

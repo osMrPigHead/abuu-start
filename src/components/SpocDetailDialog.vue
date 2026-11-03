@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import SourceStatusLine from '@/components/SourceStatusLine.vue'
-import type { SourceStatus, SpocAssignment, SpocAssignmentDetail } from '@/types'
+import type {
+  SpocAssignment,
+  SpocAssignmentDetail,
+} from '@shared/api'
+import type { SourceStatus } from '@/types'
 import { formatSpocDue, formatSpocStart } from '@/utils/spoc'
 
 const props = withDefaults(

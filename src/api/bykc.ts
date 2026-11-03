@@ -5,7 +5,7 @@ import type {
   BykcCoursePage,
   BykcCourseResponse,
   BykcStatusResponse,
-} from '@/types'
+} from '@shared/api'
 
 /** 课程广场默认每页数量，见 docs/prd-phase2.md 4.2.3。 */
 export const BYKC_PAGE_SIZE = 12

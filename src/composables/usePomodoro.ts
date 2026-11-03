@@ -4,7 +4,10 @@
  * 运行态只存在于当前页面，刷新后计时重置；已有完整配置时直接显示专注态。
  */
 import { computed, reactive, ref } from 'vue'
-import type { PomodoroRuntime, PomodoroSettings } from '@/types'
+import type {
+  PomodoroRuntime,
+  PomodoroSettings,
+} from '@/types'
 import {
   hasPomodoroSettings,
   isPomodoroNotificationSupported,

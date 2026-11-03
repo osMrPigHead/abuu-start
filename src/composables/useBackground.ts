@@ -6,7 +6,10 @@ import {
   saveBackgroundDirectory,
 } from '@/api/background'
 import { ApiError } from '@/api/client'
-import type { BackgroundImage, BackgroundManifest } from '@/types'
+import type {
+  BackgroundImage,
+  BackgroundManifest,
+} from '@shared/api'
 import { pickBuiltinBackground } from '@/utils/builtinBackground'
 
 export type BackgroundBusyAction = 'save' | 'rescan' | 'clear'

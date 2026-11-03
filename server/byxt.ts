@@ -8,8 +8,7 @@ import { byxtCookieHeader } from './authSession.ts'
 import { RelayError } from './errors.ts'
 import { fetchUpstream, isTransientStatus, looksLikeHtml } from './http.ts'
 import type {
-  ByxtEnvelope,
-  ByxtStatus,
+  ByxtStatusResponse,
   Course,
   Exam,
   ExamsResponse,
@@ -17,7 +16,8 @@ import type {
   SectionTime,
   Term,
   Week,
-} from './types.ts'
+} from '../shared/api.ts'
+import type { ByxtEnvelope } from './types.ts'
 
 const BASE_URL = 'https://byxt.buaa.edu.cn/jwapp/sys/homeapp/'
 const REFERER_URL = 'https://byxt.buaa.edu.cn/jwapp/sys/homeapp/index.html'
@@ -284,7 +284,7 @@ function parseRequestedWeek(raw: string | null, weeks: readonly Week[]): number 
   return week
 }
 
-export async function byxtStatus(): Promise<ByxtStatus> {
+export async function byxtStatus(): Promise<ByxtStatusResponse> {
   const cookie = byxtCookieHeader()
   const current = await fetchCurrentUser(cookie)
 

@@ -1,5 +1,10 @@
 /** 博雅课程状态标签、时间与信息行文案，见 docs/ui-lowfi.md。 */
-import type { BykcChosenCourse, BykcCourse, BykcCourseStatus, Course } from '@/types'
+import type {
+  BykcChosenCourse,
+  BykcCourse,
+  BykcCourseStatus,
+} from '@shared/api'
+import type { Course } from '@/types'
 import { formatDateKey, pad2 } from '@/utils/date'
 import { isoDayOfWeek } from '@/utils/schedule'
 

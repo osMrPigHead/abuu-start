@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Exam } from '@/types'
+import type { Exam } from '@shared/api'
 import {
   buildExamEntries,
   examStatus,

@@ -1,32 +1,8 @@
 /**
- * 中继统一错误码与 HTTP 状态映射。
- * 文案与状态见 docs/trd.md 3.1、docs/trd-phase3.md 3.1。
+ * 中继错误类型与 HTTP 状态映射。
+ * 错误码与错误信封见 shared/errors.ts；文案与状态见 docs/trd.md 3.1、docs/trd-phase3.md 3.1。
  */
-export type RelayErrorCode =
-  | 'NO_CREDENTIAL'
-  | 'AUTH_REQUIRED'
-  | 'INVALID_CREDENTIALS'
-  | 'CAPTCHA_REQUIRED'
-  | 'CAPTCHA_INVALID'
-  | 'PASSWORD_EXPIRED'
-  | 'AUTH_EXPIRED'
-  | 'LOGIN_IN_PROGRESS'
-  | 'SOURCE_UNKNOWN'
-  | 'SOURCE_BUSY'
-  | 'INVALID_REQUEST'
-  | 'INVALID_WEEK'
-  | 'INVALID_PAGE'
-  | 'INVALID_PATH'
-  | 'PATH_UNAVAILABLE'
-  | 'NOT_FOUND'
-  | 'METHOD_NOT_ALLOWED'
-  | 'FORBIDDEN_ORIGIN'
-  | 'UNSUPPORTED_MEDIA'
-  | 'PAYLOAD_TOO_LARGE'
-  | 'UPSTREAM_TIMEOUT'
-  | 'UPSTREAM_ERROR'
-  | 'BAD_RESPONSE'
-  | 'INTERNAL'
+import type { ErrorEnvelope, RelayErrorCode } from '../shared/errors.ts'
 
 const HTTP_STATUS: Record<RelayErrorCode, number> = {
   NO_CREDENTIAL: 401,
@@ -71,21 +47,13 @@ export class RelayError extends Error {
   }
 }
 
-export type RelayErrorBody = {
-  error: {
-    code: RelayErrorCode
-    message: string
-    upstreamStatus?: number
-  }
-}
-
 export function toRelayError(error: unknown): RelayError {
   if (error instanceof RelayError) return error
   return new RelayError('INTERNAL', '本地中继内部错误')
 }
 
-export function toErrorBody(error: RelayError): RelayErrorBody {
-  const body: RelayErrorBody = {
+export function toErrorBody(error: RelayError): ErrorEnvelope {
+  const body: ErrorEnvelope = {
     error: {
       code: error.code,
       message: error.message,

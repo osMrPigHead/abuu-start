@@ -7,7 +7,7 @@ import SpocAssignmentCard from '@/components/SpocAssignmentCard.vue'
 import SpocDetailDialog from '@/components/SpocDetailDialog.vue'
 import { useClock } from '@/composables/useClock'
 import { useSpoc, useSpocDetail } from '@/composables/useSpoc'
-import type { SpocAssignment } from '@/types'
+import type { SpocAssignment } from '@shared/api'
 import { filterOpenSpocAssignments } from '@/utils/spoc'
 
 const { state, hydrate, refresh } = useSpoc()

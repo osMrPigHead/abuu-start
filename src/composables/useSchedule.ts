@@ -4,14 +4,16 @@ import { fetchByxtSchedule } from '@/api/byxt'
 import { ApiError } from '@/api/client'
 import { isAuthBlocked, markSourceExpired } from '@/composables/useAuth'
 import type {
-  Course,
-  ScheduleCache,
   SectionTime,
-  SourceStatus,
   Term,
   Week,
-  WeekCache,
   WeekSource,
+} from '@shared/api'
+import type {
+  Course,
+  ScheduleCache,
+  SourceStatus,
+  WeekCache,
 } from '@/types'
 import { readJson, remove, STORAGE_KEYS, writeJson } from '@/utils/storage'
 import {

@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import type { BykcCourse, BykcCourseDetail, SourceStatus } from '@/types'
+import type {
+  BykcCourse,
+  BykcCourseDetail,
+} from '@shared/api'
+import type { SourceStatus } from '@/types'
 import { bykcPlaceText, bykcStatusLabel, formatBykcDetailTime } from '@/utils/bykc'
 import { formatStamp } from '@/utils/date'
 

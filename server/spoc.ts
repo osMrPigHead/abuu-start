@@ -14,10 +14,10 @@ import type {
   SpocAssignmentDetail,
   SpocAssignmentDetailResponse,
   SpocAssignmentsResponse,
-  SpocEnvelope,
   SpocStatusResponse,
   Term,
-} from './types.ts'
+} from '../shared/api.ts'
+import type { SpocEnvelope } from './types.ts'
 
 const BASE_URL = 'https://spoc.buaa.edu.cn/spocnewht/'
 const REFERER_URL = 'https://spoc.buaa.edu.cn/spocnew/common/zycskzy'

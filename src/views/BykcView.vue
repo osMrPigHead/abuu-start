@@ -6,7 +6,7 @@ import BykcCourseCard from '@/components/BykcCourseCard.vue'
 import BykcCourseModal from '@/components/BykcCourseModal.vue'
 import SourceStatusLine from '@/components/SourceStatusLine.vue'
 import { useBykc, useBykcDetail } from '@/composables/useBykc'
-import type { BykcCourse } from '@/types'
+import type { BykcCourse } from '@shared/api'
 
 const route = useRoute()
 const router = useRouter()

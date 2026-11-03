@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Week } from '@/types'
+import type { Week } from '@shared/api'
 
 withDefaults(
   defineProps<{

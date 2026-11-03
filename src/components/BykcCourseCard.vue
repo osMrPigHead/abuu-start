@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { BykcCourse } from '@/types'
+import type { BykcCourse } from '@shared/api'
 import {
   bykcMetaLine,
   bykcStatusLabel,

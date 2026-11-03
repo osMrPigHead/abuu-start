@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Course, SectionTime } from '@/types'
+import type { SectionTime } from '@shared/api'
+import type { Course } from '@/types'
 import {
   coursePlaceText,
   courseSectionLabel,

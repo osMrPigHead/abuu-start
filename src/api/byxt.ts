@@ -4,7 +4,7 @@ import type {
   ByxtStatusResponse,
   ExamsResponse,
   ScheduleResponse,
-} from '@/types'
+} from '@shared/api'
 
 export function fetchByxtStatus(signal?: AbortSignal): Promise<ByxtStatusResponse> {
   return request<ByxtStatusResponse>('/api/byxt/status', { signal })
