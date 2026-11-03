@@ -1,6 +1,7 @@
 private
 .obsidian
 *.tmp
+_site
 
 # Logs
 logs

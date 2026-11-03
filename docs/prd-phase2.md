@@ -158,7 +158,7 @@
 - 只读：不提供 SPOC 提交、博雅选退课/签到、阳光打卡、教务管理入口。
 - 时间按浏览器本地时区显示；教务时间按学校原始时间解释。
 - 技术约束不变：Vue 3 Composition API + `<script setup lang="ts">`、TypeScript strict、Vite、Tailwind CSS、Vue Router 4；不引入 Pinia；HTTP 统一封装在 `src/api/client.ts`。
-- 本地只读中继仍是唯一后端；除它之外不引入其他后端，不引入 SSR。
+- 本地只读中继仍是唯一后端；生产环境由本地 Express 服务同源提供构建产物与 `/api`，除它之外不引入其他后端，不引入 SSR。
 - 博雅 auth_token 与阳光 UID/token 均为手动凭据；过期后显示“已失效”，不自动续期、不保存账号密码。
 
 ## 7. 边界与失败情况

@@ -174,7 +174,7 @@
 - 时间按浏览器本地时区显示；教务时间按学校原始时间解释。
 - 只读：不提供任何提交、打卡、选退课、签到、管理入口。
 - 技术约束：Vue 3 Composition API + `<script setup lang="ts">`、TypeScript strict、Vite、Tailwind CSS、Vue Router 4；状态用 reactive composable，不引入 Pinia；HTTP 统一封装在 `src/api/client.ts`。
-- 本地只读中继是本项目唯一后端；除它之外不引入其他后端，不引入 SSR。
+- 本地只读中继是本项目唯一后端；生产环境由本地 Express 服务同源提供构建产物与 `/api`，不引入其他后端，不引入 SSR。
 
 ## 6. 边界与失败情况
 

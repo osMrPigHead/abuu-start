@@ -27,14 +27,16 @@
 
 ## 技术方案
 
-前端采用 Vite + Vue 3 + Tailwind CSS 构建，后端是原生 TypeScript + HTTP Fetch 实现；后端负责存储和处理北京航空航天大学系统的认证信息、请求课表、作业等信息并返回，存储背景图片设置、提供背景图片，其他个性化设置（打卡目标、日程高亮时间阈值、主页卡片显示状态、番茄钟桌面通知）均存储在浏览器 localStorage，课表、作业等的缓存存储在浏览器 localStorage。
+前端采用 Vite + Vue 3 + Tailwind CSS 构建，后端是原生 TypeScript + HTTP Fetch 实现；开发时后端作为 Vite 插件挂载，生产构建后由 Express 同源提供页面与 `/api`。后端负责存储和处理北京航空航天大学系统的认证信息、请求课表、作业等信息并返回，存储背景图片设置、提供背景图片，其他个性化设置（打卡目标、日程高亮时间阈值、主页卡片显示状态、番茄钟桌面通知）均存储在浏览器 localStorage，课表、作业等的缓存存储在浏览器 localStorage。
 
 ## 运行
 
-由于尚处开发初期，该项目暂不提供正式构建版本，若要运行：
+本地运行方式：
 
 ```bash
-npm run dev
+npm run dev     # 开发：Vite + 中继，127.0.0.1:5173
+npm run build   # 构建前端
+npm start       # 生产：Express 同源提供 dist 与 /api，127.0.0.1:3000
 ```
 
 ## 后期规划

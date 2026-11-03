@@ -5,7 +5,7 @@
 ## 1. 技术路线与已确认决策
 
 - 前端继续使用 Vue 3 Composition API + `<script setup lang="ts">`、TypeScript strict、Vite、Tailwind CSS、Vue Router 4；不引入 Pinia、React、SSR。
-- 后端仍是随 Vite 启停的本地只读中继：Node 22 LTS TypeScript 模块，挂到 dev 与 preview，只监听 `127.0.0.1`。不新增第二个后端进程。
+- 后端仍是本地只读中继：Node 22 LTS TypeScript 模块，dev 与 preview 由 Vite 插件挂载；生产由 `npm start` 的本地 Express 服务同源提供 `dist` 与同一套 `/api`，只监听 `127.0.0.1`，不新增第二套接口。
 - 对外只暴露资源型只读 `GET /api/*`；中继内部再调用上游的 GET/POST、AES/RSA、Token 头。前端不接触上游路径。
 - 二阶段新增数据源：
   - 博雅：`auth_token`，加密 `POST /sscv/*`。

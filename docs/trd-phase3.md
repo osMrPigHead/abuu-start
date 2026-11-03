@@ -3,7 +3,7 @@
 ## 1. 技术路线与已确认决策
 
 - 前端继续使用 Vue 3 Composition API + `<script setup lang="ts">`、TypeScript strict、Vite、Tailwind CSS、Vue Router 4；不引入 Pinia、React、SSR。
-- 后端仍是随 Vite 启停的本地中继：Node 22 LTS TypeScript 模块，挂到 dev 与 preview，只监听 `127.0.0.1`。不新增第二个后端进程。
+- 后端仍是本地中继：Node 22 LTS TypeScript 模块，dev 与 preview 由 Vite 插件挂载；生产由 `npm start` 的本地 Express 服务同源提供 `dist` 与同一套 `/api`，只监听 `127.0.0.1`，不新增第二套接口。
 - 三阶段把认证从“浏览器保存四类凭据、随请求头发送”改为“设置页一次登录、中继保存并注入”：
   - 中继完成 SSO 登录、UC 激活，并派生 byxt Cookie、SPOC Token + RoleCode、博雅 `auth_token`、阳光 `uid` + `token`。
   - 前端不再保存、不再发送任何凭据请求头。

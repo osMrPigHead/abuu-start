@@ -6,7 +6,7 @@
 
 - 前端：Vue 3 Composition API + `<script setup lang="ts">`，TypeScript strict，Vite，Tailwind CSS，Vue Router 4。
 - 状态：`reactive` / `ref` composable，不引入 Pinia；跨页面共享的数据用模块级单例 composable。
-- 中继：Node 22 LTS 的 TypeScript 模块，作为 Vite 插件同时挂到开发服务器与 `vite preview`，只监听 `127.0.0.1`。
+- 中继：Node 22 LTS 的 TypeScript 模块，作为 Vite 插件同时挂到开发服务器与 `vite preview`；生产构建由 `npm start` 的 Express 服务同源提供 `dist` 与同一套 `/api`，只监听 `127.0.0.1`。
 - 对外接口：资源型只读 `GET /api/*`；中继内部再调用上游的 GET/POST、AES、Token 头。前端不接触上游路径。
 - byxt 认证：用户在设置页粘贴浏览器 Cookie；中继通过 `X-Byxt-Cookie` 请求头接收，原样转发。
 - SPOC 认证：用户粘贴 `Token` 与 `RoleCode`；中继通过 `X-Spoc-Token`、`X-Spoc-Role` 请求头接收，原样转发。HAR 已确认 SPOC 业务请求不带 Cookie。
@@ -29,8 +29,10 @@
 
 ```text
 server/
-  relayPlugin.ts      Vite 插件：挂载 /api 中间件
-  routes.ts           路由表与请求分发
+  relayPlugin.ts      Vite 插件：dev/preview 挂载同一份 express.Router
+  index.ts            生产入口：Express 同源提供 dist 与同一份 Router
+  relayHttp.ts        中继 HTTP 边界：Host / Origin 校验、body、响应、日志、错误映射
+  routes.ts           express.Router 路由注册与请求分发
   byxt.ts             byxt 上游调用与归一化
   spoc.ts             SPOC 上游调用与归一化
   spocCrypto.ts       SPOC 固定 AES 参数
@@ -57,8 +59,9 @@ vite.config.ts
 
 ### 3.1 通用约定
 
-- 监听：`127.0.0.1:5173`（dev）/ `127.0.0.1:4173`（preview）；只接受 Host 为 `127.0.0.1`、`localhost` 或 `[::1]` 的请求。
+- 监听：`127.0.0.1:5173`（dev）/ `127.0.0.1:4173`（preview）/ `127.0.0.1:3000`（`npm start`，可用 `PORT` 覆盖）；只接受 Host 为 `127.0.0.1`、`localhost` 或 `[::1]` 的请求。
 - 方法：只接受 `GET`；其他方法返回 `405 METHOD_NOT_ALLOWED`。
+- 实现：`server/routes.ts` 用 `express.Router` 注册；dev/preview 由 Vite 插件、生产由 Express 入口挂载同一份 Router，对外路径、方法与错误码不变。
 - 路径：未列出的 `/api/*` 返回 `404 NOT_FOUND`，不回退到 SPA。
 - 请求头：
   - `X-Byxt-Cookie`：byxt Cookie 原文
@@ -499,11 +502,13 @@ npm install
 npm run dev       # Vite + 中继，127.0.0.1:5173
 npm run build     # vue-tsc + vite build
 npm run preview   # Vite preview + 中继，127.0.0.1:4173
+npm start         # Express 同源提供 dist 与 /api，127.0.0.1:3000
 ```
 
 - `vite.config.ts` 的 `server.host` / `preview.host` 固定 `127.0.0.1`；端口被占用时由 Vite 自动顺延，以终端输出为准。
 - 中继以插件形式挂载，不需要单独启动第二个进程；`preview` 同源提供页面与 `/api`。
-- 生产构建后直接 `npm run preview` 即可本机自用；不引入 Express、SSR 或其他后端。
+- 生产构建后用 `npm start` 由 Express 同源提供页面与 `/api`，不引入 SSR；`npm run preview` 仍可用于快速预览。
+- `server/index.ts` 复用 `server/relayPlugin.ts` 的同一份 `/api` 中间件，路径、方法、错误码与请求头约定不变；监听地址仍为 `127.0.0.1`，可用 `PORT` 改端口。
 
 ## 9. 安全与边界
 
