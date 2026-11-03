@@ -1,56 +1,61 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { SectionTime } from '@shared/api'
-import type { Course } from '@/types'
+import { computed } from "vue";
+import type { SectionTime } from "@shared/api";
+import type { Course } from "@/types";
 import {
   coursePlaceText,
   courseSectionLabel,
   courseTimeLabel,
   type CourseHighlight,
-} from '@/utils/schedule'
+} from "@/utils/schedule";
 
 const props = withDefaults(
   defineProps<{
-    course: Course
-    sectionTimes: SectionTime[]
-    compact?: boolean
-    highlight?: CourseHighlight
+    course: Course;
+    sectionTimes: SectionTime[];
+    compact?: boolean;
+    highlight?: CourseHighlight;
   }>(),
   {
     compact: false,
     highlight: null,
   },
-)
+);
 
-const sectionLabel = computed(() => courseSectionLabel(props.course))
-const timeLabel = computed(() => courseTimeLabel(props.course, props.sectionTimes))
-const placeLabel = computed(() => coursePlaceText(props.course))
-const isBykc = computed(() => props.course.source === 'bykc')
+const sectionLabel = computed(() => courseSectionLabel(props.course));
+const timeLabel = computed(() =>
+  courseTimeLabel(props.course, props.sectionTimes),
+);
+const placeLabel = computed(() => coursePlaceText(props.course));
+const isBykc = computed(() => props.course.source === "bykc");
 const displayName = computed(() =>
   isBykc.value ? `博雅 · ${props.course.courseName}` : props.course.courseName,
-)
+);
 
 const highlightClass = computed(() => {
-  if (props.highlight === 'ongoing') {
-    return 'border-white/15 course-highlight-ongoing'
+  if (props.highlight === "ongoing") {
+    return "border-white/15 course-highlight-ongoing";
   }
-  if (props.highlight === 'upcoming') {
-    return 'border-white/15 course-highlight-upcoming'
+  if (props.highlight === "upcoming") {
+    return "border-white/15 course-highlight-upcoming";
   }
-  return 'border-white/10 border-l-sky-300/35 bg-white/[0.045]'
-})
+  return "border-white/10 border-l-sky-300/35 bg-white/[0.045]";
+});
 
 const ariaLabel = computed(() => {
-  if (props.highlight === 'ongoing') return `进行中：${displayName.value}`
-  if (props.highlight === 'upcoming') return `即将开始：${displayName.value}`
-  return displayName.value
-})
+  if (props.highlight === "ongoing") return `进行中：${displayName.value}`;
+  if (props.highlight === "upcoming") return `即将开始：${displayName.value}`;
+  return displayName.value;
+});
 </script>
 
 <template>
   <article
     class="flex shrink-0 flex-col justify-center rounded-xl border border-l-2 text-white/90 transition-colors"
-    :class="[highlightClass, compact ? 'w-[10.25rem] px-2 py-1' : 'w-[12.5rem] px-3 py-2.5']"
+    :class="[
+      highlightClass,
+      compact ? 'w-[10.25rem] px-2 py-1' : 'w-[12.5rem] px-3 py-2.5',
+    ]"
     :data-highlight="highlight ?? 'none'"
     :aria-label="ariaLabel"
   >
@@ -95,10 +100,14 @@ const ariaLabel = computed(() => {
 
     <p
       class="mt-0.5 min-w-0 text-white/55"
-      :class="compact ? 'truncate text-[9.5px] leading-tight' : 'text-[11px] leading-snug'"
+      :class="
+        compact
+          ? 'truncate text-[9.5px] leading-tight'
+          : 'text-[11px] leading-snug'
+      "
       :title="placeLabel"
     >
-      {{ placeLabel || '地点待定' }}
+      {{ placeLabel || "地点待定" }}
     </p>
   </article>
 </template>

@@ -1,4 +1,4 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
 html {
   overflow: hidden;
@@ -75,7 +75,7 @@ body {
 
 .home-backdrop::before,
 .home-backdrop::after {
-  content: '';
+  content: "";
   position: fixed;
   inset: 0;
   z-index: -1;
@@ -87,16 +87,34 @@ body {
 .home-backdrop::before {
   opacity: 1;
   background-image:
-    linear-gradient(180deg, rgb(0 0 0 / 0.5) 0%, rgb(0 0 0 / 0.08) 32%, rgb(0 0 0 / 0.42) 100%),
-    radial-gradient(circle at center, rgb(0 0 0 / 0.12) 0%, rgb(0 0 0 / 0.55) 100%);
+    linear-gradient(
+      180deg,
+      rgb(0 0 0 / 0.5) 0%,
+      rgb(0 0 0 / 0.08) 32%,
+      rgb(0 0 0 / 0.42) 100%
+    ),
+    radial-gradient(
+      circle at center,
+      rgb(0 0 0 / 0.12) 0%,
+      rgb(0 0 0 / 0.55) 100%
+    );
 }
 
 /* 仅时钟与背景模式：遮罩透明度更低、范围更小，基准为参考 A 去掉 focusing 后的背景。 */
 .home-backdrop::after {
   opacity: 0;
   background-image:
-    linear-gradient(180deg, rgb(0 0 0 / 0.3) 0%, rgb(0 0 0 / 0.03) 26%, rgb(0 0 0 / 0.3) 100%),
-    radial-gradient(circle at center, rgb(0 0 0 / 0.06) 0%, rgb(0 0 0 / 0.42) 100%);
+    linear-gradient(
+      180deg,
+      rgb(0 0 0 / 0.3) 0%,
+      rgb(0 0 0 / 0.03) 26%,
+      rgb(0 0 0 / 0.3) 100%
+    ),
+    radial-gradient(
+      circle at center,
+      rgb(0 0 0 / 0.06) 0%,
+      rgb(0 0 0 / 0.42) 100%
+    );
 }
 
 .home-backdrop-minimal::before {
@@ -118,11 +136,15 @@ body {
 
 .home-clock-date {
   padding-left: 0.675rem;
-  font: 275 2.025rem/1.2 "Source Han Sans VF", sans-serif;
+  font:
+    275 2.025rem/1.2 "Source Han Sans VF",
+    sans-serif;
 }
 
 .home-clock-time {
-  font: 275 5.4rem/1.2 "Source Han Sans VF", sans-serif;
+  font:
+    275 5.4rem/1.2 "Source Han Sans VF",
+    sans-serif;
 }
 
 /* 仅时钟与背景模式：时间在上、日期在下，固定左下角；
@@ -140,12 +162,16 @@ body {
 }
 
 .minimal-clock-time {
-  font: 275 10.8rem/1.2 "Source Han Sans VF", sans-serif;
+  font:
+    275 10.8rem/1.2 "Source Han Sans VF",
+    sans-serif;
 }
 
 .minimal-clock-date {
   padding-left: 0.675rem;
-  font: 275 4.05rem/1.2 "Source Han Sans VF", sans-serif;
+  font:
+    275 4.05rem/1.2 "Source Han Sans VF",
+    sans-serif;
 }
 
 /* 横向瀑布流：以单行高度为基准，按行占位，超出视口后横向滚动。 */
@@ -187,7 +213,9 @@ body {
 
 /* 专注计时：沿用时钟的细字重，字号按卡片宽度收敛；等宽数字避免跳动。 */
 .focus-time {
-  font: 275 3.75rem/1.05 "Source Han Sans VF", sans-serif;
+  font:
+    275 3.75rem/1.05 "Source Han Sans VF",
+    sans-serif;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
   text-shadow: 0 0 1.1rem #0003;

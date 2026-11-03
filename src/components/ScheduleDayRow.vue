@@ -1,27 +1,27 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import CourseBlock from '@/components/CourseBlock.vue'
-import { useHorizontalWheelScroll } from '@/composables/useHorizontalWheelScroll'
-import type { SectionTime } from '@shared/api'
-import type { Course } from '@/types'
-import { formatDayNumber, weekdayCn } from '@/utils/date'
+import { computed } from "vue";
+import CourseBlock from "@/components/CourseBlock.vue";
+import { useHorizontalWheelScroll } from "@/composables/useHorizontalWheelScroll";
+import type { SectionTime } from "@shared/api";
+import type { Course } from "@/types";
+import { formatDayNumber, weekdayCn } from "@/utils/date";
 import {
   courseHighlightState,
   DEFAULT_HIGHLIGHT_LEAD_MINUTES,
   type CourseHighlight,
-} from '@/utils/schedule'
+} from "@/utils/schedule";
 
 const props = withDefaults(
   defineProps<{
-    date: Date
-    weekNumber: number | null
-    relativeLabel?: string | null
-    courses: Course[]
-    sectionTimes: SectionTime[]
-    state: 'loading' | 'ready' | 'unavailable'
-    compact?: boolean
-    now?: Date | null
-    highlightLeadMinutes?: number
+    date: Date;
+    weekNumber: number | null;
+    relativeLabel?: string | null;
+    courses: Course[];
+    sectionTimes: SectionTime[];
+    state: "loading" | "ready" | "unavailable";
+    compact?: boolean;
+    now?: Date | null;
+    highlightLeadMinutes?: number;
   }>(),
   {
     relativeLabel: null,
@@ -29,23 +29,23 @@ const props = withDefaults(
     now: null,
     highlightLeadMinutes: DEFAULT_HIGHLIGHT_LEAD_MINUTES,
   },
-)
+);
 
-const dateLabel = computed(() => formatDayNumber(props.date))
-const weekdayLabel = computed(() => weekdayCn(props.date))
+const dateLabel = computed(() => formatDayNumber(props.date));
+const weekdayLabel = computed(() => weekdayCn(props.date));
 
 const { setScrollElement: setStripElement, onWheel: handleStripWheel } =
-  useHorizontalWheelScroll({ consume: true })
+  useHorizontalWheelScroll({ consume: true });
 
 function highlightFor(course: Course): CourseHighlight {
-  if (!props.now) return null
+  if (!props.now) return null;
   return courseHighlightState(
     course,
     props.sectionTimes,
     props.date,
     props.now,
     props.highlightLeadMinutes,
-  )
+  );
 }
 </script>
 

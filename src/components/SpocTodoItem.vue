@@ -1,22 +1,26 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { SpocAssignment } from '@shared/api'
-import { formatSpocDateTime, spocCourseLine, spocSubmissionLabel } from '@/utils/spoc'
+import { computed } from "vue";
+import type { SpocAssignment } from "@shared/api";
+import {
+  formatSpocDateTime,
+  spocCourseLine,
+  spocSubmissionLabel,
+} from "@/utils/spoc";
 
 const props = defineProps<{
-  assignment: SpocAssignment
-}>()
+  assignment: SpocAssignment;
+}>();
 
 const emit = defineEmits<{
-  open: []
-}>()
+  open: [];
+}>();
 
-const courseLine = computed(() => spocCourseLine(props.assignment))
-const statusLabel = computed(() => spocSubmissionLabel(props.assignment))
+const courseLine = computed(() => spocCourseLine(props.assignment));
+const statusLabel = computed(() => spocSubmissionLabel(props.assignment));
 const dueText = computed(() => {
-  const text = formatSpocDateTime(props.assignment.dueTime)
-  return text.length > 0 ? `截止 ${text}` : '无截止时间'
-})
+  const text = formatSpocDateTime(props.assignment.dueTime);
+  return text.length > 0 ? `截止 ${text}` : "无截止时间";
+});
 </script>
 
 <template>
@@ -26,7 +30,10 @@ const dueText = computed(() => {
       class="block w-full rounded-xl border border-white/10 bg-white/[0.025] px-3 py-1 text-left transition hover:border-white/18 hover:bg-white/[0.045] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40"
       @click="emit('open')"
     >
-      <p class="min-w-0 truncate text-[10px] leading-tight text-white/45" :title="courseLine">
+      <p
+        class="min-w-0 truncate text-[10px] leading-tight text-white/45"
+        :title="courseLine"
+      >
         {{ courseLine }}
       </p>
 

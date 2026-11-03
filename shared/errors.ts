@@ -4,42 +4,42 @@
  */
 
 export const RELAY_ERROR_CODES = [
-  'NO_CREDENTIAL',
-  'AUTH_REQUIRED',
-  'INVALID_CREDENTIALS',
-  'CAPTCHA_REQUIRED',
-  'CAPTCHA_INVALID',
-  'PASSWORD_EXPIRED',
-  'AUTH_EXPIRED',
-  'LOGIN_IN_PROGRESS',
-  'SOURCE_UNKNOWN',
-  'SOURCE_BUSY',
-  'INVALID_REQUEST',
-  'INVALID_WEEK',
-  'INVALID_PAGE',
-  'INVALID_PATH',
-  'PATH_UNAVAILABLE',
-  'NOT_FOUND',
-  'METHOD_NOT_ALLOWED',
-  'FORBIDDEN_ORIGIN',
-  'UNSUPPORTED_MEDIA',
-  'PAYLOAD_TOO_LARGE',
-  'UPSTREAM_TIMEOUT',
-  'UPSTREAM_ERROR',
-  'BAD_RESPONSE',
-  'INTERNAL',
-] as const
+  "NO_CREDENTIAL",
+  "AUTH_REQUIRED",
+  "INVALID_CREDENTIALS",
+  "CAPTCHA_REQUIRED",
+  "CAPTCHA_INVALID",
+  "PASSWORD_EXPIRED",
+  "AUTH_EXPIRED",
+  "LOGIN_IN_PROGRESS",
+  "SOURCE_UNKNOWN",
+  "SOURCE_BUSY",
+  "INVALID_REQUEST",
+  "INVALID_WEEK",
+  "INVALID_PAGE",
+  "INVALID_PATH",
+  "PATH_UNAVAILABLE",
+  "NOT_FOUND",
+  "METHOD_NOT_ALLOWED",
+  "FORBIDDEN_ORIGIN",
+  "UNSUPPORTED_MEDIA",
+  "PAYLOAD_TOO_LARGE",
+  "UPSTREAM_TIMEOUT",
+  "UPSTREAM_ERROR",
+  "BAD_RESPONSE",
+  "INTERNAL",
+] as const;
 
-export type RelayErrorCode = (typeof RELAY_ERROR_CODES)[number]
+export type RelayErrorCode = (typeof RELAY_ERROR_CODES)[number];
 
 export type ErrorEnvelope = {
   error: {
-    code: RelayErrorCode
-    message: string
-    upstreamStatus?: number
-  }
-}
+    code: RelayErrorCode;
+    message: string;
+    upstreamStatus?: number;
+  };
+};
 
 export function isRelayErrorCode(value: string): value is RelayErrorCode {
-  return (RELAY_ERROR_CODES as readonly string[]).includes(value)
+  return (RELAY_ERROR_CODES as readonly string[]).includes(value);
 }

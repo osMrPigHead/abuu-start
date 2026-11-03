@@ -1,125 +1,131 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import SourceStatusLine from '@/components/SourceStatusLine.vue'
-import type {
-  SpocAssignment,
-  SpocAssignmentDetail,
-} from '@shared/api'
-import type { SourceStatus } from '@/types'
-import { formatSpocDue, formatSpocStart } from '@/utils/spoc'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
+import SourceStatusLine from "@/components/SourceStatusLine.vue";
+import type { SpocAssignment, SpocAssignmentDetail } from "@shared/api";
+import type { SourceStatus } from "@/types";
+import { formatSpocDue, formatSpocStart } from "@/utils/spoc";
 
 const props = withDefaults(
   defineProps<{
-    open: boolean
+    open: boolean;
     /** 打开 modal 时列表已有的字段，详情失败时仍可展示。 */
-    preview?: SpocAssignment | null
-    detail?: SpocAssignmentDetail | null
-    status?: SourceStatus
-    savedAt?: string | null
-    error?: string | null
-    loading?: boolean
-    notFound?: boolean
+    preview?: SpocAssignment | null;
+    detail?: SpocAssignmentDetail | null;
+    status?: SourceStatus;
+    savedAt?: string | null;
+    error?: string | null;
+    loading?: boolean;
+    notFound?: boolean;
   }>(),
   {
     preview: null,
     detail: null,
-    status: 'idle',
+    status: "idle",
     savedAt: null,
     error: null,
     loading: false,
     notFound: false,
   },
-)
+);
 
 const emit = defineEmits<{
-  close: []
-  retry: []
-}>()
+  close: [];
+  retry: [];
+}>();
 
-const TITLE_ID = 'spoc-detail-dialog-title'
+const TITLE_ID = "spoc-detail-dialog-title";
 
-const panel = ref<HTMLElement | null>(null)
-const closeButton = ref<HTMLButtonElement | null>(null)
-let isOpen = false
-let previousFocus: HTMLElement | null = null
-let bodyOverflow = ''
+const panel = ref<HTMLElement | null>(null);
+const closeButton = ref<HTMLButtonElement | null>(null);
+let isOpen = false;
+let previousFocus: HTMLElement | null = null;
+let bodyOverflow = "";
 
-const assignment = computed(() => props.detail ?? props.preview)
-const title = computed(() => assignment.value?.title || 'SPOC 作业详情')
-const courseName = computed(() => assignment.value?.courseName ?? '')
-const teacherName = computed(() => assignment.value?.teacherName ?? '')
-const submissionLabel = computed(() => assignment.value?.submissionStatusText ?? '未知')
-const startText = computed(() => formatSpocStart(assignment.value?.startTime ?? null))
-const dueText = computed(() => formatSpocDue(assignment.value?.dueTime ?? null))
+const assignment = computed(() => props.detail ?? props.preview);
+const title = computed(() => assignment.value?.title || "SPOC 作业详情");
+const courseName = computed(() => assignment.value?.courseName ?? "");
+const teacherName = computed(() => assignment.value?.teacherName ?? "");
+const submissionLabel = computed(
+  () => assignment.value?.submissionStatusText ?? "未知",
+);
+const startText = computed(() =>
+  formatSpocStart(assignment.value?.startTime ?? null),
+);
+const dueText = computed(() =>
+  formatSpocDue(assignment.value?.dueTime ?? null),
+);
 
 const scoreText = computed(() => {
-  if (!props.detail) return props.loading ? '加载中…' : '—'
-  return props.detail.score ?? '暂无成绩'
-})
+  if (!props.detail) return props.loading ? "加载中…" : "—";
+  return props.detail.score ?? "暂无成绩";
+});
 
-const descriptionText = computed(() => props.detail?.contentText ?? '')
-const attachments = computed(() => props.detail?.attachments ?? [])
+const descriptionText = computed(() => props.detail?.contentText ?? "");
+const attachments = computed(() => props.detail?.attachments ?? []);
 
 const descriptionNotice = computed(() => {
-  if (descriptionText.value.length > 0) return ''
+  if (descriptionText.value.length > 0) return "";
 
   switch (props.status) {
-    case 'loading':
-      return '正在加载作业说明…'
-    case 'no-credential':
-      return '登录后可查看作业说明'
-    case 'auth-expired':
-      return '登录状态已失效，暂无作业说明'
-    case 'error':
-      return props.error || '作业说明加载失败'
+    case "loading":
+      return "正在加载作业说明…";
+    case "no-credential":
+      return "登录后可查看作业说明";
+    case "auth-expired":
+      return "登录状态已失效，暂无作业说明";
+    case "error":
+      return props.error || "作业说明加载失败";
     default:
-      return props.detail ? '暂无作业说明' : ''
+      return props.detail ? "暂无作业说明" : "";
   }
-})
+});
 
 watch(
   () => props.open,
   (open) => {
-    if (open) openModal()
-    else closeModal()
+    if (open) openModal();
+    else closeModal();
   },
   { immediate: true },
-)
+);
 
-onBeforeUnmount(closeModal)
+onBeforeUnmount(closeModal);
 
 function openModal(): void {
-  if (isOpen) return
-  isOpen = true
+  if (isOpen) return;
+  isOpen = true;
 
-  previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
-  bodyOverflow = document.body.style.overflow
-  document.body.style.overflow = 'hidden'
-  window.addEventListener('keydown', handleKeydown)
+  previousFocus =
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+  bodyOverflow = document.body.style.overflow;
+  document.body.style.overflow = "hidden";
+  window.addEventListener("keydown", handleKeydown);
 
   void nextTick(() => {
-    panel.value?.scrollTo({ top: 0 })
-    closeButton.value?.focus()
-  })
+    panel.value?.scrollTo({ top: 0 });
+    closeButton.value?.focus();
+  });
 }
 
 function closeModal(): void {
-  if (!isOpen) return
-  isOpen = false
+  if (!isOpen) return;
+  isOpen = false;
 
-  document.body.style.overflow = bodyOverflow
-  window.removeEventListener('keydown', handleKeydown)
+  document.body.style.overflow = bodyOverflow;
+  window.removeEventListener("keydown", handleKeydown);
 
-  const target = previousFocus
-  previousFocus = null
-  target?.focus()
+  const target = previousFocus;
+  previousFocus = null;
+  target?.focus();
 }
 
 function handleKeydown(event: KeyboardEvent): void {
-  if (event.key !== 'Escape') return
+  if (event.key !== "Escape") return;
 
-  event.preventDefault()
-  emit('close')
+  event.preventDefault();
+  emit("close");
 }
 </script>
 
@@ -175,7 +181,12 @@ function handleKeydown(event: KeyboardEvent): void {
                 aria-label="关闭作业详情"
                 @click="emit('close')"
               >
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" class="h-4 w-4">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                  class="h-4 w-4"
+                >
                   <path
                     d="m6 6 12 12M18 6 6 18"
                     stroke="currentColor"
@@ -210,14 +221,18 @@ function handleKeydown(event: KeyboardEvent): void {
             </div>
 
             <template v-else-if="assignment">
-              <dl class="grid grid-cols-2 gap-x-6 gap-y-3 text-[13px] leading-relaxed">
+              <dl
+                class="grid grid-cols-2 gap-x-6 gap-y-3 text-[13px] leading-relaxed"
+              >
                 <div>
                   <dt class="text-white/40">开始时间</dt>
                   <dd class="mt-0.5 text-white/75">{{ startText }}</dd>
                 </div>
                 <div>
                   <dt class="text-white/40">截止时间</dt>
-                  <dd class="mt-0.5 font-medium text-white/85">{{ dueText }}</dd>
+                  <dd class="mt-0.5 font-medium text-white/85">
+                    {{ dueText }}
+                  </dd>
                 </div>
                 <div>
                   <dt class="text-white/40">提交状态</dt>
@@ -237,12 +252,18 @@ function handleKeydown(event: KeyboardEvent): void {
                 >
                   {{ descriptionText }}
                 </p>
-                <p v-else-if="descriptionNotice" class="mt-2 text-[13px] leading-relaxed text-white/45">
+                <p
+                  v-else-if="descriptionNotice"
+                  class="mt-2 text-[13px] leading-relaxed text-white/45"
+                >
                   {{ descriptionNotice }}
                 </p>
               </div>
 
-              <div v-if="attachments.length > 0" class="mt-5 border-t border-white/10 pt-4">
+              <div
+                v-if="attachments.length > 0"
+                class="mt-5 border-t border-white/10 pt-4"
+              >
                 <h3 class="text-xs tracking-wide text-white/40">附件</h3>
                 <ul class="mt-2 space-y-1 text-[13px] text-white/65">
                   <li v-for="attachment in attachments" :key="attachment.name">
@@ -263,7 +284,7 @@ function handleKeydown(event: KeyboardEvent): void {
               v-else-if="status === 'error'"
               class="rounded-2xl border border-dashed border-amber-200/20 px-5 py-8 text-center text-sm text-amber-100/75"
             >
-              {{ error || 'SPOC 作业加载失败' }}
+              {{ error || "SPOC 作业加载失败" }}
             </div>
 
             <div

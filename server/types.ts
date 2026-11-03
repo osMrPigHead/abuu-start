@@ -5,15 +5,15 @@
 
 /** byxt 统一响应信封。 */
 export type ByxtEnvelope<T> = {
-  code: string
-  msg?: string | null
-  datas: T
-}
+  code: string;
+  msg?: string | null;
+  datas: T;
+};
 
 /** SPOC 统一响应信封。 */
 export type SpocEnvelope<T> = {
-  code: number
-  msg?: string | null
-  msg_en?: string | null
-  content: T
-}
+  code: number;
+  msg?: string | null;
+  msg_en?: string | null;
+  content: T;
+};

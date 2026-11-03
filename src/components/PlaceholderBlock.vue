@@ -1,13 +1,13 @@
 <script setup lang="ts">
 withDefaults(
   defineProps<{
-    label: string
-    hint?: string
+    label: string;
+    hint?: string;
   }>(),
   {
-    hint: '',
+    hint: "",
   },
-)
+);
 </script>
 
 <template>

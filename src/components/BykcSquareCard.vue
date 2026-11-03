@@ -1,40 +1,40 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
-import BykcCourseCard from '@/components/BykcCourseCard.vue'
-import CardStatusActions from '@/components/CardStatusActions.vue'
-import HomeCard from '@/components/HomeCard.vue'
-import type { BykcCourse } from '@shared/api'
-import type { SourceStatus } from '@/types'
+import { computed, ref, watch } from "vue";
+import { RouterLink } from "vue-router";
+import BykcCourseCard from "@/components/BykcCourseCard.vue";
+import CardStatusActions from "@/components/CardStatusActions.vue";
+import HomeCard from "@/components/HomeCard.vue";
+import type { BykcCourse } from "@shared/api";
+import type { SourceStatus } from "@/types";
 import {
   canRetrySource,
   needsSettingsSource,
   resolveSourceBadge,
-} from '@/utils/sourceStatus'
+} from "@/utils/sourceStatus";
 
 const props = withDefaults(
   defineProps<{
-    courses?: BykcCourse[]
-    status?: SourceStatus
-    savedAt?: string | null
-    error?: string | null
-    loading?: boolean
+    courses?: BykcCourse[];
+    status?: SourceStatus;
+    savedAt?: string | null;
+    error?: string | null;
+    loading?: boolean;
   }>(),
   {
     courses: () => [],
-    status: 'no-credential',
+    status: "no-credential",
     savedAt: null,
     error: null,
     loading: false,
   },
-)
+);
 
 const emit = defineEmits<{
-  open: [course: BykcCourse]
-  retry: []
-}>()
+  open: [course: BykcCourse];
+  retry: [];
+}>();
 
-const picked = ref<BykcCourse[]>([])
+const picked = ref<BykcCourse[]>([]);
 
 /**
  * 课程列表刷新时保留当前 3 门（仍在列表内的），避免后台刷新导致卡片跳动；
@@ -44,51 +44,60 @@ watch(
   () => props.courses,
   () => {
     if (props.courses.length === 0) {
-      picked.value = []
-      return
+      picked.value = [];
+      return;
     }
 
-    const byId = new Map(props.courses.map((course) => [course.id, course]))
+    const byId = new Map(props.courses.map((course) => [course.id, course]));
     const kept = picked.value
       .map((course) => byId.get(course.id))
-      .filter((course): course is BykcCourse => course !== undefined)
+      .filter((course): course is BykcCourse => course !== undefined);
 
     if (kept.length > 0) {
-      const keptIds = new Set(kept.map((course) => course.id))
-      const extra = shuffle(props.courses.filter((course) => !keptIds.has(course.id)))
-      picked.value = [...kept, ...extra].slice(0, Math.min(3, props.courses.length))
-      return
+      const keptIds = new Set(kept.map((course) => course.id));
+      const extra = shuffle(
+        props.courses.filter((course) => !keptIds.has(course.id)),
+      );
+      picked.value = [...kept, ...extra].slice(
+        0,
+        Math.min(3, props.courses.length),
+      );
+      return;
     }
 
-    pickCourses()
+    pickCourses();
   },
   { immediate: true, deep: true },
-)
+);
 
 /** 优先避开当前三张卡；课程不足时允许重复。 */
 function pickCourses(): void {
   if (props.courses.length === 0) {
-    picked.value = []
-    return
+    picked.value = [];
+    return;
   }
 
-  const previousIds = new Set(picked.value.map((course) => course.id))
-  const fresh = shuffle(props.courses.filter((course) => !previousIds.has(course.id)))
-  const repeated = shuffle(props.courses.filter((course) => previousIds.has(course.id)))
-  picked.value = [...fresh, ...repeated].slice(0, 3)
+  const previousIds = new Set(picked.value.map((course) => course.id));
+  const fresh = shuffle(
+    props.courses.filter((course) => !previousIds.has(course.id)),
+  );
+  const repeated = shuffle(
+    props.courses.filter((course) => previousIds.has(course.id)),
+  );
+  picked.value = [...fresh, ...repeated].slice(0, 3);
 }
 
 function shuffle<T>(items: T[]): T[] {
-  const result = [...items]
+  const result = [...items];
   for (let index = result.length - 1; index > 0; index -= 1) {
-    const swap = Math.floor(Math.random() * (index + 1))
-    const current = result[index]
-    const other = result[swap]
-    if (current === undefined || other === undefined) continue
-    result[index] = other
-    result[swap] = current
+    const swap = Math.floor(Math.random() * (index + 1));
+    const current = result[index];
+    const other = result[swap];
+    if (current === undefined || other === undefined) continue;
+    result[index] = other;
+    result[swap] = current;
   }
-  return result
+  return result;
 }
 
 const badge = computed(() =>
@@ -97,25 +106,29 @@ const badge = computed(() =>
     savedAt: props.savedAt,
     loading: props.loading,
   }),
-)
+);
 
 const emptyText = computed(() => {
   switch (props.status) {
-    case 'loading':
-      return '正在加载课程广场…'
-    case 'no-credential':
-      return '登录后查看推荐课程'
-    case 'auth-expired':
-      return '登录状态已失效，请到设置页重新登录'
-    case 'error':
-      return props.error || '课程广场加载失败'
+    case "loading":
+      return "正在加载课程广场…";
+    case "no-credential":
+      return "登录后查看推荐课程";
+    case "auth-expired":
+      return "登录状态已失效，请到设置页重新登录";
+    case "error":
+      return props.error || "课程广场加载失败";
     default:
-      return '暂无推荐课程'
+      return "暂无推荐课程";
   }
-})
+});
 
-const canRetry = computed(() => canRetrySource({ status: props.status, error: props.error }))
-const showSettingsLink = computed(() => needsSettingsSource({ status: props.status }))
+const canRetry = computed(() =>
+  canRetrySource({ status: props.status, error: props.error }),
+);
+const showSettingsLink = computed(() =>
+  needsSettingsSource({ status: props.status }),
+);
 </script>
 
 <template>

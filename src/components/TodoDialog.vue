@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import type { Todo } from '@/types'
+import { nextTick, onBeforeUnmount, ref, watch } from "vue";
+import type { Todo } from "@/types";
 import {
   TODO_PRIORITIES,
   TODO_REPEATS,
@@ -8,71 +8,71 @@ import {
   todoRepeatLabel,
   validateTodoDraft,
   type TodoDraft,
-} from '@/utils/todo'
+} from "@/utils/todo";
 
 const props = defineProps<{
-  open: boolean
-  todo: Todo | null
-}>()
+  open: boolean;
+  todo: Todo | null;
+}>();
 
 const emit = defineEmits<{
-  close: []
-  submit: [draft: TodoDraft]
-}>()
+  close: [];
+  submit: [draft: TodoDraft];
+}>();
 
-const title = ref('')
-const dueAt = ref('')
-const note = ref('')
-const priority = ref<Todo['priority']>('medium')
-const repeat = ref<Todo['repeat']>('none')
-const errorMessage = ref('')
-const titleInput = ref<HTMLInputElement | null>(null)
-const dueInput = ref<HTMLInputElement | null>(null)
+const title = ref("");
+const dueAt = ref("");
+const note = ref("");
+const priority = ref<Todo["priority"]>("medium");
+const repeat = ref<Todo["repeat"]>("none");
+const errorMessage = ref("");
+const titleInput = ref<HTMLInputElement | null>(null);
+const dueInput = ref<HTMLInputElement | null>(null);
 
 watch(
-  () => [props.open, props.todo?.id ?? ''] as const,
+  () => [props.open, props.todo?.id ?? ""] as const,
   async ([open]) => {
-    if (!open) return
+    if (!open) return;
 
-    title.value = props.todo?.title ?? ''
-    dueAt.value = props.todo?.dueAt ?? ''
-    note.value = props.todo?.note ?? ''
-    priority.value = props.todo?.priority ?? 'medium'
-    repeat.value = props.todo?.repeat ?? 'none'
-    errorMessage.value = ''
+    title.value = props.todo?.title ?? "";
+    dueAt.value = props.todo?.dueAt ?? "";
+    note.value = props.todo?.note ?? "";
+    priority.value = props.todo?.priority ?? "medium";
+    repeat.value = props.todo?.repeat ?? "none";
+    errorMessage.value = "";
 
-    await nextTick()
-    titleInput.value?.focus()
-    titleInput.value?.select()
+    await nextTick();
+    titleInput.value?.focus();
+    titleInput.value?.select();
   },
   { immediate: true },
-)
+);
 
 watch(
   () => props.open,
   (open) => {
     if (open) {
-      document.body.style.overflow = 'hidden'
-      window.addEventListener('keydown', onKeydown)
+      document.body.style.overflow = "hidden";
+      window.addEventListener("keydown", onKeydown);
     } else {
-      document.body.style.overflow = ''
-      window.removeEventListener('keydown', onKeydown)
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", onKeydown);
     }
   },
-)
+);
 
 onBeforeUnmount(() => {
-  document.body.style.overflow = ''
-  window.removeEventListener('keydown', onKeydown)
-})
+  document.body.style.overflow = "";
+  window.removeEventListener("keydown", onKeydown);
+});
 
 function onKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') close()
+  if (event.key === "Escape") close();
 }
 
 function close(): void {
-  if (!props.open) return
-  emit('close')
+  if (!props.open) return;
+  emit("close");
 }
 
 function submit(): void {
@@ -82,25 +82,25 @@ function submit(): void {
     note: note.value,
     priority: priority.value,
     repeat: repeat.value,
-  }
+  };
 
-  const error = validateTodoDraft(draft)
+  const error = validateTodoDraft(draft);
   if (error) {
-    errorMessage.value = error
-    if (error === '请输入标题') {
-      titleInput.value?.focus()
-    } else if (error.includes('截止')) {
-      dueInput.value?.focus()
+    errorMessage.value = error;
+    if (error === "请输入标题") {
+      titleInput.value?.focus();
+    } else if (error.includes("截止")) {
+      dueInput.value?.focus();
     }
-    return
+    return;
   }
 
-  errorMessage.value = ''
-  emit('submit', draft)
+  errorMessage.value = "";
+  emit("submit", draft);
 }
 
 const fieldClass =
-  'mt-2 w-full rounded-2xl border border-white/20 bg-slate-950/60 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-white/40'
+  "mt-2 w-full rounded-2xl border border-white/20 bg-slate-950/60 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-white/40";
 </script>
 
 <template>
@@ -125,8 +125,11 @@ const fieldClass =
           class="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-white/15 bg-slate-900/95 p-6 text-white shadow-[0_30px_100px_-30px_rgba(0,0,0,1)]"
         >
           <header>
-            <h2 id="todo-dialog-title" class="text-lg font-medium tracking-wide">
-              {{ todo ? '编辑待办' : '新建待办' }}
+            <h2
+              id="todo-dialog-title"
+              class="text-lg font-medium tracking-wide"
+            >
+              {{ todo ? "编辑待办" : "新建待办" }}
             </h2>
             <p class="mt-1 text-xs text-white/40">
               截止时间留空表示无截止时间；重复任务必须填写截止时间。
@@ -145,7 +148,7 @@ const fieldClass =
                 spellcheck="false"
                 placeholder="例如：提交作业"
                 :class="[fieldClass, 'h-11 px-4']"
-              >
+              />
             </label>
 
             <label class="mt-4 block">
@@ -156,7 +159,7 @@ const fieldClass =
                 type="datetime-local"
                 step="60"
                 :class="[fieldClass, 'h-11 px-4 text-[13px]']"
-              >
+              />
             </label>
 
             <label class="mt-4 block">
@@ -167,15 +170,25 @@ const fieldClass =
                 maxlength="500"
                 spellcheck="false"
                 placeholder="可选"
-                :class="[fieldClass, 'resize-y px-4 py-3 text-[13px] leading-relaxed']"
+                :class="[
+                  fieldClass,
+                  'resize-y px-4 py-3 text-[13px] leading-relaxed',
+                ]"
               ></textarea>
             </label>
 
             <div class="mt-4 grid grid-cols-2 gap-3">
               <label class="block">
                 <span class="text-xs tracking-wide text-white/55">优先级</span>
-                <select v-model="priority" :class="[fieldClass, 'h-11 px-4 text-[13px]']">
-                  <option v-for="value in TODO_PRIORITIES" :key="value" :value="value">
+                <select
+                  v-model="priority"
+                  :class="[fieldClass, 'h-11 px-4 text-[13px]']"
+                >
+                  <option
+                    v-for="value in TODO_PRIORITIES"
+                    :key="value"
+                    :value="value"
+                  >
                     {{ todoPriorityLabel(value) }}
                   </option>
                 </select>
@@ -183,15 +196,26 @@ const fieldClass =
 
               <label class="block">
                 <span class="text-xs tracking-wide text-white/55">重复</span>
-                <select v-model="repeat" :class="[fieldClass, 'h-11 px-4 text-[13px]']">
-                  <option v-for="value in TODO_REPEATS" :key="value" :value="value">
+                <select
+                  v-model="repeat"
+                  :class="[fieldClass, 'h-11 px-4 text-[13px]']"
+                >
+                  <option
+                    v-for="value in TODO_REPEATS"
+                    :key="value"
+                    :value="value"
+                  >
                     {{ todoRepeatLabel(value) }}
                   </option>
                 </select>
               </label>
             </div>
 
-            <p v-if="errorMessage" role="alert" class="mt-3 text-xs text-red-300">
+            <p
+              v-if="errorMessage"
+              role="alert"
+              class="mt-3 text-xs text-red-300"
+            >
               {{ errorMessage }}
             </p>
 

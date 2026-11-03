@@ -1,34 +1,34 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import CardStatusActions from '@/components/CardStatusActions.vue'
-import HomeCard from '@/components/HomeCard.vue'
-import type { YgdkOverview } from '@shared/api'
-import type { SourceStatus } from '@/types'
+import { computed } from "vue";
+import CardStatusActions from "@/components/CardStatusActions.vue";
+import HomeCard from "@/components/HomeCard.vue";
+import type { YgdkOverview } from "@shared/api";
+import type { SourceStatus } from "@/types";
 import {
   canRetrySource,
   needsSettingsSource,
   resolveSourceBadge,
-} from '@/utils/sourceStatus'
+} from "@/utils/sourceStatus";
 import {
   DEFAULT_YGDK_TERM_TARGET,
   DEFAULT_YGDK_WEEK_TARGET,
   ygdkProgressPercent,
-} from '@/utils/ygdk'
+} from "@/utils/ygdk";
 
 const props = withDefaults(
   defineProps<{
-    status?: SourceStatus
-    overview?: YgdkOverview | null
+    status?: SourceStatus;
+    overview?: YgdkOverview | null;
     /** 学期目标：由主页按“系统值优先、否则用户设置”解析后传入。 */
-    termTarget?: number
+    termTarget?: number;
     /** 周限制：始终为设置页的用户值。 */
-    weekLimit?: number
-    savedAt?: string | null
-    error?: string | null
-    loading?: boolean
+    weekLimit?: number;
+    savedAt?: string | null;
+    error?: string | null;
+    loading?: boolean;
   }>(),
   {
-    status: 'no-credential',
+    status: "no-credential",
     overview: null,
     termTarget: DEFAULT_YGDK_TERM_TARGET,
     weekLimit: DEFAULT_YGDK_WEEK_TARGET,
@@ -36,11 +36,11 @@ const props = withDefaults(
     error: null,
     loading: false,
   },
-)
+);
 
 const emit = defineEmits<{
-  retry: []
-}>()
+  retry: [];
+}>();
 
 const badge = computed(() =>
   resolveSourceBadge({
@@ -48,45 +48,49 @@ const badge = computed(() =>
     savedAt: props.savedAt,
     loading: props.loading,
   }),
-)
+);
 
 const rows = computed(() => {
-  const overview = props.overview
-  if (!overview) return []
+  const overview = props.overview;
+  if (!overview) return [];
 
   return [
     {
-      label: '学期',
+      label: "学期",
       value: `${overview.termCount} / ${props.termTarget}`,
       percent: ygdkProgressPercent(overview.termCount, props.termTarget),
-      detail: '学期进度',
+      detail: "学期进度",
     },
     {
-      label: '本周',
+      label: "本周",
       value: `${overview.weekCount} / ${props.weekLimit}`,
       percent: ygdkProgressPercent(overview.weekCount, props.weekLimit),
-      detail: '本周进度',
+      detail: "本周进度",
     },
-  ]
-})
+  ];
+});
 
 const emptyText = computed(() => {
   switch (props.status) {
-    case 'no-credential':
-      return '未登录'
-    case 'auth-expired':
-      return '登录状态已失效'
-    case 'error':
-      return props.error || '加载失败'
-    case 'loading':
-      return '正在加载…'
+    case "no-credential":
+      return "未登录";
+    case "auth-expired":
+      return "登录状态已失效";
+    case "error":
+      return props.error || "加载失败";
+    case "loading":
+      return "正在加载…";
     default:
-      return '暂无数据'
+      return "暂无数据";
   }
-})
+});
 
-const canRetry = computed(() => canRetrySource({ status: props.status, error: props.error }))
-const showSettingsLink = computed(() => needsSettingsSource({ status: props.status }))
+const canRetry = computed(() =>
+  canRetrySource({ status: props.status, error: props.error }),
+);
+const showSettingsLink = computed(() =>
+  needsSettingsSource({ status: props.status }),
+);
 </script>
 
 <template>
@@ -102,9 +106,13 @@ const showSettingsLink = computed(() => needsSettingsSource({ status: props.stat
     <div class="flex min-h-0 flex-1 flex-col justify-center gap-1.5">
       <template v-if="rows.length > 0">
         <div v-for="row in rows" :key="row.label">
-          <div class="flex items-baseline justify-between gap-2 text-[10px] leading-none">
+          <div
+            class="flex items-baseline justify-between gap-2 text-[10px] leading-none"
+          >
             <span class="text-white/45">{{ row.label }}</span>
-            <span class="truncate font-medium text-white/70">{{ row.value }}</span>
+            <span class="truncate font-medium text-white/70">{{
+              row.value
+            }}</span>
           </div>
           <div
             class="mt-1 h-1 overflow-hidden rounded-full bg-white/10"
@@ -122,7 +130,9 @@ const showSettingsLink = computed(() => needsSettingsSource({ status: props.stat
         </div>
       </template>
 
-      <p v-else class="text-[9.5px] leading-tight text-white/40">{{ emptyText }}</p>
+      <p v-else class="text-[9.5px] leading-tight text-white/40">
+        {{ emptyText }}
+      </p>
     </div>
   </HomeCard>
 </template>

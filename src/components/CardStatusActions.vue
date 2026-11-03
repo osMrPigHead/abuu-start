@@ -1,20 +1,20 @@
 <script setup lang="ts">
-import { RouterLink } from 'vue-router'
+import { RouterLink } from "vue-router";
 
 withDefaults(
   defineProps<{
-    retryable?: boolean
-    needsSettings?: boolean
+    retryable?: boolean;
+    needsSettings?: boolean;
   }>(),
   {
     retryable: false,
     needsSettings: false,
   },
-)
+);
 
 const emit = defineEmits<{
-  retry: []
-}>()
+  retry: [];
+}>();
 </script>
 
 <template>

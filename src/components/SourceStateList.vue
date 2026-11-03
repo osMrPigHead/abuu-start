@@ -1,32 +1,28 @@
 <script setup lang="ts">
 /** 统一登录区的四源状态行，见 docs/ui-lowfi.md 设置。 */
-import { computed, ref, watch } from 'vue'
-import { AUTH_SOURCE_LABELS, AUTH_SOURCE_ORDER } from '@/composables/useAuth'
-import type {
-  AuthSourceId,
-  AuthSources,
-  AuthSourceState,
-} from '@shared/auth'
-import { formatStamp } from '@/utils/date'
+import { computed, ref, watch } from "vue";
+import { AUTH_SOURCE_LABELS, AUTH_SOURCE_ORDER } from "@/composables/useAuth";
+import type { AuthSourceId, AuthSources, AuthSourceState } from "@shared/auth";
+import { formatStamp } from "@/utils/date";
 
 const props = defineProps<{
-  sources: AuthSources
-}>()
+  sources: AuthSources;
+}>();
 
 const emit = defineEmits<{
-  retry: [source: AuthSourceId]
-}>()
+  retry: [source: AuthSourceId];
+}>();
 
-const retrying = ref<AuthSourceId | null>(null)
+const retrying = ref<AuthSourceId | null>(null);
 
 // 父组件更新状态后结束「重试中」。
 watch(
   () => props.sources,
   () => {
-    retrying.value = null
+    retrying.value = null;
   },
   { deep: true },
-)
+);
 
 const rows = computed(() =>
   AUTH_SOURCE_ORDER.map((id) => ({
@@ -34,47 +30,47 @@ const rows = computed(() =>
     label: AUTH_SOURCE_LABELS[id],
     state: props.sources[id],
   })),
-)
+);
 
 function statusText(state: AuthSourceState): string {
   switch (state.status) {
-    case 'ready': {
-      const time = formatStamp(state.updatedAt)
-      return time ? `已派生 · ${time}` : '已派生'
+    case "ready": {
+      const time = formatStamp(state.updatedAt);
+      return time ? `已派生 · ${time}` : "已派生";
     }
-    case 'pending':
-      return '派生中'
-    case 'failed':
-      return '派生失败'
-    case 'expired':
-      return '已失效'
+    case "pending":
+      return "派生中";
+    case "failed":
+      return "派生失败";
+    case "expired":
+      return "已失效";
     default:
-      return '未派生'
+      return "未派生";
   }
 }
 
 function statusClass(state: AuthSourceState): string {
   switch (state.status) {
-    case 'ready':
-      return 'text-emerald-100/80'
-    case 'pending':
-      return 'text-sky-100/80'
-    case 'failed':
-    case 'expired':
-      return 'text-amber-100/80'
+    case "ready":
+      return "text-emerald-100/80";
+    case "pending":
+      return "text-sky-100/80";
+    case "failed":
+    case "expired":
+      return "text-amber-100/80";
     default:
-      return 'text-white/45'
+      return "text-white/45";
   }
 }
 
 function canRetry(state: AuthSourceState): boolean {
-  return state.status === 'failed' || state.status === 'expired'
+  return state.status === "failed" || state.status === "expired";
 }
 
 function onRetry(source: AuthSourceId): void {
-  if (retrying.value !== null) return
-  retrying.value = source
-  emit('retry', source)
+  if (retrying.value !== null) return;
+  retrying.value = source;
+  emit("retry", source);
 }
 </script>
 
@@ -104,7 +100,7 @@ function onRetry(source: AuthSourceId): void {
             :disabled="retrying !== null"
             @click="onRetry(row.id)"
           >
-            {{ retrying === row.id ? '重试中' : '重试' }}
+            {{ retrying === row.id ? "重试中" : "重试" }}
           </button>
         </div>
       </div>

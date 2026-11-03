@@ -1,50 +1,50 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import type { Shortcut } from '@/types'
-import { faviconUrlFor, shortcutInitial } from '@/utils/favicon'
+import { computed, ref, watch } from "vue";
+import type { Shortcut } from "@/types";
+import { faviconUrlFor, shortcutInitial } from "@/utils/favicon";
 
 const props = withDefaults(
   defineProps<{
-    shortcut: Shortcut
-    editing?: boolean
-    dragging?: boolean
+    shortcut: Shortcut;
+    editing?: boolean;
+    dragging?: boolean;
   }>(),
   {
     editing: false,
     dragging: false,
   },
-)
+);
 
 const emit = defineEmits<{
-  edit: []
-  dragstart: [event: DragEvent]
-  dragend: []
-}>()
+  edit: [];
+  dragstart: [event: DragEvent];
+  dragend: [];
+}>();
 
-const iconFailed = ref(false)
-const iconUrl = computed(() => faviconUrlFor(props.shortcut.url))
-const initial = computed(() => shortcutInitial(props.shortcut.title))
+const iconFailed = ref(false);
+const iconUrl = computed(() => faviconUrlFor(props.shortcut.url));
+const initial = computed(() => shortcutInitial(props.shortcut.title));
 
 watch(
   () => props.shortcut.url,
   () => {
-    iconFailed.value = false
+    iconFailed.value = false;
   },
-)
+);
 
 function handleDragStart(event: DragEvent): void {
   if (!props.editing) {
-    event.preventDefault()
-    return
+    event.preventDefault();
+    return;
   }
 
-  event.dataTransfer?.setData('text/plain', props.shortcut.id)
-  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
-  emit('dragstart', event)
+  event.dataTransfer?.setData("text/plain", props.shortcut.id);
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+  emit("dragstart", event);
 }
 
 function openEditor(): void {
-  emit('edit')
+  emit("edit");
 }
 </script>
 
@@ -76,11 +76,13 @@ function openEditor(): void {
         draggable="false"
         class="h-4 w-4 object-contain"
         @error="iconFailed = true"
-      >
+      />
       <template v-else>{{ initial }}</template>
     </span>
 
-    <span class="min-w-0 flex-1 truncate text-[13px] leading-tight text-white/90">
+    <span
+      class="min-w-0 flex-1 truncate text-[13px] leading-tight text-white/90"
+    >
       {{ shortcut.title }}
     </span>
 
@@ -95,7 +97,12 @@ function openEditor(): void {
       @click.stop="openEditor"
       @dragstart.stop.prevent
     >
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" class="h-3.5 w-3.5">
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+        class="h-3.5 w-3.5"
+      >
         <path
           d="m4 20 4.4-1 9.6-9.6a2.1 2.1 0 0 0-3-3L5.4 16 4 20Z"
           stroke="currentColor"

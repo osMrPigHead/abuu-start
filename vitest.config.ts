@@ -1,6 +1,6 @@
-import { fileURLToPath, URL } from 'node:url'
-import vue from '@vitejs/plugin-vue'
-import { defineConfig } from 'vitest/config'
+import { fileURLToPath, URL } from "node:url";
+import vue from "@vitejs/plugin-vue";
+import { defineConfig } from "vitest/config";
 
 /**
  * 测试配置独立于 vite.config.ts：生产构建不依赖 Vitest，
@@ -10,17 +10,17 @@ export default defineConfig({
   plugins: [vue()],
   resolve: {
     alias: {
-      '@shared': fileURLToPath(new URL('./shared', import.meta.url)),
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      "@shared": fileURLToPath(new URL("./shared", import.meta.url)),
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
   test: {
-    environment: 'happy-dom',
-    include: ['src/**/*.test.ts', 'server/**/*.test.ts'],
-    setupFiles: ['./src/test/setup.ts'],
+    environment: "happy-dom",
+    include: ["src/**/*.test.ts", "server/**/*.test.ts"],
+    setupFiles: ["./src/test/setup.ts"],
     clearMocks: true,
     restoreMocks: true,
     unstubGlobals: true,
     testTimeout: 10_000,
   },
-})
+});

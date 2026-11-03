@@ -1,26 +1,26 @@
 <script setup lang="ts">
-import type { Week } from '@shared/api'
+import type { Week } from "@shared/api";
 
 withDefaults(
   defineProps<{
-    selectedWeek: number
-    currentWeek: number | null
-    weeks: Week[]
-    canPrev: boolean
-    canNext: boolean
-    label?: string
+    selectedWeek: number;
+    currentWeek: number | null;
+    weeks: Week[];
+    canPrev: boolean;
+    canNext: boolean;
+    label?: string;
   }>(),
   {
-    label: '周次切换',
+    label: "周次切换",
   },
-)
+);
 
 const emit = defineEmits<{
-  select: [week: number]
-}>()
+  select: [week: number];
+}>();
 
 function onSelectChange(event: Event): void {
-  emit('select', Number((event.target as HTMLSelectElement).value))
+  emit("select", Number((event.target as HTMLSelectElement).value));
 }
 </script>
 
@@ -49,7 +49,9 @@ function onSelectChange(event: Event): void {
           :key="week.serialNumber"
           :value="week.serialNumber"
         >
-          第 {{ week.serialNumber }} 周{{ week.serialNumber === currentWeek ? '（当前）' : '' }}
+          第 {{ week.serialNumber }} 周{{
+            week.serialNumber === currentWeek ? "（当前）" : ""
+          }}
         </option>
       </select>
       <span v-else class="text-white/45">第 {{ selectedWeek }} 周</span>

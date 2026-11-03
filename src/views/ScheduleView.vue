@@ -1,50 +1,67 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import BackHomeLink from '@/components/BackHomeLink.vue'
-import ScheduleDayRow from '@/components/ScheduleDayRow.vue'
-import SourceStatusLine from '@/components/SourceStatusLine.vue'
-import WeekSwitcher from '@/components/WeekSwitcher.vue'
-import { useClock } from '@/composables/useClock'
-import { useBykcChosen } from '@/composables/useBykc'
-import { useSchedule, type WeekEntry } from '@/composables/useSchedule'
-import { useScheduleSettings } from '@/composables/useScheduleSettings'
-import { bykcChosenCoursesOnDate } from '@/utils/bykc'
-import { formatDateKey } from '@/utils/date'
-import { buildWeekDays, coursesOnDay, sortCourses, weekDateRange } from '@/utils/schedule'
+import { computed, onMounted, ref, watch } from "vue";
+import BackHomeLink from "@/components/BackHomeLink.vue";
+import ScheduleDayRow from "@/components/ScheduleDayRow.vue";
+import SourceStatusLine from "@/components/SourceStatusLine.vue";
+import WeekSwitcher from "@/components/WeekSwitcher.vue";
+import { useClock } from "@/composables/useClock";
+import { useBykcChosen } from "@/composables/useBykc";
+import { useSchedule, type WeekEntry } from "@/composables/useSchedule";
+import { useScheduleSettings } from "@/composables/useScheduleSettings";
+import { bykcChosenCoursesOnDate } from "@/utils/bykc";
+import { formatDateKey } from "@/utils/date";
+import {
+  buildWeekDays,
+  coursesOnDay,
+  sortCourses,
+  weekDateRange,
+} from "@/utils/schedule";
 
-const { meta, hydrate: hydrateSchedule, refreshCurrent, loadWeek, weekView } = useSchedule()
+const {
+  meta,
+  hydrate: hydrateSchedule,
+  refreshCurrent,
+  loadWeek,
+  weekView,
+} = useSchedule();
 const {
   state: bykcChosenState,
   hydrate: hydrateBykcChosen,
   refresh: refreshBykcChosen,
-} = useBykcChosen()
-const { highlightLeadMinutes } = useScheduleSettings()
-const { now } = useClock(Math.max(5, highlightLeadMinutes.value) * 1000)
+} = useBykcChosen();
+const { highlightLeadMinutes } = useScheduleSettings();
+const { now } = useClock(Math.max(5, highlightLeadMinutes.value) * 1000);
 
-const today = computed(() => now.value)
-const userNavigated = ref(false)
+const today = computed(() => now.value);
+const userNavigated = ref(false);
 
-hydrateSchedule()
+hydrateSchedule();
 
-const selectedWeek = ref(meta.currentWeek ?? 1)
-const selectedView = computed(() => weekView(selectedWeek.value))
+const selectedWeek = ref(meta.currentWeek ?? 1);
+const selectedView = computed(() => weekView(selectedWeek.value));
 
 const minWeek = computed(() => {
-  const serialNumbers = meta.weeks.map((week) => week.serialNumber)
-  return serialNumbers.length > 0 ? Math.min(...serialNumbers) : 1
-})
+  const serialNumbers = meta.weeks.map((week) => week.serialNumber);
+  return serialNumbers.length > 0 ? Math.min(...serialNumbers) : 1;
+});
 const maxWeek = computed(() => {
-  const serialNumbers = meta.weeks.map((week) => week.serialNumber)
-  return Math.max(1, meta.currentWeek ?? 1, ...(serialNumbers.length > 0 ? serialNumbers : [1]))
-})
-const canPrev = computed(() => selectedWeek.value > minWeek.value)
-const canNext = computed(() => selectedWeek.value < maxWeek.value)
+  const serialNumbers = meta.weeks.map((week) => week.serialNumber);
+  return Math.max(
+    1,
+    meta.currentWeek ?? 1,
+    ...(serialNumbers.length > 0 ? serialNumbers : [1]),
+  );
+});
+const canPrev = computed(() => selectedWeek.value > minWeek.value);
+const canNext = computed(() => selectedWeek.value < maxWeek.value);
 
 const weekOptions = computed(() =>
   [...meta.weeks].sort((left, right) => left.serialNumber - right.serialNumber),
-)
+);
 
-const weekDays = computed(() => buildWeekDays(selectedWeek.value, meta, today.value))
+const weekDays = computed(() =>
+  buildWeekDays(selectedWeek.value, meta, today.value),
+);
 const weekRows = computed(() =>
   weekDays.value.map((day) => ({
     ...day,
@@ -56,70 +73,79 @@ const weekRows = computed(() =>
       selectedView.value.sectionTimes,
     ),
   })),
-)
+);
 
-const range = computed(() => weekDateRange(selectedWeek.value, meta, today.value))
+const range = computed(() =>
+  weekDateRange(selectedWeek.value, meta, today.value),
+);
 const rangeLabel = computed(
-  () => `${formatDateKey(range.value.start)} – ${formatDateKey(range.value.end)}`,
-)
+  () =>
+    `${formatDateKey(range.value.start)} – ${formatDateKey(range.value.end)}`,
+);
 
 const displayWarning = computed(
   () =>
     meta.warning ??
-    (meta.currentWeek === null && !selectedView.value.loading && !selectedView.value.loaded
-      ? '无法确定教学周，默认第 1 周'
+    (meta.currentWeek === null &&
+    !selectedView.value.loading &&
+    !selectedView.value.loaded
+      ? "无法确定教学周，默认第 1 周"
       : null),
-)
+);
 
 watch(
   () => meta.currentWeek,
   (week) => {
-    if (week === null) return
-    if (!userNavigated.value) selectedWeek.value = week
+    if (week === null) return;
+    if (!userNavigated.value) selectedWeek.value = week;
   },
   { immediate: true },
-)
+);
 
 onMounted(() => {
-  hydrateSchedule()
-  hydrateBykcChosen()
-  void refreshCurrent()
-  void refreshBykcChosen()
-})
+  hydrateSchedule();
+  hydrateBykcChosen();
+  void refreshCurrent();
+  void refreshBykcChosen();
+});
 
-function rowState(view: WeekEntry): 'loading' | 'ready' | 'unavailable' {
-  if (view.loaded) return 'ready'
+function rowState(view: WeekEntry): "loading" | "ready" | "unavailable" {
+  if (view.loaded) return "ready";
   if (
-    view.status === 'error' ||
-    view.status === 'no-credential' ||
-    view.status === 'auth-expired'
+    view.status === "error" ||
+    view.status === "no-credential" ||
+    view.status === "auth-expired"
   ) {
-    return 'unavailable'
+    return "unavailable";
   }
-  return 'loading'
+  return "loading";
 }
 
 function selectWeek(week: number): void {
-  if (!Number.isSafeInteger(week) || week < minWeek.value || week > maxWeek.value) {
-    return
+  if (
+    !Number.isSafeInteger(week) ||
+    week < minWeek.value ||
+    week > maxWeek.value
+  ) {
+    return;
   }
 
-  userNavigated.value = true
+  userNavigated.value = true;
   if (week === selectedWeek.value) {
-    void loadWeek(week, { force: true })
-    return
+    void loadWeek(week, { force: true });
+    return;
   }
 
-  selectedWeek.value = week
-  void loadWeek(week, { force: true })
+  selectedWeek.value = week;
+  void loadWeek(week, { force: true });
 }
 
 function refresh(): void {
   if (meta.currentWeek === null || selectedWeek.value === meta.currentWeek) {
-    void refreshCurrent()
-    return
+    void refreshCurrent();
+    return;
   }
-  void loadWeek(selectedWeek.value, { force: true })
+  void loadWeek(selectedWeek.value, { force: true });
 }
 </script>
 
@@ -140,7 +166,9 @@ function refresh(): void {
 
         <header class="flex items-end justify-between gap-6">
           <div>
-            <h1 class="text-2xl font-semibold tracking-wide">第 {{ selectedWeek }} 周</h1>
+            <h1 class="text-2xl font-semibold tracking-wide">
+              第 {{ selectedWeek }} 周
+            </h1>
             <p class="mt-1 text-sm text-white/45">{{ rangeLabel }}</p>
           </div>
           <BackHomeLink />
@@ -148,7 +176,9 @@ function refresh(): void {
       </div>
 
       <div class="route-page-body flow-root">
-        <div class="mt-4 rounded-2xl border border-white/10 bg-slate-950/30 px-4 py-3 backdrop-blur-md">
+        <div
+          class="mt-4 rounded-2xl border border-white/10 bg-slate-950/30 px-4 py-3 backdrop-blur-md"
+        >
           <SourceStatusLine
             :status="selectedView.status"
             :saved-at="selectedView.savedAt"

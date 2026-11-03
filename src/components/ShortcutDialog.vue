@@ -1,97 +1,97 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import type { Shortcut } from '@/types'
-import { normalizeShortcutUrl, type ShortcutDraft } from '@/utils/shortcut'
+import { nextTick, onBeforeUnmount, ref, watch } from "vue";
+import type { Shortcut } from "@/types";
+import { normalizeShortcutUrl, type ShortcutDraft } from "@/utils/shortcut";
 
 const props = defineProps<{
-  open: boolean
-  shortcut: Shortcut | null
-}>()
+  open: boolean;
+  shortcut: Shortcut | null;
+}>();
 
 const emit = defineEmits<{
-  close: []
-  submit: [draft: ShortcutDraft]
-  remove: [id: string]
-}>()
+  close: [];
+  submit: [draft: ShortcutDraft];
+  remove: [id: string];
+}>();
 
-const title = ref('')
-const url = ref('')
-const errorMessage = ref('')
-const confirmingDelete = ref(false)
-const titleInput = ref<HTMLInputElement | null>(null)
-const urlInput = ref<HTMLInputElement | null>(null)
+const title = ref("");
+const url = ref("");
+const errorMessage = ref("");
+const confirmingDelete = ref(false);
+const titleInput = ref<HTMLInputElement | null>(null);
+const urlInput = ref<HTMLInputElement | null>(null);
 
 watch(
-  () => [props.open, props.shortcut?.id ?? ''] as const,
+  () => [props.open, props.shortcut?.id ?? ""] as const,
   async ([open]) => {
-    if (!open) return
+    if (!open) return;
 
-    title.value = props.shortcut?.title ?? ''
-    url.value = props.shortcut?.url ?? ''
-    errorMessage.value = ''
-    confirmingDelete.value = false
+    title.value = props.shortcut?.title ?? "";
+    url.value = props.shortcut?.url ?? "";
+    errorMessage.value = "";
+    confirmingDelete.value = false;
 
-    await nextTick()
-    titleInput.value?.focus()
-    titleInput.value?.select()
+    await nextTick();
+    titleInput.value?.focus();
+    titleInput.value?.select();
   },
   { immediate: true },
-)
+);
 
 watch(
   () => props.open,
   (open) => {
     if (open) {
-      document.body.style.overflow = 'hidden'
-      window.addEventListener('keydown', onKeydown)
+      document.body.style.overflow = "hidden";
+      window.addEventListener("keydown", onKeydown);
     } else {
-      document.body.style.overflow = ''
-      window.removeEventListener('keydown', onKeydown)
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", onKeydown);
     }
   },
-)
+);
 
 onBeforeUnmount(() => {
-  document.body.style.overflow = ''
-  window.removeEventListener('keydown', onKeydown)
-})
+  document.body.style.overflow = "";
+  window.removeEventListener("keydown", onKeydown);
+});
 
 function onKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') close()
+  if (event.key === "Escape") close();
 }
 
 function close(): void {
-  if (!props.open) return
-  emit('close')
+  if (!props.open) return;
+  emit("close");
 }
 
 function submit(): void {
-  const trimmedTitle = title.value.trim()
+  const trimmedTitle = title.value.trim();
   if (trimmedTitle.length === 0) {
-    errorMessage.value = '请输入标题'
-    titleInput.value?.focus()
-    return
+    errorMessage.value = "请输入标题";
+    titleInput.value?.focus();
+    return;
   }
 
-  const normalizedUrl = normalizeShortcutUrl(url.value)
+  const normalizedUrl = normalizeShortcutUrl(url.value);
   if (!normalizedUrl) {
-    errorMessage.value = '请输入有效的 http(s) 链接'
-    urlInput.value?.focus()
-    return
+    errorMessage.value = "请输入有效的 http(s) 链接";
+    urlInput.value?.focus();
+    return;
   }
 
-  errorMessage.value = ''
-  emit('submit', { title: trimmedTitle, url: normalizedUrl })
+  errorMessage.value = "";
+  emit("submit", { title: trimmedTitle, url: normalizedUrl });
 }
 
 function requestDelete(): void {
-  if (!props.shortcut) return
-  confirmingDelete.value = true
+  if (!props.shortcut) return;
+  confirmingDelete.value = true;
 }
 
 function confirmDelete(): void {
-  if (!props.shortcut) return
-  emit('remove', props.shortcut.id)
+  if (!props.shortcut) return;
+  emit("remove", props.shortcut.id);
 }
 </script>
 
@@ -117,10 +117,15 @@ function confirmDelete(): void {
           class="w-full max-w-md rounded-3xl border border-white/15 bg-slate-900/95 p-6 text-white shadow-[0_30px_100px_-30px_rgba(0,0,0,1)]"
         >
           <header>
-            <h2 id="shortcut-dialog-title" class="text-lg font-medium tracking-wide">
-              {{ shortcut ? '编辑快捷方式' : '新建快捷方式' }}
+            <h2
+              id="shortcut-dialog-title"
+              class="text-lg font-medium tracking-wide"
+            >
+              {{ shortcut ? "编辑快捷方式" : "新建快捷方式" }}
             </h2>
-            <p class="mt-1 text-xs text-white/40">填写标题与地址，仅支持 http(s) 链接。</p>
+            <p class="mt-1 text-xs text-white/40">
+              填写标题与地址，仅支持 http(s) 链接。
+            </p>
           </header>
 
           <form class="mt-5" @submit.prevent="submit">
@@ -135,7 +140,7 @@ function confirmDelete(): void {
                 spellcheck="false"
                 placeholder="例如：本研教育管理系统"
                 class="mt-2 h-11 w-full rounded-full border border-white/20 bg-slate-950/60 px-4 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-white/40"
-              >
+              />
             </label>
 
             <label class="mt-4 block">
@@ -150,10 +155,14 @@ function confirmDelete(): void {
                 spellcheck="false"
                 placeholder="https://example.com/"
                 class="mt-2 h-11 w-full rounded-full border border-white/20 bg-slate-950/60 px-4 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-white/40"
-              >
+              />
             </label>
 
-            <p v-if="errorMessage" role="alert" class="mt-3 text-xs text-red-300">
+            <p
+              v-if="errorMessage"
+              role="alert"
+              class="mt-3 text-xs text-red-300"
+            >
               {{ errorMessage }}
             </p>
 

@@ -1,34 +1,40 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { BykcCourse } from '@shared/api'
+import { computed } from "vue";
+import type { BykcCourse } from "@shared/api";
 import {
   bykcMetaLine,
   bykcStatusLabel,
   formatBykcCardTime,
   formatBykcListTime,
-} from '@/utils/bykc'
+} from "@/utils/bykc";
 
 const props = withDefaults(
   defineProps<{
-    course: BykcCourse
+    course: BykcCourse;
     /** 主页卡片使用 compact；广场列表使用完整卡片。 */
-    compact?: boolean
+    compact?: boolean;
   }>(),
   {
     compact: false,
   },
-)
+);
 
 const emit = defineEmits<{
-  open: []
-}>()
+  open: [];
+}>();
 
-const statusLabel = computed(() => bykcStatusLabel(props.course.status))
-const cardTime = computed(() => formatBykcCardTime(props.course.startTime))
-const listTime = computed(() => formatBykcListTime(props.course.startTime, props.course.endTime))
-const metaLine = computed(() => bykcMetaLine(props.course))
-const placeVisible = computed(() => (props.course.place?.trim().length ?? 0) > 0)
-const accessibleLabel = computed(() => `打开课程详情：${props.course.courseName}`)
+const statusLabel = computed(() => bykcStatusLabel(props.course.status));
+const cardTime = computed(() => formatBykcCardTime(props.course.startTime));
+const listTime = computed(() =>
+  formatBykcListTime(props.course.startTime, props.course.endTime),
+);
+const metaLine = computed(() => bykcMetaLine(props.course));
+const placeVisible = computed(
+  () => (props.course.place?.trim().length ?? 0) > 0,
+);
+const accessibleLabel = computed(
+  () => `打开课程详情：${props.course.courseName}`,
+);
 </script>
 
 <template>
@@ -40,7 +46,9 @@ const accessibleLabel = computed(() => `打开课程详情：${props.course.cour
     :aria-label="accessibleLabel"
     @click="emit('open')"
   >
-    <p class="min-w-0 truncate text-[12.5px] font-semibold leading-tight text-white/90">
+    <p
+      class="min-w-0 truncate text-[12.5px] font-semibold leading-tight text-white/90"
+    >
       {{ course.courseName }}
     </p>
     <p class="mt-0.5 min-w-0 truncate text-[9.5px] leading-tight text-white/55">
@@ -62,7 +70,9 @@ const accessibleLabel = computed(() => `打开课程详情：${props.course.cour
     @click="emit('open')"
   >
     <div class="flex items-start justify-between gap-3">
-      <h2 class="min-w-0 flex-1 text-[15px] font-medium leading-snug text-white/90">
+      <h2
+        class="min-w-0 flex-1 text-[15px] font-medium leading-snug text-white/90"
+      >
         {{ course.courseName }}
       </h2>
       <span
@@ -72,7 +82,11 @@ const accessibleLabel = computed(() => `打开课程详情：${props.course.cour
       </span>
     </div>
 
-    <p class="mt-1 min-w-0 truncate text-[11.5px] text-white/45">{{ listTime }}</p>
-    <p class="mt-1 min-w-0 truncate text-[11.5px] text-white/45">{{ metaLine }}</p>
+    <p class="mt-1 min-w-0 truncate text-[11.5px] text-white/45">
+      {{ listTime }}
+    </p>
+    <p class="mt-1 min-w-0 truncate text-[11.5px] text-white/45">
+      {{ metaLine }}
+    </p>
   </button>
 </template>

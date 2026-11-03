@@ -1,76 +1,76 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
-import HomeCard from '@/components/HomeCard.vue'
-import type { PomodoroSettings } from '@/types'
+import { computed, reactive, ref } from "vue";
+import HomeCard from "@/components/HomeCard.vue";
+import type { PomodoroSettings } from "@/types";
 import {
   formatPomodoroClock,
   formatPomodoroFinish,
   POMODORO_PHASE_LABELS,
   validatePomodoroSettings,
   type PomodoroPhase,
-} from '@/utils/pomodoro'
+} from "@/utils/pomodoro";
 
 const props = defineProps<{
-  settings: PomodoroSettings
-  phase: PomodoroPhase
-  phaseSeconds: number
-  remainingSeconds: number
-  running: boolean
-  started: boolean
-  paused: boolean
-  completedRounds: number
-  expectedFinishAt: Date
-}>()
+  settings: PomodoroSettings;
+  phase: PomodoroPhase;
+  phaseSeconds: number;
+  remainingSeconds: number;
+  running: boolean;
+  started: boolean;
+  paused: boolean;
+  completedRounds: number;
+  expectedFinishAt: Date;
+}>();
 
 const emit = defineEmits<{
-  start: [settings: PomodoroSettings]
-  settingsChange: [settings: PomodoroSettings]
-  pause: []
-  resume: []
-  reset: []
-  edit: []
-}>()
+  start: [settings: PomodoroSettings];
+  settingsChange: [settings: PomodoroSettings];
+  pause: [];
+  resume: [];
+  reset: [];
+  edit: [];
+}>();
 
 const draft = reactive<Record<keyof PomodoroSettings, string | number>>({
   focusMinutes: String(props.settings.focusMinutes),
   shortBreakMinutes: String(props.settings.shortBreakMinutes),
   longBreakMinutes: String(props.settings.longBreakMinutes),
   roundsPerLongBreak: String(props.settings.roundsPerLongBreak),
-})
+});
 
-const errorMessage = ref('')
+const errorMessage = ref("");
 
-const phaseLabel = computed(() => POMODORO_PHASE_LABELS[props.phase])
-const clockText = computed(() => formatPomodoroClock(props.remainingSeconds))
-const finishText = computed(() => formatPomodoroFinish(props.expectedFinishAt))
+const phaseLabel = computed(() => POMODORO_PHASE_LABELS[props.phase]);
+const clockText = computed(() => formatPomodoroClock(props.remainingSeconds));
+const finishText = computed(() => formatPomodoroFinish(props.expectedFinishAt));
 const primaryLabel = computed(() => {
-  if (props.running) return '暂停'
-  return props.paused ? '继续' : '开始'
-})
+  if (props.running) return "暂停";
+  return props.paused ? "继续" : "开始";
+});
 
 const actionClass =
-  'flex h-9 items-center justify-center rounded-full border border-white/20 bg-slate-950/40 text-[13px] text-white/80 backdrop-blur-xl transition hover:border-white/35 hover:bg-slate-950/55 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40'
+  "flex h-9 items-center justify-center rounded-full border border-white/20 bg-slate-950/40 text-[13px] text-white/80 backdrop-blur-xl transition hover:border-white/35 hover:bg-slate-950/55 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40";
 
 const inputClass =
-  'h-7 min-w-0 flex-1 rounded-full border border-white/20 bg-slate-950/40 px-2.5 text-right text-[12px] text-white outline-none backdrop-blur-xl transition placeholder:text-white/45 focus:border-white/35 focus:bg-slate-950/55'
+  "h-7 min-w-0 flex-1 rounded-full border border-white/20 bg-slate-950/40 px-2.5 text-right text-[12px] text-white outline-none backdrop-blur-xl transition placeholder:text-white/45 focus:border-white/35 focus:bg-slate-950/55";
 
 function submitSettings(): void {
-  const settings = readDraft()
-  const error = validatePomodoroSettings(settings)
+  const settings = readDraft();
+  const error = validatePomodoroSettings(settings);
   if (error) {
-    errorMessage.value = error
-    return
+    errorMessage.value = error;
+    return;
   }
 
-  errorMessage.value = ''
-  emit('start', settings)
+  errorMessage.value = "";
+  emit("start", settings);
 }
 
 /** 设置态自动保存：所有字段都合法时才同步到父级，非法输入只在提交时提示。 */
 function persistSettings(): void {
-  const settings = readDraft()
+  const settings = readDraft();
   if (validatePomodoroSettings(settings) === null) {
-    emit('settingsChange', settings)
+    emit("settingsChange", settings);
   }
 }
 
@@ -80,22 +80,22 @@ function readDraft(): PomodoroSettings {
     shortBreakMinutes: parseInteger(draft.shortBreakMinutes),
     longBreakMinutes: parseInteger(draft.longBreakMinutes),
     roundsPerLongBreak: parseInteger(draft.roundsPerLongBreak),
-  }
+  };
 }
 
 function handlePrimary(): void {
   if (props.running) {
-    emit('pause')
-    return
+    emit("pause");
+    return;
   }
 
-  emit('resume')
+  emit("resume");
 }
 
 function parseInteger(value: string | number): number {
-  const text = String(value).trim()
-  if (!/^\d+$/.test(text)) return Number.NaN
-  return Number(text)
+  const text = String(value).trim();
+  if (!/^\d+$/.test(text)) return Number.NaN;
+  return Number(text);
 }
 </script>
 
@@ -143,8 +143,10 @@ function parseInteger(value: string | number): number {
               autocomplete="off"
               aria-label="专注时长（分钟）"
               :class="inputClass"
+            />
+            <span class="w-7 shrink-0 text-[9px] leading-none text-white/35"
+              >分钟</span
             >
-            <span class="w-7 shrink-0 text-[9px] leading-none text-white/35">分钟</span>
           </span>
         </label>
 
@@ -161,8 +163,10 @@ function parseInteger(value: string | number): number {
               autocomplete="off"
               aria-label="短休时长（分钟）"
               :class="inputClass"
+            />
+            <span class="w-7 shrink-0 text-[9px] leading-none text-white/35"
+              >分钟</span
             >
-            <span class="w-7 shrink-0 text-[9px] leading-none text-white/35">分钟</span>
           </span>
         </label>
 
@@ -179,8 +183,10 @@ function parseInteger(value: string | number): number {
               autocomplete="off"
               aria-label="长休时长（分钟）"
               :class="inputClass"
+            />
+            <span class="w-7 shrink-0 text-[9px] leading-none text-white/35"
+              >分钟</span
             >
-            <span class="w-7 shrink-0 text-[9px] leading-none text-white/35">分钟</span>
           </span>
         </label>
 
@@ -197,21 +203,31 @@ function parseInteger(value: string | number): number {
               autocomplete="off"
               aria-label="每几轮进入长休"
               :class="inputClass"
+            />
+            <span class="w-7 shrink-0 text-[9px] leading-none text-white/35"
+              >轮</span
             >
-            <span class="w-7 shrink-0 text-[9px] leading-none text-white/35">轮</span>
           </span>
         </label>
       </div>
 
-      <p class="min-h-3 text-[10px] leading-tight text-red-300" aria-live="polite">
+      <p
+        class="min-h-3 text-[10px] leading-tight text-red-300"
+        aria-live="polite"
+      >
         {{ errorMessage }}
       </p>
 
       <button type="submit" :class="[actionClass, 'w-full']">开始</button>
     </form>
 
-    <div v-else class="flex min-h-0 flex-1 flex-col items-center justify-between gap-1">
-      <p class="text-center text-[10.5px] leading-tight tracking-wide text-white/55">
+    <div
+      v-else
+      class="flex min-h-0 flex-1 flex-col items-center justify-between gap-1"
+    >
+      <p
+        class="text-center text-[10.5px] leading-tight tracking-wide text-white/55"
+      >
         {{ phaseLabel }}
       </p>
 
@@ -236,10 +252,18 @@ function parseInteger(value: string | number): number {
       </p>
 
       <div class="flex w-full gap-2">
-        <button type="button" :class="[actionClass, 'flex-1']" @click="handlePrimary">
+        <button
+          type="button"
+          :class="[actionClass, 'flex-1']"
+          @click="handlePrimary"
+        >
           {{ primaryLabel }}
         </button>
-        <button type="button" :class="[actionClass, 'w-[7.5rem]']" @click="emit('reset')">
+        <button
+          type="button"
+          :class="[actionClass, 'w-[7.5rem]']"
+          @click="emit('reset')"
+        >
           重置
         </button>
       </div>

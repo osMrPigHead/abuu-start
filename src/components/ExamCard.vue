@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { Exam } from '@shared/api'
+import { computed } from "vue";
+import type { Exam } from "@shared/api";
 import {
   formatExamCountdown,
   formatExamPlace,
@@ -8,25 +8,27 @@ import {
   formatExamTimeText,
   formatExamWeek,
   isExamEnded,
-} from '@/utils/exams'
+} from "@/utils/exams";
 
 const props = withDefaults(
   defineProps<{
-    exam: Exam
-    now: Date
-    compact?: boolean
+    exam: Exam;
+    now: Date;
+    compact?: boolean;
   }>(),
   {
     compact: false,
   },
-)
+);
 
-const timeText = computed(() => formatExamTimeText(props.exam))
-const placeText = computed(() => formatExamPlace(props.exam))
-const seatText = computed(() => formatExamSeat(props.exam))
-const weekText = computed(() => formatExamWeek(props.exam))
-const countdownText = computed(() => formatExamCountdown(props.exam, props.now))
-const ended = computed(() => isExamEnded(props.exam, props.now))
+const timeText = computed(() => formatExamTimeText(props.exam));
+const placeText = computed(() => formatExamPlace(props.exam));
+const seatText = computed(() => formatExamSeat(props.exam));
+const weekText = computed(() => formatExamWeek(props.exam));
+const countdownText = computed(() =>
+  formatExamCountdown(props.exam, props.now),
+);
+const ended = computed(() => isExamEnded(props.exam, props.now));
 </script>
 
 <template>
@@ -37,7 +39,9 @@ const ended = computed(() => isExamEnded(props.exam, props.now))
     :title="`${exam.courseName} · ${timeText} · ${placeText}`"
   >
     <div class="flex min-w-0 items-baseline justify-between gap-1">
-      <p class="min-w-0 truncate text-[12.5px] font-semibold leading-tight text-white">
+      <p
+        class="min-w-0 truncate text-[12.5px] font-semibold leading-tight text-white"
+      >
         {{ exam.courseName }}
       </p>
       <span
@@ -72,7 +76,9 @@ const ended = computed(() => isExamEnded(props.exam, props.now))
       </span>
     </div>
 
-    <div class="mt-2 flex flex-wrap items-baseline gap-x-5 gap-y-1 text-[12px] text-white/55">
+    <div
+      class="mt-2 flex flex-wrap items-baseline gap-x-5 gap-y-1 text-[12px] text-white/55"
+    >
       <span>{{ timeText }}</span>
       <span>{{ placeText }}</span>
       <span>{{ seatText }}</span>

@@ -3,77 +3,78 @@
  * 凭据文件、Cookie 与会话结构只属于中继，不在此处。
  */
 
-export const AUTH_SOURCE_IDS = ['byxt', 'spoc', 'bykc', 'ygdk'] as const
+export const AUTH_SOURCE_IDS = ["byxt", "spoc", "bykc", "ygdk"] as const;
 
-export type AuthSourceId = (typeof AUTH_SOURCE_IDS)[number]
+export type AuthSourceId = (typeof AUTH_SOURCE_IDS)[number];
 
-export type AuthSourceStatus = 'unconfigured' | 'pending' | 'ready' | 'failed' | 'expired'
+export type AuthSourceStatus =
+  "unconfigured" | "pending" | "ready" | "failed" | "expired";
 
 export type AuthSourceError = {
-  code: string
-  message: string
-}
+  code: string;
+  message: string;
+};
 
 export type AuthSourceState = {
-  status: AuthSourceStatus
-  updatedAt: string | null
-  error: AuthSourceError | null
-}
+  status: AuthSourceStatus;
+  updatedAt: string | null;
+  error: AuthSourceError | null;
+};
 
 export type AuthUser = {
-  name: string
-  schoolid: string
-}
+  name: string;
+  schoolid: string;
+};
 
-export type AuthSources = Record<AuthSourceId, AuthSourceState>
+export type AuthSources = Record<AuthSourceId, AuthSourceState>;
 
 export type AuthStatusResponse = {
-  authenticated: boolean
-  user: AuthUser | null
-  authenticatedAt: string | null
-  persisted: boolean
-  deriving: boolean
-  sources: AuthSources
-  warning?: string
-}
+  authenticated: boolean;
+  user: AuthUser | null;
+  authenticatedAt: string | null;
+  persisted: boolean;
+  deriving: boolean;
+  sources: AuthSources;
+  warning?: string;
+};
 
 export type AuthPreloadResponse = {
-  loginId: string
-  captchaRequired: boolean
+  loginId: string;
+  captchaRequired: boolean;
   captcha?: {
-    image: string
-    expiresAt: string
-  }
-  alreadyLoggedIn: boolean
-}
+    image: string;
+    expiresAt: string;
+  };
+  alreadyLoggedIn: boolean;
+};
 
 export type AuthLoginResponse = {
-  authenticated: true
-  user: AuthUser
-  authenticatedAt: string
-  persisted: boolean
-  sources: AuthSources
-  warning?: string
-}
+  authenticated: true;
+  user: AuthUser;
+  authenticatedAt: string;
+  persisted: boolean;
+  sources: AuthSources;
+  warning?: string;
+};
 
 export type AuthSourceRetryResponse = {
-  source: AuthSourceId
-  status: AuthSourceStatus
-  updatedAt: string | null
-  error: AuthSourceError | null
-}
+  source: AuthSourceId;
+  status: AuthSourceStatus;
+  updatedAt: string | null;
+  error: AuthSourceError | null;
+};
 
 export type AuthLogoutResponse = {
-  ok: true
-  warning?: string
-}
+  ok: true;
+  warning?: string;
+};
 
 export function isAuthSourceId(value: string): value is AuthSourceId {
-  return (AUTH_SOURCE_IDS as readonly string[]).includes(value)
+  return (AUTH_SOURCE_IDS as readonly string[]).includes(value);
 }
 
 export function emptyAuthSourceState(): AuthSourceState {
-  return { status: 'unconfigured', updatedAt: null, error: null }
+  return { status: "unconfigured", updatedAt: null, error: null };
 }
 
 export function emptyAuthSources(): AuthSources {
@@ -82,5 +83,5 @@ export function emptyAuthSources(): AuthSources {
     spoc: emptyAuthSourceState(),
     bykc: emptyAuthSourceState(),
     ygdk: emptyAuthSourceState(),
-  }
+  };
 }

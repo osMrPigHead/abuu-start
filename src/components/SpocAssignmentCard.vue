@@ -1,28 +1,28 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { SpocAssignment } from '@shared/api'
+import { computed } from "vue";
+import type { SpocAssignment } from "@shared/api";
 import {
   formatSpocDateTime,
   formatSpocStart,
   spocCourseLine,
   spocSubmissionLabel,
-} from '@/utils/spoc'
+} from "@/utils/spoc";
 
 const props = defineProps<{
-  assignment: SpocAssignment
-}>()
+  assignment: SpocAssignment;
+}>();
 
 const emit = defineEmits<{
-  open: []
-}>()
+  open: [];
+}>();
 
-const courseLine = computed(() => spocCourseLine(props.assignment))
-const statusLabel = computed(() => spocSubmissionLabel(props.assignment))
-const startText = computed(() => formatSpocStart(props.assignment.startTime))
+const courseLine = computed(() => spocCourseLine(props.assignment));
+const statusLabel = computed(() => spocSubmissionLabel(props.assignment));
+const startText = computed(() => formatSpocStart(props.assignment.startTime));
 const dueText = computed(() => {
-  const text = formatSpocDateTime(props.assignment.dueTime)
-  return text.length > 0 ? text : '无截止时间'
-})
+  const text = formatSpocDateTime(props.assignment.dueTime);
+  return text.length > 0 ? text : "无截止时间";
+});
 </script>
 
 <template>
@@ -32,7 +32,9 @@ const dueText = computed(() => {
     @click="emit('open')"
   >
     <div class="flex items-start justify-between gap-3">
-      <h2 class="min-w-0 flex-1 text-[15px] font-medium leading-snug text-white/90">
+      <h2
+        class="min-w-0 flex-1 text-[15px] font-medium leading-snug text-white/90"
+      >
         {{ assignment.title }}
       </h2>
       <span
@@ -42,10 +44,12 @@ const dueText = computed(() => {
       </span>
     </div>
 
-    <p class="mt-1 min-w-0 truncate text-[11.5px] text-white/45">{{ courseLine }}</p>
+    <p class="mt-1 min-w-0 truncate text-[11.5px] text-white/45">
+      {{ courseLine }}
+    </p>
     <p class="mt-0.5 text-[11.5px] text-white/45">开始 {{ startText }}</p>
     <p class="mt-1 text-[11.5px] font-medium text-white/70">
-      {{ dueText === '无截止时间' ? dueText : `截止 ${dueText}` }}
+      {{ dueText === "无截止时间" ? dueText : `截止 ${dueText}` }}
     </p>
   </button>
 </template>

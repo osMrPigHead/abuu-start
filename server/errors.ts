@@ -2,7 +2,7 @@
  * 中继错误类型与 HTTP 状态映射。
  * 错误码与错误信封见 shared/errors.ts；文案与状态见 docs/trd.md 3.1、docs/trd-phase3.md 3.1。
  */
-import type { ErrorEnvelope, RelayErrorCode } from '../shared/errors.ts'
+import type { ErrorEnvelope, RelayErrorCode } from "../shared/errors.ts";
 
 const HTTP_STATUS: Record<RelayErrorCode, number> = {
   NO_CREDENTIAL: 401,
@@ -29,27 +29,27 @@ const HTTP_STATUS: Record<RelayErrorCode, number> = {
   UPSTREAM_ERROR: 502,
   BAD_RESPONSE: 502,
   INTERNAL: 500,
-}
+};
 
 export class RelayError extends Error {
-  readonly code: RelayErrorCode
-  readonly upstreamStatus: number | undefined
+  readonly code: RelayErrorCode;
+  readonly upstreamStatus: number | undefined;
 
   constructor(code: RelayErrorCode, message: string, upstreamStatus?: number) {
-    super(message)
-    this.name = 'RelayError'
-    this.code = code
-    this.upstreamStatus = upstreamStatus
+    super(message);
+    this.name = "RelayError";
+    this.code = code;
+    this.upstreamStatus = upstreamStatus;
   }
 
   get status(): number {
-    return HTTP_STATUS[this.code]
+    return HTTP_STATUS[this.code];
   }
 }
 
 export function toRelayError(error: unknown): RelayError {
-  if (error instanceof RelayError) return error
-  return new RelayError('INTERNAL', '本地中继内部错误')
+  if (error instanceof RelayError) return error;
+  return new RelayError("INTERNAL", "本地中继内部错误");
 }
 
 export function toErrorBody(error: RelayError): ErrorEnvelope {
@@ -58,11 +58,11 @@ export function toErrorBody(error: RelayError): ErrorEnvelope {
       code: error.code,
       message: error.message,
     },
-  }
+  };
 
   if (error.upstreamStatus !== undefined) {
-    body.error.upstreamStatus = error.upstreamStatus
+    body.error.upstreamStatus = error.upstreamStatus;
   }
 
-  return body
+  return body;
 }
