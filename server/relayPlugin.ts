@@ -1,9 +1,9 @@
-import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { Request, Response } from 'express'
-import type { Plugin } from 'vite'
-import { createApiRouter } from './routes.ts'
+import type { IncomingMessage, ServerResponse } from "node:http";
+import type { Request, Response } from "express";
+import type { Plugin } from "vite";
+import { createApiRouter } from "./app/routes.ts";
 
-type NextFunction = (error?: unknown) => void
+type NextFunction = (error?: unknown) => void;
 
 /**
  * 本地只读中继：dev/preview 以 Vite 插件形式挂载同一份 express.Router。
@@ -11,19 +11,23 @@ type NextFunction = (error?: unknown) => void
  * 业务数据只读；写方法仅限认证（登录、登出、预加载、单源重试）与背景目录设置。
  */
 export function relayPlugin(): Plugin {
-  const api = createApiRouter()
+  const api = createApiRouter();
   // 包一层：connect 会把带 .handle 的对象当成子服务器并覆写 route 方法。
-  const middleware = (req: IncomingMessage, res: ServerResponse, next: NextFunction): void => {
-    api(req as unknown as Request, res as unknown as Response, next)
-  }
+  const middleware = (
+    req: IncomingMessage,
+    res: ServerResponse,
+    next: NextFunction,
+  ): void => {
+    api(req as unknown as Request, res as unknown as Response, next);
+  };
 
   return {
-    name: 'buaa-start-relay',
+    name: "buaa-start-relay",
     configureServer(server) {
-      server.middlewares.use(middleware)
+      server.middlewares.use(middleware);
     },
     configurePreviewServer(server) {
-      server.middlewares.use(middleware)
+      server.middlewares.use(middleware);
     },
-  }
+  };
 }

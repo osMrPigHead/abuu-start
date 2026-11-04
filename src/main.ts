@@ -1,9 +1,9 @@
-import { createApp } from 'vue'
-import App from './App.vue'
-import { useAuth } from './composables/useAuth'
-import router from './router'
-import { removeLegacyCredentials } from './utils/storage'
-import './style.css'
+import { createApp } from "vue";
+import App from "./App.vue";
+import { useAuth } from "./composables/useAuth";
+import router from "./router";
+import { removeLegacyCredentials } from "./cache/storage";
+import "./style.css";
 
 /**
  * 启动时删除旧明文凭据键（docs/trd-phase3.md 4.5）。
@@ -11,9 +11,9 @@ import './style.css'
  * 不把缓存误标为「未登录」，见 docs/trd-phase3.md 7.1。
  */
 function bootstrap(): void {
-  removeLegacyCredentials()
-  createApp(App).use(router).mount('#app')
-  void useAuth().hydrate()
+  removeLegacyCredentials();
+  createApp(App).use(router).mount("#app");
+  void useAuth().hydrate();
 }
 
-void bootstrap()
+void bootstrap();

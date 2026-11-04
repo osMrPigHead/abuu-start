@@ -40,18 +40,25 @@
 
 ```text
 server/
-  authCas.ts          SSO 登录页解析、表单构建、跳转与错误分类
-  authCrypto.ts       AES-256-GCM、密钥生成、原子写
-  authStore.ts        凭据文件读写、损坏处理、退出清理
-  authSession.ts      内存会话、Cookie 罐、自动重登、单飞
-  authDerive.ts       byxt / SPOC / 博雅 / 阳光派生
-  authTypes.ts        认证与派生类型
-  background.ts       背景目录扫描、文件名校验、图片读取
-  settingsStore.ts    背景目录配置文件
-  routes.ts           新增 /api/auth/*、/api/background/*
-  relayPlugin.ts      POST body、Origin/Content-Type 校验、二进制响应
-  errors.ts           新增认证与背景错误码
-  types.ts            新增中继类型
+  auth/
+    session.ts        认证门面：启动恢复、状态、登录/登出、单源重试、自动重登包装
+    state.ts          唯一可变会话状态：会话/Cookie 罐/代际/单飞表/落盘/恢复/快照/访问器
+    preload.ts        登录尝试缓存与验证码预加载
+    login.ts          手动登录、UC 激活、入参校验
+    relogin.ts        自动重登、冷却与会话校验
+    deriveRunner.ts   四源派生编排、单飞与代际校验
+    derive.ts         四源派生算法
+    deriveHelpers.ts  token / RoleCode / 分类提取
+    cas.ts            SSO 页面解析、表单构建、跳转与错误分类
+    http.ts           Cookie 跳转式传输
+    cookieJar.ts      RFC 6265 Cookie 罐
+    store.ts crypto.ts types.ts  凭据文件、加密与类型
+  app/routes.ts       新增 /api/auth/*、/api/background/*
+  app/relayHttp.ts    POST body、Origin/Content-Type 校验、二进制响应
+  local/background.ts 背景目录扫描、文件名校验、图片读取
+  local/settingsStore.ts 背景目录配置文件
+  core/errors.ts      新增认证与背景错误码
+  upstreams/types.ts  新增中继类型
 
 src/
   api/auth.ts         /api/auth/*
@@ -891,7 +898,7 @@ type HomeDisplayState = {
 - POST 同源校验 + JSON Content-Type；不启用 CORS；Host 校验保持。
 - 登录单飞、自动重登节流（失败后 5 分钟内不重复）；密码错误不自动重试。
 - 上游错误只返回固定中文文案；不回显 HTML、Token、Cookie。
-- 现有 `server/http.ts` 的异常包装不得把请求体、Cookie 或上游 HTML 拼进错误消息；认证错误在 `authCas.ts` 统一映射。
+- 现有 `server/http/upstream.ts` 的异常包装不得把请求体、Cookie 或上游 HTML 拼进错误消息；认证错误在 `server/auth/cas.ts` 统一映射。
 - 退出登录删除密钥与密文；业务缓存由前端清理。
 - 不实现 WebVPN；不把凭据发往第三方。
 
