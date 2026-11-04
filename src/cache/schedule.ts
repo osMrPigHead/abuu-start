@@ -1,4 +1,4 @@
-/** 课表缓存读写与归一化，见 docs/trd.md 5 / 7.2。 */
+/** 课表缓存读写与归一化，见 docs/trd.md 7.7 / 8.1。 */
 import type { Week, WeekSource } from "@shared/api";
 import { isWeekSource } from "@shared/api";
 import {

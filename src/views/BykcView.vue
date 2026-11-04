@@ -69,7 +69,7 @@ watch(
   },
 );
 
-/** 页码来自 `?page=n`；非法值回退第 1 页，越界回退末页，见 docs/trd-phase2.md 7.3。 */
+/** 页码来自 `?page=n`；非法值回退第 1 页，越界回退末页，见 docs/trd.md 8.2。 */
 function readPageQuery(): number | null {
   const raw = route.query.page;
   const value = Array.isArray(raw) ? raw[0] : raw;

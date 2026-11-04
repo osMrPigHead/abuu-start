@@ -1,5 +1,5 @@
 /**
- * 统一认证页面解析与错误分类，见 docs/api.md 2.2 / 2.4、docs/trd-phase3.md 6.2。
+ * 统一认证页面解析与错误分类，见 docs/api.md 2.2 / 2.4、docs/trd.md 6.2。
  * 页面结构来自参考 B 与 docs/api.md；上游改版时需重新联调。
  */
 import { RelayError } from "../core/errors.ts";
@@ -155,7 +155,7 @@ export async function activateUc(jar: CookieJar): Promise<void> {
   }
 }
 
-/** 登录失败分类，顺序见 docs/trd-phase3.md 6.2 第 5 步。 */
+/** 登录失败分类，顺序见 docs/trd.md 6.2 第 5 步。 */
 export function classifyLoginFailure(
   html: string,
   finalUrl: string,

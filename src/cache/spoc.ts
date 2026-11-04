@@ -1,4 +1,4 @@
-/** SPOC 作业列表与详情缓存读写、归一化，见 docs/trd.md 7.3。 */
+/** SPOC 作业列表与详情缓存读写、归一化，见 docs/trd.md 7.7 / 8.3。 */
 import type { SpocAssignment, SpocAssignmentDetail } from "@shared/api";
 import { spocSubmissionStatusText } from "@shared/api";
 import type { SpocAssignmentsCache, SpocDetailCache } from "@/types";

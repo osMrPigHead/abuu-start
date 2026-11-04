@@ -1,4 +1,4 @@
-/** 日期与时间格式化，见 docs/trd.md 6 / 7.2。 */
+/** 日期与时间格式化，见 docs/trd.md 8.1。 */
 import { formatDateKey } from "@shared/schedule";
 
 export { formatDateKey };

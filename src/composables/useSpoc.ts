@@ -1,4 +1,4 @@
-/** SPOC 作业列表与详情：缓存优先、独立数据源状态，见 docs/trd.md 7.3 / 7.6。 */
+/** SPOC 作业列表与详情：缓存优先、独立数据源状态，见 docs/trd.md 8.3 / 7.7。 */
 import { reactive } from "vue";
 import { fetchSpocAssignmentDetail, fetchSpocAssignments } from "@/api/spoc";
 import {

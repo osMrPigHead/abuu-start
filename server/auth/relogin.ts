@@ -1,5 +1,5 @@
 /**
- * 自动重登与会话校验，见 docs/trd-phase3.md 6.4。
+ * 自动重登与会话校验，见 docs/trd.md 6.4。
  * 同一时间只允许一次重登；认证类失败冷却 5 分钟，瞬时失败冷却 30 秒。
  */
 import { AUTH_SOURCE_IDS } from "../../shared/auth.ts";

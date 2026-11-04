@@ -1,4 +1,4 @@
-/** 考试缓存优先加载与独立数据源状态，见 docs/trd.md 7.2 / 7.6。 */
+/** 考试缓存优先加载与独立数据源状态，见 docs/trd.md 8.1 / 7.7。 */
 import { reactive } from "vue";
 import { fetchByxtExams } from "@/api/byxt";
 import { createCachedSource } from "@/composables/useSourceState";

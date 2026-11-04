@@ -1,4 +1,4 @@
-/** 本地存储键，见 docs/trd.md 5。 */
+/** 本地存储键，见 docs/trd.md 7.7。 */
 export const STORAGE_KEYS = {
   scheduleCache: "buaa-start.cache.byxt.schedule.v1",
   examsCache: "buaa-start.cache.byxt.exams.v1",
@@ -28,7 +28,7 @@ export function spocDetailCacheKey(assignmentId: string): string {
   return `${STORAGE_KEYS.spocDetailCachePrefix}${assignmentId}`;
 }
 
-/** 广场缓存按页码与每页数量分键，见 docs/trd-phase2.md 5。 */
+/** 广场缓存按页码与每页数量分键，见 docs/trd.md 7.7。 */
 export function bykcCoursesCacheKey(page: number, pageSize: number): string {
   return `${STORAGE_KEYS.bykcCoursesCachePrefix}${page}.${pageSize}`;
 }
@@ -68,7 +68,7 @@ export function remove(key: string): void {
   removeRaw(key);
 }
 
-/** 旧明文凭据键；三阶段启动时删除，不尝试迁移，见 docs/trd-phase3.md 4.5。 */
+/** 旧明文凭据键；启动时删除，不尝试迁移，见 docs/trd.md 4.5。 */
 export const LEGACY_CREDENTIALS_KEY = "buaa-start.credentials.v1";
 
 export function removeLegacyCredentials(): void {

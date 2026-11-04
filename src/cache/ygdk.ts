@@ -1,4 +1,4 @@
-/** 阳光打卡概览缓存读写与归一化，见 docs/trd-phase2.md 7.4。 */
+/** 阳光打卡概览缓存读写与归一化，见 docs/trd.md 8.4。 */
 import type { YgdkOverview } from "@shared/api";
 import type { YgdkOverviewCache } from "@/types";
 import { isRecord, nullableText } from "@/utils/guards";

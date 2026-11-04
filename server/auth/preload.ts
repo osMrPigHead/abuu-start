@@ -1,5 +1,5 @@
 /**
- * 登录尝试缓存与验证码预加载，见 docs/trd-phase3.md 6.1。
+ * 登录尝试缓存与验证码预加载，见 docs/trd.md 6.1。
  * 尝试只存在内存，默认 10 分钟、最多 5 个；登录后立即失效。
  */
 import { randomUUID } from "node:crypto";

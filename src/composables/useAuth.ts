@@ -1,5 +1,5 @@
 /**
- * 统一登录状态与流程的模块级单例，见 docs/trd-phase3.md 7.1。
+ * 统一登录状态与流程的模块级单例，见 docs/trd.md 7.1。
  * 密码只存在于登录请求体；loginId、验证码与登录状态只存内存。
  */
 import { reactive } from "vue";

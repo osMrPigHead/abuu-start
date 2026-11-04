@@ -1,5 +1,5 @@
 /**
- * SPOC 业务层：上游调用与归一化，见 docs/trd.md 3.2、docs/api.md 2。
+ * SPOC 业务层：上游调用与归一化，见 docs/trd.md 3.5、docs/api.md 2。
  *
  * 只读接口：queryOne（失败回退 queryList）、queryKclb、queryListByPage、
  * queryKczyInfoByid、queryXsSubmitKczyInfo。

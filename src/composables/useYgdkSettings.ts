@@ -1,4 +1,4 @@
-/** 阳光打卡目标偏好：学期目标 1–100（默认 20）、周限制 1–14（默认 4）。 */
+/** 阳光打卡目标偏好：学期目标 1–100（默认 16）、周限制 1–14（默认 4）。 */
 import { computed, reactive } from "vue";
 import type { YgdkSettings } from "@/types";
 import { isRecord } from "@/utils/guards";

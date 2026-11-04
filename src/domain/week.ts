@@ -1,4 +1,4 @@
-/** 教学周解析、日期范围与周视图纯函数，见 docs/trd.md 7.2。 */
+/** 教学周解析、日期范围与周视图纯函数，见 docs/trd.md 8.1。 */
 import type { SectionTime, Week } from "@shared/api";
 import { findWeekByDateKey } from "@shared/schedule";
 import type { Course, SourceStatus } from "@/types";

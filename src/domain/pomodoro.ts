@@ -1,6 +1,5 @@
 /**
- * 番茄钟配置校验、阶段推进与时间格式化，见 docs/trd.md 7.5 与
- * docs/trd-phase2.md 7.5。
+ * 番茄钟配置校验、阶段推进与时间格式化，见 docs/trd.md 8.6。
  * Web Audio 与桌面通知在 utils 中实现，纯规则集中在本文件。
  */
 import type { PomodoroSettings } from "@/types";

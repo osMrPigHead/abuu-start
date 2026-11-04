@@ -1,4 +1,4 @@
-/** 课表纯计算：节次/时间、周视图、今日明日与下一节课，见 docs/trd.md 7.2。 */
+/** 课表纯计算：节次/时间、周视图、今日明日与下一节课，见 docs/trd.md 8.1。 */
 import type { BykcChosenCourse, SectionTime } from "@shared/api";
 import { normalizeTime, SECTION_TIMES } from "@shared/schedule";
 import type { Course } from "@/types";

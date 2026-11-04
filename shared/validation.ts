@@ -3,7 +3,7 @@
  * 只包含无副作用常量与纯校验函数。
  */
 
-/** 博雅课程广场默认每页数量，见 docs/prd-phase2.md 4.2.3。 */
+/** 博雅课程广场默认每页数量，见 docs/prd.md 3.9.2。 */
 export const BYKC_DEFAULT_PAGE_SIZE = 12;
 
 const SPOC_ASSIGNMENT_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;

@@ -106,7 +106,7 @@ export function bykcMetaLine(
 }
 
 /**
- * 已选博雅课程在指定日期的日程项，见 docs/trd-phase2.md 7.2。
+ * 已选博雅课程在指定日期的日程项，见 docs/trd.md 8.2。
  * 开始时间缺失或不在该日时返回 null；结束时间跨天时只保留开始时间。
  */
 export function bykcChosenCourseOnDate(

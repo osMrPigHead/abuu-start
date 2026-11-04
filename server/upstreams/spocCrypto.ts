@@ -1,7 +1,7 @@
 import { createCipheriv } from "node:crypto";
 
 /**
- * SPOC 固定协议参数（不是部署密钥），见 docs/trd.md 3.3、docs/api.md 2.2。
+ * SPOC 固定协议参数（不是部署密钥），见 docs/trd.md 3.6、docs/api.md 2.2。
  * AES-128-CBC / NoPadding，key 与 IV 均为 16 字节 ASCII，明文零填充后 Base64。
  */
 const ALGORITHM = "aes-128-cbc";

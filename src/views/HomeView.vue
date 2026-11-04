@@ -52,10 +52,8 @@ const { refreshVisible } = useDataSourceActions();
 
 /** 仅时钟与背景模式只在本页（`/`）生效，离开主页不影响子页面。 */
 const minimalMode = computed(() => homeDisplay.minimalMode);
-/** 功能区隐藏或进入仅时钟模式时，既不渲染功能区也不发起取数，见 docs/prd-phase3.md 4.5。 */
-const homeAreaVisible = computed(
-  () => !minimalMode.value && homeDisplay.showFunctionArea,
-);
+/** 进入仅时钟模式后既不渲染功能区也不发起取数，见 docs/prd.md 3.12。 */
+const homeAreaVisible = computed(() => !minimalMode.value);
 
 const {
   meta,
@@ -123,7 +121,7 @@ const {
   toggleEditing: toggleShortcutEditing,
 } = useShortcutEditor();
 
-/** 学期目标优先系统值；周限制始终用用户设置，见 docs/trd-phase2.md 7.4。 */
+/** 学期目标优先系统值；周限制始终用用户设置，见 docs/trd.md 8.4。 */
 const ygdkTermTarget = computed(() =>
   resolveYgdkTermTarget(
     ygdkState.overview?.termTarget ?? 0,
@@ -197,7 +195,7 @@ const {
   moveShortcutTo,
 });
 
-/** 卡片关闭时不请求；功能区隐藏或仅时钟模式下整体不请求。 */
+/** 卡片关闭时不请求；仅时钟模式下整体不请求。 */
 function refreshHomeData(): void {
   refreshVisible(cardVisibility);
   preloadTomorrow();
@@ -207,7 +205,6 @@ onMounted(() => {
   if (homeAreaVisible.value) refreshHomeData();
 });
 
-/** 恢复显示时按卡片开关刷新；进入仅时钟模式或隐藏功能区时先退出编辑并关闭弹层。 */
 watch(homeAreaVisible, (visible) => {
   if (!visible) {
     closeHomeEditing();
@@ -219,13 +216,6 @@ watch(homeAreaVisible, (visible) => {
 
   refreshHomeData();
 });
-
-watch(
-  () => homeDisplay.showActionButtons,
-  (visible) => {
-    if (!visible) closeHomeEditing();
-  },
-);
 
 function closeHomeEditing(): void {
   isEditing.value = false;
@@ -277,7 +267,6 @@ onBeforeUnmount(closeSpocDetail);
           <HomeTopBar
             v-if="!minimalMode"
             :now="now"
-            :show-actions="homeDisplay.showActionButtons"
             :is-editing="isEditing"
             @search="submitSearch"
             @create="openCreateDialog"

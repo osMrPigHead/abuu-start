@@ -121,7 +121,7 @@ export async function logoutAuth(): Promise<AuthLogoutResponse> {
     : { ok: true };
 }
 
-/** 业务请求的自动重登包装，见 docs/trd-phase3.md 3.5 / 6.4。 */
+/** 业务请求的自动重登包装，见 docs/trd.md 3.5 / 6.4。 */
 export async function withSourceRetry<T>(
   source: AuthSourceId,
   handler: () => Promise<T> | T,

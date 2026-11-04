@@ -2,7 +2,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-/** 非敏感的本机设置，见 docs/trd-phase3.md 3.4 / 4.1。 */
+/** 非敏感的本机设置，见 docs/trd.md 3.4 / 4.1。 */
 export type AppSettings = {
   version: 1;
   backgroundDirectory: string | null;

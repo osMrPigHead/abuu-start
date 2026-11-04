@@ -1,4 +1,4 @@
-/** 待办草稿校验、排序与展示文案，见 docs/trd.md 7.4。 */
+/** 待办草稿校验、排序与展示文案，见 docs/trd.md 8.5。 */
 import type { Todo } from "@/types";
 import { formatDateTimeValue } from "@/utils/dateTime";
 import { parseLocalDateTime } from "@/domain/repeat";

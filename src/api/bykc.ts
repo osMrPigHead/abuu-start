@@ -7,7 +7,7 @@ import type {
   BykcCourseResponse,
 } from "@shared/api";
 
-/** 课程广场默认每页数量，见 docs/prd-phase2.md 4.2.3。 */
+/** 课程广场默认每页数量，见 docs/prd.md 3.9.2。 */
 export const BYKC_PAGE_SIZE = BYKC_DEFAULT_PAGE_SIZE;
 
 /** 读取当前学期已选博雅课程：中继先 getAllConfig 再 queryChosenCourse。 */

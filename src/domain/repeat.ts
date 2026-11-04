@@ -1,4 +1,4 @@
-/** 重复待办的下一次截止时间计算，见 docs/trd.md 7.4。 */
+/** 重复待办的下一次截止时间计算，见 docs/trd.md 8.5。 */
 import type { Todo } from "@/types";
 import { formatDateTimeValue, parseDateTime } from "@/utils/dateTime";
 

@@ -19,7 +19,7 @@ import { RelayError } from "../core/errors.ts";
 import { readSettings, writeSettings } from "./settingsStore.ts";
 import type { BackgroundImage, BackgroundManifest } from "../../shared/api.ts";
 
-/** 背景扫描与图片读取，规则见 docs/trd-phase3.md 3.3 / 3.4。 */
+/** 背景扫描与图片读取，规则见 docs/trd.md 3.3 / 3.4。 */
 export type BackgroundImageResult = {
   contentType: string;
   data: Buffer;

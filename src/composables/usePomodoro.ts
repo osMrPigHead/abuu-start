@@ -1,6 +1,6 @@
 /**
  * 番茄钟模块级单例：配置持久化、阶段机、自动流转、通知与 endsAt 计时校正，
- * 见 docs/trd.md 7.5 与 docs/trd-phase2.md 7.5。
+ * 见 docs/trd.md 8.6。
  * 运行态只存在于当前页面，刷新后计时重置；已有完整配置时直接显示专注态。
  */
 import { computed, reactive, ref } from "vue";

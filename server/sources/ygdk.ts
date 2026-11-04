@@ -1,5 +1,5 @@
 /**
- * 阳光打卡业务层：概览归一化，见 docs/api.md 4、docs/trd-phase2.md 3.2 / 3.3。
+ * 阳光打卡业务层：概览归一化，见 docs/api.md 5、docs/trd.md 3.5 / 3.6。
  *
  * 只读接口：Classify/getList → Clockin/getCount → Term/get（可选）。
  * 不调用 Item/getList、Clockin/getList、Upload/File/post、Clockin/clockin。
@@ -29,7 +29,7 @@ type YgdkCount = {
   termNum: number | null;
 };
 
-/** 阳光概览：学期次数/目标 + 当周次数/系统周限制，见 docs/trd-phase2.md 3.2。 */
+/** 阳光概览：学期次数/目标 + 当周次数/系统周限制，见 docs/trd.md 3.5。 */
 export async function ygdkOverview(): Promise<YgdkOverview> {
   const credentials = requireYgdkCredentials();
   const classify = await fetchClassify(credentials);

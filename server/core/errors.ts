@@ -1,6 +1,6 @@
 /**
  * 中继错误类型与 HTTP 状态映射。
- * 错误码与错误信封见 shared/errors.ts；文案与状态见 docs/trd.md 3.1、docs/trd-phase3.md 3.1。
+ * 错误码与错误信封见 shared/errors.ts；文案与状态见 docs/trd.md 3.1。
  */
 import type { ErrorEnvelope, RelayErrorCode } from "../../shared/errors.ts";
 

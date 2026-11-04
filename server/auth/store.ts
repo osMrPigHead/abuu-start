@@ -1,5 +1,5 @@
 /**
- * 凭据文件读写，见 docs/trd-phase3.md 4.1 / 4.4。
+ * 凭据文件读写，见 docs/trd.md 4.1 / 4.4。
  * 密文与密钥分开存放；损坏时重命名现场，不把密文当明文使用。
  */
 import type { FileHandle } from "node:fs/promises";

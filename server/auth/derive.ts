@@ -1,5 +1,5 @@
 /**
- * 统一认证成功后的四源派生，见 docs/api.md 2.3、docs/trd-phase3.md 6.3。
+ * 统一认证成功后的四源派生，见 docs/api.md 2.3、docs/trd.md 6.3。
  *
  * 协议构造与信封读取在 upstreams/*Api.ts；本模块只做「拿凭据 + 校验」，
  * 不归一化业务数据，避免 auth → sources → auth 的循环依赖。

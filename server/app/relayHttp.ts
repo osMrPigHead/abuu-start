@@ -140,7 +140,7 @@ export function sendImage(
   res.end(image.data);
 }
 
-/** POST 同源校验，见 docs/trd-phase3.md 3.1。 */
+/** POST 同源校验，见 docs/trd.md 3.1。 */
 const assertPostOrigin: RequestHandler = (req, _res, next) => {
   if (req.headers["sec-fetch-site"] === "cross-site") {
     next(new RelayError("FORBIDDEN_ORIGIN", "请求来源不合法"));

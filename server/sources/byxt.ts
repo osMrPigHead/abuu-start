@@ -1,5 +1,5 @@
 /**
- * byxt 业务层：上游调用与归一化，见 docs/trd.md 3.2、docs/api.md 1。
+ * byxt 业务层：上游调用与归一化，见 docs/trd.md 3.5、docs/api.md 1。
  *
  * 实现只读接口：currentUser、getTermWeeks、getMyScheduleDetail、exams。
  * 协议、URL 与信封判定在 upstreams/byxtApi.ts；本模块只做业务归一化。

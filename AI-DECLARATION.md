@@ -4,11 +4,7 @@ level: copilot
 components:
   docs/api.md: auto
   docs/prd.md: copilot
-  docs/prd-phase2.md: copilot
-  docs/prd-phase3.md: copilot
   docs/trd.md: copilot
-  docs/trd-phase2.md: copilot
-  docs/trd-phase3.md: copilot
   docs/ui-lowfi: assist
 processes:
   design: copilot

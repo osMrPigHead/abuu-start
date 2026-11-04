@@ -1,4 +1,4 @@
-/** 阳光打卡概览：缓存优先、独立数据源状态，见 docs/trd-phase2.md 7.4 / 7.6。 */
+/** 阳光打卡概览：缓存优先、独立数据源状态，见 docs/trd.md 8.4 / 7.7。 */
 import { reactive } from "vue";
 import { fetchYgdkOverview } from "@/api/ygdk";
 import { createCachedSource } from "@/composables/useSourceState";

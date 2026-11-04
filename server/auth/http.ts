@@ -1,5 +1,5 @@
 /**
- * 认证用 HTTP 客户端：Cookie 罐 + 手动跳转，见 docs/trd-phase3.md 3.1 / 6.2。
+ * 认证用 HTTP 客户端：Cookie 罐 + 手动跳转，见 docs/trd.md 3.1 / 6.2。
  * Cookie 解析与匹配在 auth/cookieJar.ts；本模块只负责跳转与响应读取。
  */
 import { RelayError } from "../core/errors.ts";

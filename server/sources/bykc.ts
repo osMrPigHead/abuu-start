@@ -1,5 +1,5 @@
 /**
- * 博雅业务层：课程广场与已选课程归一化，见 docs/api.md 3、docs/trd-phase2.md 3.2 / 3.3。
+ * 博雅业务层：课程广场与已选课程归一化，见 docs/api.md 4、docs/trd.md 3.5 / 3.6。
  *
  * 只读白名单：getUserProfile、queryStudentSemesterCourseByPage、queryCourseById。
  * 不调用选课、退课、签到等写接口；协议与加密在 upstreams/bykcApi.ts。
@@ -23,7 +23,7 @@ import type {
   BykcStatusResponse,
 } from "../../shared/api.ts";
 
-/** 广场每页数量上限，见 docs/trd-phase2.md 3.2。 */
+/** 广场每页数量上限，见 docs/trd.md 3.5。 */
 const BYKC_MAX_PAGE_SIZE = 50;
 const PAGE_NUMBER_RE = /^\d{1,4}$/;
 const COURSE_ID_RE = /^\d{1,16}$/;

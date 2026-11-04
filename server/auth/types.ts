@@ -1,5 +1,5 @@
 /**
- * 中继内部类型：会话、凭据文件与登录尝试，字段口径见 docs/trd-phase3.md 4.2 / 5.1。
+ * 中继内部类型：会话、凭据文件与登录尝试，字段口径见 docs/trd.md 4.2 / 5.1。
  * 与前端共享的认证契约见 shared/auth.ts。
  */
 import type { CookieJar } from "./cookieJar.ts";
@@ -58,7 +58,7 @@ export type LoginAttempt = {
   createdAt: number;
 };
 
-/** credentials.enc 的明文结构，见 docs/trd-phase3.md 4.2。 */
+/** credentials.enc 的明文结构，见 docs/trd.md 4.2。 */
 export type CredentialFile = {
   version: 1;
   username: string;

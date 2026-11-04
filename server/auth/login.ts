@@ -1,5 +1,5 @@
 /**
- * 手动登录、UC 激活与登录入参校验，见 docs/trd-phase3.md 6.2 / 6.5。
+ * 手动登录、UC 激活与登录入参校验，见 docs/trd.md 6.2 / 6.5。
  * SSO 页面与表单提交在 auth/cas.ts；本模块只编排会话建立与派生启动。
  */
 import { AUTH_SOURCE_IDS } from "../../shared/auth.ts";

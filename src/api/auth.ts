@@ -1,4 +1,4 @@
-/** 统一登录接口映射，见 docs/trd-phase3.md 3.2。 */
+/** 统一登录接口映射，见 docs/trd.md 3.2。 */
 import { postJson, request } from "./client";
 import type {
   AuthLoginResponse,

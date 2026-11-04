@@ -52,7 +52,7 @@ export type PomodoroSettings = {
   roundsPerLongBreak: number;
 };
 
-/** 番茄钟运行态只保存在当前页面内存中，见 docs/trd-phase2.md 7.5。 */
+/** 番茄钟运行态只保存在当前页面内存中，见 docs/trd.md 8.6。 */
 export type PomodoroRuntime = {
   phase: "focus" | "short-break" | "long-break";
   endsAt: number | null;
@@ -125,7 +125,7 @@ export type BykcCourseCache = {
   course: BykcCourseDetail;
 };
 
-/** 已选博雅课程缓存，见 docs/trd-phase2.md 5。 */
+/** 已选博雅课程缓存，见 docs/trd.md 7.7。 */
 export type BykcChosenCache = {
   savedAt: string;
   term: BykcChosenTerm;

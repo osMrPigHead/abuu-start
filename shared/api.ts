@@ -1,6 +1,6 @@
 /**
  * 前端与本地中继共用的业务契约。
- * 中继按这些结构归一化上游数据，前端按同一结构读取；字段口径见 docs/trd.md 4、docs/api.md。
+ * 中继按这些结构归一化上游数据，前端按同一结构读取；字段口径见 docs/trd.md 5、docs/api.md。
  */
 
 export type Term = {
@@ -134,7 +134,7 @@ export type SpocAssignmentDetailResponse = {
   assignment: SpocAssignmentDetail;
 };
 
-/** 阳光打卡概览，见 docs/trd-phase2.md 4。 */
+/** 阳光打卡概览，见 docs/trd.md 5。 */
 export type YgdkOverview = {
   termName: string | null;
   termCount: number;
@@ -155,7 +155,7 @@ export const BYKC_COURSE_STATUSES = [
 
 export type BykcCourseStatus = (typeof BYKC_COURSE_STATUSES)[number];
 
-/** 博雅课程列表项，见 docs/trd-phase2.md 4。 */
+/** 博雅课程列表项，见 docs/trd.md 5。 */
 export type BykcCourse = {
   id: number;
   courseName: string;
@@ -190,7 +190,7 @@ export type BykcStatusResponse = {
   };
 };
 
-/** 已选博雅课程，见 docs/trd-phase2.md 4。 */
+/** 已选博雅课程，见 docs/trd.md 5。 */
 export type BykcChosenCourse = {
   courseId: number;
   courseName: string;
@@ -221,7 +221,7 @@ export type RelayHealthResponse = {
   ok: boolean;
 };
 
-/** 本机背景目录与第一层图片清单，见 docs/trd-phase3.md 3.3。 */
+/** 本机背景目录与第一层图片清单，见 docs/trd.md 3.3。 */
 export type BackgroundImage = {
   name: string;
   size: number;

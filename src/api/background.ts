@@ -1,7 +1,7 @@
 import type { BackgroundManifest } from "@shared/api";
 import { postJson, request } from "./client";
 
-/** 背景接口映射，见 docs/trd-phase3.md 3.3。 */
+/** 背景接口映射，见 docs/trd.md 3.3。 */
 export function fetchBackgroundManifest(): Promise<BackgroundManifest> {
   return request<BackgroundManifest>("/api/background");
 }

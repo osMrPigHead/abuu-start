@@ -1,6 +1,6 @@
 /**
  * 四源派生编排：顺序执行、同源单飞、代际校验与迟到结果丢弃，
- * 见 docs/trd-phase3.md 6.3。派生算法在 auth/derive.ts。
+ * 见 docs/trd.md 6.3。派生算法在 auth/derive.ts。
  */
 import { AUTH_SOURCE_LABELS } from "../../shared/auth.ts";
 import type { AuthSourceId } from "../../shared/auth.ts";

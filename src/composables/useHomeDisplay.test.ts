@@ -14,49 +14,27 @@ async function loadHomeDisplay(stored?: unknown) {
 }
 
 describe("useHomeDisplay", () => {
-  it("无存储时使用默认显示状态", async () => {
+  it("无存储时默认关闭仅时钟模式", async () => {
     const { useHomeDisplay } = await loadHomeDisplay();
-    expect(useHomeDisplay().display).toEqual({
-      showFunctionArea: true,
-      showActionButtons: true,
-      minimalMode: false,
-    });
+    expect(useHomeDisplay().display).toEqual({ minimalMode: false });
   });
 
-  it("读取已保存的 false 与 minimalMode", async () => {
-    const { useHomeDisplay } = await loadHomeDisplay({
-      showFunctionArea: false,
-      showActionButtons: false,
-      minimalMode: true,
-    });
-    expect(useHomeDisplay().display).toEqual({
-      showFunctionArea: false,
-      showActionButtons: false,
-      minimalMode: true,
-    });
+  it("读取已保存的 minimalMode", async () => {
+    const { useHomeDisplay } = await loadHomeDisplay({ minimalMode: true });
+    expect(useHomeDisplay().display).toEqual({ minimalMode: true });
   });
 
-  it("setter 修改并持久化", async () => {
+  it("进入与退出仅时钟模式并持久化", async () => {
     const { useHomeDisplay } = await loadHomeDisplay();
-    const {
-      display,
-      setMinimalMode,
-      setShowFunctionArea,
-      setShowActionButtons,
-    } = useHomeDisplay();
+    const { display, enterMinimalMode, exitMinimalMode } = useHomeDisplay();
 
-    expect(setMinimalMode(true)).toBe(true);
-    expect(setShowFunctionArea(false)).toBe(true);
-    expect(setShowActionButtons(false)).toBe(true);
+    expect(enterMinimalMode()).toBe(true);
     expect(display.minimalMode).toBe(true);
-    expect(display.showFunctionArea).toBe(false);
-    expect(display.showActionButtons).toBe(false);
     expect(
       JSON.parse(window.localStorage.getItem(STORAGE_KEYS.homeDisplay) ?? "{}"),
-    ).toEqual({
-      showFunctionArea: false,
-      showActionButtons: false,
-      minimalMode: true,
-    });
+    ).toEqual({ minimalMode: true });
+
+    expect(exitMinimalMode()).toBe(true);
+    expect(display.minimalMode).toBe(false);
   });
 });

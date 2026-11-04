@@ -1,5 +1,5 @@
 /**
- * 博雅请求加密与响应解密，协议见 docs/api.md 3.1、docs/trd-phase2.md 3.3。
+ * 博雅请求加密与响应解密，协议见 docs/api.md 4.1、docs/trd.md 3.6。
  *
  * 固定协议：RSA/ECB/PKCS1Padding、AES-128-ECB/PKCS5Padding、SHA-1。
  * 只使用 Node 内置 node:crypto，不引入第三方加密库。

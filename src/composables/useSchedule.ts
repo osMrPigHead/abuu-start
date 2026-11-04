@@ -1,4 +1,4 @@
-/** 课表缓存优先加载、周切换与今日/明日派生，见 docs/trd.md 7.2。 */
+/** 课表缓存优先加载、周切换与今日/明日派生，见 docs/trd.md 8.1。 */
 import { reactive } from "vue";
 import { fetchByxtSchedule } from "@/api/byxt";
 import { isAuthBlocked, markSourceExpired } from "@/composables/useAuth";

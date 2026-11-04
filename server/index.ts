@@ -1,7 +1,7 @@
 /**
  * 生产用 Express 入口：同源提供 dist 构建产物与 /api 中继。
  * dev / preview 仍由 vite.config.ts 的 relayPlugin 挂同一份 Router，接口不变。
- * 只监听 127.0.0.1；启动方式见 docs/trd.md 8。
+ * 只监听 127.0.0.1；启动方式见 docs/trd.md 10。
  */
 import { existsSync } from "node:fs";
 import { join } from "node:path";

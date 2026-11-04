@@ -1,6 +1,6 @@
 /**
  * 带超时的 fetch：统一 abort 与网络错误到 RelayError，供上游 JSON 客户端
- * 与认证跳转客户端共用，见 docs/trd.md 3.3。
+ * 与认证跳转客户端共用，见 docs/trd.md 3.6。
  */
 import { RelayError } from "../core/errors.ts";
 

@@ -1,4 +1,4 @@
-/** 阳光打卡目标与进度的纯函数，口径见 docs/prd-phase2.md 4.3、docs/trd-phase2.md 7.4。 */
+/** 阳光打卡目标与进度的纯函数，口径见 docs/prd.md 3.10、docs/trd.md 8.4。 */
 import type { YgdkSettings } from "@/types";
 import { isValidYgdkUid } from "@shared/validation";
 

@@ -3,7 +3,7 @@ import { parseJson } from "../core/json.ts";
 import { RelayError } from "../core/errors.ts";
 import { fetchWithTimeout } from "./fetch.ts";
 
-/** 单次上游请求超时，见 docs/trd.md 3.3。 */
+/** 单次上游请求超时，见 docs/trd.md 3.6。 */
 const UPSTREAM_TIMEOUT_MS = 15_000;
 
 /** 上游 JSON 响应；auth/http.ts 的 JarResult 也可直接传入 readEnvelope。 */

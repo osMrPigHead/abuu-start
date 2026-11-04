@@ -1,5 +1,5 @@
 /**
- * 凭据加密：AES-256-GCM + 独立密钥文件，见 docs/trd-phase3.md 4.2 / 4.3。
+ * 凭据加密：AES-256-GCM + 独立密钥文件，见 docs/trd.md 4.2 / 4.3。
  * 只使用 Node 内置 node:crypto，不引入第三方加密库。
  */
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";

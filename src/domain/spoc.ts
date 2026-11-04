@@ -1,4 +1,4 @@
-/** SPOC 作业过滤、排序与展示文案，见 docs/trd.md 7.3。 */
+/** SPOC 作业过滤、排序与展示文案，见 docs/trd.md 8.3。 */
 import type { SpocAssignment } from "@shared/api";
 import { isValidSpocAssignmentId } from "@shared/validation";
 import { formatDateTimeValue, parseDateTime } from "@/utils/dateTime";

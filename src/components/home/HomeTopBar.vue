@@ -5,7 +5,6 @@ import { pad2 } from "@/utils/date";
 
 const props = defineProps<{
   now: Date;
-  showActions: boolean;
   isEditing: boolean;
 }>();
 
@@ -90,7 +89,6 @@ const topButtonClass =
       </form>
 
       <button
-        v-if="showActions"
         type="button"
         :class="topButtonClass"
         aria-label="新建快捷方式"
@@ -108,7 +106,6 @@ const topButtonClass =
       </button>
 
       <button
-        v-if="showActions"
         type="button"
         :class="[
           topButtonClass,
@@ -156,7 +153,6 @@ const topButtonClass =
       </button>
 
       <RouterLink
-        v-if="showActions"
         to="/settings"
         :class="topButtonClass"
         aria-label="设置"
