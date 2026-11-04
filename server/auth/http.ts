@@ -3,6 +3,7 @@
  * Cookie 解析与匹配在 auth/cookieJar.ts；本模块只负责跳转与响应读取。
  */
 import { RelayError } from "../core/errors.ts";
+import { parseJson } from "../core/json.ts";
 import { fetchWithTimeout } from "../http/fetch.ts";
 import type { CookieJar } from "./cookieJar.ts";
 
@@ -147,12 +148,4 @@ function upgradeSsoUrl(url: string): string {
   const match = url.match(SSO_UPGRADE_PATTERN);
   if (!match) return url;
   return `https://sso.buaa.edu.cn${url.slice(match[0].length)}`;
-}
-
-function parseJson(text: string): unknown {
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    return undefined;
-  }
 }

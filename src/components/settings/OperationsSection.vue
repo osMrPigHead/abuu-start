@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import SettingsSection from "@/components/settings/SettingsSection.vue";
+import ToggleSwitch from "@/components/common/ToggleSwitch.vue";
 
 const props = defineProps<{
   notificationsEnabled: boolean;
@@ -56,27 +57,14 @@ const dangerButtonClass =
         >
           测试通知
         </button>
-        <button
-          type="button"
-          role="switch"
-          :aria-checked="notificationsEnabled"
-          :aria-label="
+        <ToggleSwitch
+          :checked="notificationsEnabled"
+          :disabled="notificationBusy"
+          :label="
             notificationsEnabled ? '关闭番茄钟桌面通知' : '开启番茄钟桌面通知'
           "
-          class="relative h-6 w-11 shrink-0 rounded-full border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40 disabled:cursor-not-allowed disabled:opacity-50"
-          :class="
-            notificationsEnabled
-              ? 'border-sky-300/40 bg-sky-300/25'
-              : 'border-white/20 bg-white/10'
-          "
-          :disabled="notificationBusy"
-          @click="emit('toggleNotifications')"
-        >
-          <span
-            class="absolute top-1 h-4 w-4 rounded-full bg-white transition-all"
-            :class="notificationsEnabled ? 'left-6' : 'left-0.5'"
-          ></span>
-        </button>
+          @toggle="emit('toggleNotifications')"
+        />
       </div>
     </div>
 

@@ -1,26 +1,14 @@
 /** 课表纯计算：节次/时间、周视图、今日明日与下一节课，见 docs/trd.md 7.2。 */
 import type { BykcChosenCourse, SectionTime } from "@shared/api";
+import { normalizeTime, SECTION_TIMES } from "@shared/schedule";
 import type { Course } from "@/types";
 import { bykcChosenCoursesOnDate } from "@/domain/bykc";
 import { isoDayOfWeek } from "@/utils/date";
 
+export { normalizeTime };
+
 /** docs/api.md 1.2 的固定作息表。 */
-export const DEFAULT_SECTION_TIMES: readonly SectionTime[] = [
-  { section: 1, start: "08:00", end: "08:45" },
-  { section: 2, start: "08:50", end: "09:35" },
-  { section: 3, start: "09:50", end: "10:35" },
-  { section: 4, start: "10:40", end: "11:25" },
-  { section: 5, start: "11:30", end: "12:15" },
-  { section: 6, start: "14:00", end: "14:45" },
-  { section: 7, start: "14:50", end: "15:35" },
-  { section: 8, start: "15:50", end: "16:35" },
-  { section: 9, start: "16:40", end: "17:25" },
-  { section: 10, start: "17:30", end: "18:15" },
-  { section: 11, start: "19:00", end: "19:45" },
-  { section: 12, start: "19:50", end: "20:35" },
-  { section: 13, start: "20:40", end: "21:25" },
-  { section: 14, start: "21:30", end: "22:15" },
-];
+export const DEFAULT_SECTION_TIMES: readonly SectionTime[] = SECTION_TIMES;
 
 /** 参考 A 的默认提前高亮边界（分钟），0 表示不提前高亮。 */
 export const DEFAULT_HIGHLIGHT_LEAD_MINUTES = 30;
@@ -58,19 +46,6 @@ export type CourseStates = {
   ongoing: NextCourse | null;
   upcoming: NextCourse | null;
 };
-
-/** "8:00:00" / "08:00" -> "08:00"；无法解析返回 null。 */
-export function normalizeTime(value: string | null | undefined): string | null {
-  if (typeof value !== "string") return null;
-
-  const match = value.trim().match(/^(\d{1,2}):(\d{2})/);
-  if (!match) return null;
-
-  const hour = Number(match[1]);
-  const minute = Number(match[2]);
-  if (hour > 23 || minute > 59) return null;
-  return `${String(hour).padStart(2, "0")}:${match[2]}`;
-}
 
 /** "08:00" -> 480。 */
 export function timeToMinutes(value: string | null | undefined): number | null {

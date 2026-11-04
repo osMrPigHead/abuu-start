@@ -7,9 +7,11 @@ import type {
   AuthSourceError,
   AuthSourceId,
   AuthSourceState,
+  AuthSources,
   AuthStatusResponse,
 } from "../../shared/auth.ts";
 import { RelayError } from "../core/errors.ts";
+import { nowIso } from "../core/datetime.ts";
 import { BYXT_BASE_URL } from "../upstreams/urls.ts";
 import { CookieJar } from "./cookieJar.ts";
 import {
@@ -193,7 +195,7 @@ export function markSourceExpired(source: AuthSourceId): void {
   });
 }
 
-export function pendingSources(): Record<AuthSourceId, AuthSourceState> {
+export function pendingSources(): AuthSources {
   const sources = emptyAuthSources();
   for (const source of AUTH_SOURCE_IDS) {
     sources[source] = { status: "pending", updatedAt: null, error: null };
@@ -222,7 +224,7 @@ export function snapshot(): AuthStatusResponse {
   return response;
 }
 
-export function cloneSources(): Record<AuthSourceId, AuthSourceState> {
+export function cloneSources(): AuthSources {
   const sources = emptyAuthSources();
   if (!session) return sources;
 
@@ -328,8 +330,4 @@ export async function restoreSession(): Promise<void> {
   sessionJar = restoredJar;
   persisted = true;
   startupWarning = null;
-}
-
-function nowIso(): string {
-  return new Date().toISOString();
 }

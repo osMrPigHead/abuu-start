@@ -6,6 +6,7 @@ import type {
   BykcCourseDetail,
   BykcCourseStatus,
 } from "@shared/api";
+import { BYKC_COURSE_STATUSES } from "@shared/api";
 import type {
   BykcChosenCache,
   BykcCourseCache,
@@ -19,15 +20,6 @@ import {
   STORAGE_KEYS,
   writeJson,
 } from "@/cache/storage";
-
-const BYKC_STATUSES: readonly BykcCourseStatus[] = [
-  "expired",
-  "selected",
-  "preview",
-  "ended",
-  "full",
-  "available",
-];
 
 export function readBykcPageCache(
   page: number,
@@ -155,7 +147,7 @@ function normalizeCourseDetail(value: unknown): BykcCourseDetail | null {
 }
 
 function normalizeStatus(value: unknown): BykcCourseStatus {
-  return BYKC_STATUSES.includes(value as BykcCourseStatus)
+  return BYKC_COURSE_STATUSES.includes(value as BykcCourseStatus)
     ? (value as BykcCourseStatus)
     : "available";
 }

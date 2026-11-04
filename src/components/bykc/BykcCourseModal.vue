@@ -9,6 +9,10 @@ import {
   bykcStatusLabel,
   formatBykcDetailTime,
 } from "@/domain/bykc";
+import {
+  canRetrySource,
+  needsSettingsSource,
+} from "@/domain/sourceStatus";
 import { formatStamp } from "@/utils/date";
 
 const props = withDefaults(
@@ -77,13 +81,11 @@ const statusNotice = computed(() => {
   }
 });
 
-const showSettingsLink = computed(
-  () => props.status === "no-credential" || props.status === "auth-expired",
+const showSettingsLink = computed(() =>
+  needsSettingsSource({ status: props.status }),
 );
-const showRetry = computed(
-  () =>
-    props.status === "error" ||
-    (props.status === "cached" && props.error !== null),
+const showRetry = computed(() =>
+  canRetrySource({ status: props.status, error: props.error }),
 );
 
 const descriptionNotice = computed(() => {

@@ -5,18 +5,21 @@ withDefaults(
     description?: string;
     badge?: string;
     badgeClass?: string;
+    margin?: "4" | "6";
   }>(),
   {
     description: "",
     badge: "",
     badgeClass: "border-white/15 bg-white/[0.04] text-white/45",
+    margin: "4",
   },
 );
 </script>
 
 <template>
   <section
-    class="mt-4 rounded-3xl border border-white/12 bg-slate-950/35 p-6 shadow-[0_24px_70px_-36px_rgba(0,0,0,0.95)] backdrop-blur-md"
+    class="rounded-3xl border border-white/12 bg-slate-950/35 p-6 shadow-[0_24px_70px_-36px_rgba(0,0,0,0.95)] backdrop-blur-md"
+    :class="margin === '6' ? 'mt-6' : 'mt-4'"
   >
     <div class="flex items-start justify-between gap-4">
       <div>

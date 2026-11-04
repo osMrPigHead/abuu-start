@@ -1,7 +1,6 @@
 /** 课表缓存优先加载、周切换与今日/明日派生，见 docs/trd.md 7.2。 */
 import { reactive } from "vue";
 import { fetchByxtSchedule } from "@/api/byxt";
-import { ApiError } from "@/api/client";
 import { isAuthBlocked, markSourceExpired } from "@/composables/useAuth";
 import type { SectionTime, Term, Week, WeekSource } from "@shared/api";
 import type { ScheduleCache, SourceStatus, WeekCache } from "@/types";
@@ -173,7 +172,10 @@ async function refreshCurrent(): Promise<void> {
   } catch (error) {
     if (requestId !== currentRequestId) return;
 
-    const mapped = mapScheduleError(error);
+    const mapped = mapApiError(error, {
+      fallback: "课表加载失败",
+      messageOverrides: { INVALID_WEEK: "周次无效或超出当前学期范围" },
+    });
     if (mapped.status === "auth-expired") markSourceExpired("byxt");
 
     boot.status = mapped.status;
@@ -233,7 +235,10 @@ async function loadWeek(
   } catch (error) {
     if (weekRequestIds.get(week) !== requestId) return;
 
-    const mapped = mapScheduleError(error);
+    const mapped = mapApiError(error, {
+      fallback: "课表加载失败",
+      messageOverrides: { INVALID_WEEK: "周次无效或超出当前学期范围" },
+    });
     if (mapped.status === "auth-expired") markSourceExpired("byxt");
 
     entry.loading = false;
@@ -362,20 +367,4 @@ function persistCache(): void {
     byWeek,
   };
   persistScheduleCache(cache);
-}
-
-/* ------------------------------- 错误映射 ------------------------------- */
-
-function mapScheduleError(error: unknown): {
-  status: SourceStatus;
-  message: string;
-} {
-  if (!(error instanceof ApiError)) {
-    return { status: "error", message: "课表加载失败，请稍后重试" };
-  }
-
-  return mapApiError(error, {
-    fallback: "课表加载失败",
-    messageOverrides: { INVALID_WEEK: "周次无效或超出当前学期范围" },
-  });
 }

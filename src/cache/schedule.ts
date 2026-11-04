@@ -1,5 +1,12 @@
 /** 课表缓存读写与归一化，见 docs/trd.md 5 / 7.2。 */
-import type { SectionTime, Week, WeekSource } from "@shared/api";
+import type { Week, WeekSource } from "@shared/api";
+import { isWeekSource } from "@shared/api";
+import {
+  normalizeDateKey,
+  normalizeDayOfWeek,
+  normalizeTime,
+  parseSectionTimes,
+} from "@shared/schedule";
 import type { Course, ScheduleCache, WeekCache } from "@/types";
 import {
   asString,
@@ -7,10 +14,8 @@ import {
   nullableText,
   toPositiveInteger,
 } from "@/utils/guards";
-import { normalizeTime } from "@/domain/schedule";
 import { readJson, STORAGE_KEYS, writeJson } from "@/cache/storage";
 import { normalizeTerm } from "@/domain/term";
-import { createEmptySectionTimes } from "@/domain/week";
 
 export function readScheduleCache(): ScheduleCache | null {
   const raw = readJson<unknown>(STORAGE_KEYS.scheduleCache);
@@ -32,7 +37,7 @@ export function readScheduleCache(): ScheduleCache | null {
 
     byWeek[week] = {
       savedAt: typeof value.savedAt === "string" ? value.savedAt : "",
-      sectionTimes: normalizeSectionTimes(value.sectionTimes),
+      sectionTimes: parseSectionTimes(value.sectionTimes),
       courses: normalizeCourses(value.courses),
     };
   }
@@ -67,24 +72,6 @@ function normalizeWeek(value: unknown): Week | null {
   };
 }
 
-function normalizeSectionTimes(value: unknown): SectionTime[] {
-  if (!Array.isArray(value)) return createEmptySectionTimes();
-
-  const result: SectionTime[] = [];
-  for (const item of value) {
-    if (!isRecord(item)) continue;
-    const section = toPositiveInteger(item.section);
-    const start = normalizeTime(asString(item.start));
-    const end = normalizeTime(asString(item.end));
-    if (section === null || !start || !end) continue;
-    result.push({ section, start, end });
-  }
-
-  return result.length > 0
-    ? result.sort((left, right) => left.section - right.section)
-    : createEmptySectionTimes();
-}
-
 function normalizeCourses(value: unknown): Course[] {
   if (!Array.isArray(value)) return [];
 
@@ -110,19 +97,6 @@ function normalizeCourses(value: unknown): Course[] {
   return courses;
 }
 
-function normalizeDateKey(value: unknown): string {
-  if (typeof value !== "string") return "";
-  return value.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? "";
-}
-
-function normalizeDayOfWeek(value: unknown): number | null {
-  const day = toPositiveInteger(value);
-  if (day === null || day > 7) return null;
-  return day;
-}
-
 function normalizeWeekSource(value: unknown): WeekSource {
-  return value === "weeks" || value === "classWeek" || value === "default"
-    ? value
-    : "default";
+  return isWeekSource(value) ? value : "default";
 }

@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import type { SpocAssignment } from "@shared/api";
 import {
-  formatSpocDateTime,
+  formatSpocDue,
   formatSpocStart,
   spocCourseLine,
   spocSubmissionLabel,
@@ -19,10 +19,7 @@ const emit = defineEmits<{
 const courseLine = computed(() => spocCourseLine(props.assignment));
 const statusLabel = computed(() => spocSubmissionLabel(props.assignment));
 const startText = computed(() => formatSpocStart(props.assignment.startTime));
-const dueText = computed(() => {
-  const text = formatSpocDateTime(props.assignment.dueTime);
-  return text.length > 0 ? text : "无截止时间";
-});
+const dueText = computed(() => formatSpocDue(props.assignment.dueTime));
 </script>
 
 <template>

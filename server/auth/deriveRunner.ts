@@ -2,6 +2,7 @@
  * 四源派生编排：顺序执行、同源单飞、代际校验与迟到结果丢弃，
  * 见 docs/trd-phase3.md 6.3。派生算法在 auth/derive.ts。
  */
+import { AUTH_SOURCE_LABELS } from "../../shared/auth.ts";
 import type { AuthSourceId } from "../../shared/auth.ts";
 import { RelayError } from "../core/errors.ts";
 import {
@@ -24,13 +25,6 @@ import {
   setSourceState,
 } from "./state.ts";
 import type { AuthSession } from "./types.ts";
-
-const SOURCE_LABELS: Record<AuthSourceId, string> = {
-  byxt: "本研教育管理系统",
-  spoc: "SPOC",
-  bykc: "博雅课程",
-  ygdk: "阳光打卡",
-};
 
 export async function runDerivation(
   gen: number,
@@ -76,7 +70,7 @@ async function runDerive(source: AuthSourceId, gen: number): Promise<boolean> {
     const message =
       error instanceof SourceDerivationError
         ? error.message
-        : `${SOURCE_LABELS[source]}派生失败`;
+        : `${AUTH_SOURCE_LABELS[source]}派生失败`;
     const authFailure =
       error instanceof RelayError &&
       (error.code === "AUTH_EXPIRED" || error.code === "AUTH_REQUIRED");

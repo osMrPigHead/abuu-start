@@ -10,6 +10,7 @@ import { RelayError } from "../core/errors.ts";
 import { isRecord, optionalText, readInteger } from "../core/guards.ts";
 import { htmlToText } from "../core/htmlText.ts";
 import { callBykc } from "../upstreams/bykcApi.ts";
+import { BYKC_DEFAULT_PAGE_SIZE } from "../../shared/validation.ts";
 import type {
   BykcChosenCourse,
   BykcChosenResponse,
@@ -22,8 +23,8 @@ import type {
   BykcStatusResponse,
 } from "../../shared/api.ts";
 
-const DEFAULT_PAGE_SIZE = 12;
-const MAX_PAGE_SIZE = 50;
+/** 广场每页数量上限，见 docs/trd-phase2.md 3.2。 */
+const BYKC_MAX_PAGE_SIZE = 50;
 const PAGE_NUMBER_RE = /^\d{1,4}$/;
 const COURSE_ID_RE = /^\d{1,16}$/;
 
@@ -145,17 +146,17 @@ function readPageQuery(url: URL): { page: number; pageSize: number } {
   const page = parsePageNumber(url.searchParams.get("page"), 1);
   const pageSize = parsePageNumber(
     url.searchParams.get("pageSize"),
-    DEFAULT_PAGE_SIZE,
+    BYKC_DEFAULT_PAGE_SIZE,
   );
 
   if (page === null) {
     throw new RelayError("INVALID_PAGE", "页码必须是从 1 开始的整数");
   }
 
-  if (pageSize === null || pageSize < 1 || pageSize > MAX_PAGE_SIZE) {
+  if (pageSize === null || pageSize < 1 || pageSize > BYKC_MAX_PAGE_SIZE) {
     throw new RelayError(
       "INVALID_PAGE",
-      `每页数量必须是 1–${MAX_PAGE_SIZE} 的整数`,
+      `每页数量必须是 1–${BYKC_MAX_PAGE_SIZE} 的整数`,
     );
   }
 

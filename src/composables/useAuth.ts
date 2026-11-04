@@ -12,7 +12,7 @@ import {
   type LoginRequest,
 } from "@/api/auth";
 import { ApiError } from "@/api/client";
-import { AUTH_SOURCE_IDS, emptyAuthSources } from "@shared/auth";
+import { AUTH_SOURCE_IDS, AUTH_SOURCE_LABELS, emptyAuthSources } from "@shared/auth";
 import type {
   AuthLoginResponse,
   AuthPreloadResponse,
@@ -42,12 +42,7 @@ export type AuthState = {
 
 export const AUTH_SOURCE_ORDER: readonly AuthSourceId[] = AUTH_SOURCE_IDS;
 
-export const AUTH_SOURCE_LABELS: Record<AuthSourceId, string> = {
-  byxt: "本研教育管理系统",
-  spoc: "SPOC",
-  bykc: "博雅课程",
-  ygdk: "阳光打卡",
-};
+export { AUTH_SOURCE_LABELS };
 
 const POLL_INTERVAL_MS = 1500;
 const POLL_MAX_MS = 60_000;

@@ -18,6 +18,8 @@ import { htmlToText } from "../core/htmlText.ts";
 import { fetchSpoc, type SpocCredentials } from "../upstreams/spocApi.ts";
 import { encryptSpocParam } from "../upstreams/spocCrypto.ts";
 import { SPOC_TERM_LIST_PARAM, SPOC_TERM_PARAM } from "../upstreams/urls.ts";
+import { isValidSpocAssignmentId } from "../../shared/validation.ts";
+import { spocSubmissionStatusText } from "../../shared/api.ts";
 import type {
   SpocAssignment,
   SpocAssignmentDetail,
@@ -31,7 +33,6 @@ const ASSIGNMENT_SQLID = "1713252980496efac7d5d9985e81693116d3e8a52ebf2b";
 
 const PAGE_SIZE = 15;
 const MAX_PAGES = 20;
-const ASSIGNMENT_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
 
 type SpocPage = {
   list: unknown[];
@@ -189,7 +190,7 @@ function normalizeAssignment(
     startTime: toShanghaiDateTime(value.zykssj),
     dueTime: toShanghaiDateTime(value.zyjzsj),
     submissionStatus: status,
-    submissionStatusText: submissionStatusText(status),
+    submissionStatusText: spocSubmissionStatusText(status),
   };
 }
 
@@ -202,19 +203,6 @@ function normalizeSubmissionStatus(
   if (text === "0" || text === "未做" || text === "未提交")
     return "unsubmitted";
   return "unknown";
-}
-
-function submissionStatusText(
-  status: SpocAssignment["submissionStatus"],
-): string {
-  switch (status) {
-    case "submitted":
-      return "已提交";
-    case "unsubmitted":
-      return "未提交";
-    default:
-      return "未知";
-  }
 }
 
 export async function spocStatus(): Promise<SpocStatusResponse> {
@@ -239,7 +227,7 @@ export async function spocAssignments(): Promise<SpocAssignmentsResponse> {
 export async function spocAssignmentDetail(
   assignmentId: string,
 ): Promise<SpocAssignmentDetailResponse> {
-  if (!ASSIGNMENT_ID_RE.test(assignmentId)) {
+  if (!isValidSpocAssignmentId(assignmentId)) {
     throw new RelayError("INVALID_REQUEST", "作业 id 格式不正确");
   }
 
@@ -283,7 +271,7 @@ async function fetchAssignmentDetail(
   return {
     ...base,
     submissionStatus: status,
-    submissionStatusText: submissionStatusText(status),
+    submissionStatusText: spocSubmissionStatusText(status),
     score: optionalScalarText(info.pf),
     totalScore: optionalScalarText(info.zyfs),
     contentText: htmlToText(info.zynr),

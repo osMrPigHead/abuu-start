@@ -4,11 +4,14 @@ import { useRoute, useRouter } from "vue-router";
 import BykcCourseCard from "@/components/bykc/BykcCourseCard.vue";
 import BykcCourseModal from "@/components/bykc/BykcCourseModal.vue";
 import PageHeader from "@/components/common/PageHeader.vue";
-import PageStateNotice from "@/components/common/PageStateNotice.vue";
-import SourceStatusLine from "@/components/common/SourceStatusLine.vue";
+import SourceStatePanel from "@/components/common/SourceStatePanel.vue";
 import { useBykcDetail } from "@/composables/useBykcDetail";
 import { useBykcList } from "@/composables/useBykcList";
 import type { BykcCourse } from "@shared/api";
+import {
+  shouldShowSourceEmpty,
+  type SourcePageLabels,
+} from "@/domain/sourceStatus";
 
 const route = useRoute();
 const router = useRouter();
@@ -33,12 +36,25 @@ const pageSummary = computed(() => {
   return `共 ${state.total} 门 · 第 ${state.page} / ${state.totalPages} 页`;
 });
 
-const showEmpty = computed(
-  () =>
-    !state.loading &&
-    isEmpty.value &&
-    (state.status === "ok" || state.status === "cached"),
+const showEmpty = computed(() =>
+  shouldShowSourceEmpty({
+    status: state.status,
+    loading: state.loading,
+    hasContent: hasCourses.value,
+    dataEmpty: isEmpty.value,
+    settledOnly: true,
+  }),
 );
+
+const labels: SourcePageLabels = {
+  statusNoCredential: "未登录，请前往设置完成登录",
+  statusAuthExpired: "博雅登录状态已失效",
+  statusFallback: "博雅课程广场加载失败",
+  noticeLoading: "正在加载课程广场…",
+  noticeNoCredential: "登录后浏览课程广场。",
+  noticeAuthExpired: "登录状态已失效，请到设置页重新登录。",
+  noticeError: "博雅课程广场加载失败",
+};
 
 onMounted(() => {
   void requestPage(readPageQuery() ?? 1);
@@ -107,46 +123,13 @@ function handleOpen(course: BykcCourse): void {
       <PageHeader title="博雅课程广场" :subtitle="pageSummary" />
 
       <div class="route-page-body flow-root">
-        <div
-          class="mt-4 rounded-2xl border border-white/10 bg-slate-950/30 px-4 py-3 backdrop-blur-md"
-        >
-          <SourceStatusLine
-            :status="state.status"
-            :saved-at="state.savedAt"
-            :error="state.error"
-            :refreshing="state.loading"
-            no-credential-text="未登录，请前往设置完成登录"
-            auth-expired-text="博雅登录状态已失效"
-            fallback-error-text="博雅课程广场加载失败"
-            @retry="refresh"
-          />
-        </div>
-
-        <PageStateNotice
-          v-if="state.status === 'loading' && isEmpty"
-          kind="loading"
-          message="正在加载课程广场…"
-        />
-
-        <PageStateNotice
-          v-else-if="state.status === 'no-credential' && isEmpty"
-          kind="no-credential"
-          message="登录后浏览课程广场。"
-          settings-link
-        />
-
-        <PageStateNotice
-          v-else-if="state.status === 'auth-expired' && isEmpty"
-          kind="auth-expired"
-          message="登录状态已失效，请到设置页重新登录。"
-          settings-link
-        />
-
-        <PageStateNotice
-          v-else-if="state.status === 'error' && isEmpty"
-          kind="error"
-          :message="state.error || '博雅课程广场加载失败'"
-          retryable
+        <SourceStatePanel
+          :status="state.status"
+          :saved-at="state.savedAt"
+          :error="state.error"
+          :loading="state.loading"
+          :data-empty="isEmpty"
+          :labels="labels"
           @retry="refresh"
         />
 

@@ -2,14 +2,17 @@
 import { computed, onBeforeUnmount, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import PageHeader from "@/components/common/PageHeader.vue";
-import PageStateNotice from "@/components/common/PageStateNotice.vue";
-import SourceStatusLine from "@/components/common/SourceStatusLine.vue";
+import SourceStatePanel from "@/components/common/SourceStatePanel.vue";
 import SpocAssignmentCard from "@/components/spoc/SpocAssignmentCard.vue";
 import SpocDetailDialog from "@/components/spoc/SpocDetailDialog.vue";
 import { useClock } from "@/composables/useClock";
 import { useSpoc, useSpocDetail } from "@/composables/useSpoc";
 import type { SpocAssignment } from "@shared/api";
 import { filterOpenSpocAssignments } from "@/domain/spoc";
+import {
+  shouldShowSourceEmpty,
+  type SourcePageLabels,
+} from "@/domain/sourceStatus";
 
 const { state, refresh } = useSpoc();
 const {
@@ -37,18 +40,24 @@ const routeAssignmentId = computed(() => {
   return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
 });
 
-const showEmpty = computed(
-  () =>
-    !state.loading &&
-    !hasAssignments.value &&
-    !(
-      isEmpty.value &&
-      (state.status === "loading" ||
-        state.status === "no-credential" ||
-        state.status === "auth-expired" ||
-        state.status === "error")
-    ),
+const showEmpty = computed(() =>
+  shouldShowSourceEmpty({
+    status: state.status,
+    loading: state.loading,
+    hasContent: hasAssignments.value,
+    dataEmpty: isEmpty.value,
+  }),
 );
+
+const labels: SourcePageLabels = {
+  statusNoCredential: "未登录，请前往设置完成登录",
+  statusAuthExpired: "SPOC 登录状态已失效",
+  statusFallback: "SPOC 作业加载失败",
+  noticeLoading: "正在加载 SPOC 作业…",
+  noticeNoCredential: "登录后查看作业。",
+  noticeAuthExpired: "登录状态已失效，请到设置页重新登录。",
+  noticeError: "SPOC 作业加载失败",
+};
 
 onMounted(() => {
   void refresh();
@@ -88,46 +97,13 @@ function retryDetail(): void {
       />
 
       <div class="route-page-body flow-root">
-        <div
-          class="mt-4 rounded-2xl border border-white/10 bg-slate-950/30 px-4 py-3 backdrop-blur-md"
-        >
-          <SourceStatusLine
-            :status="state.status"
-            :saved-at="state.savedAt"
-            :error="state.error"
-            :refreshing="state.loading"
-            no-credential-text="未登录，请前往设置完成登录"
-            auth-expired-text="SPOC 登录状态已失效"
-            fallback-error-text="SPOC 作业加载失败"
-            @retry="retry"
-          />
-        </div>
-
-        <PageStateNotice
-          v-if="state.status === 'loading' && isEmpty"
-          kind="loading"
-          message="正在加载 SPOC 作业…"
-        />
-
-        <PageStateNotice
-          v-else-if="state.status === 'no-credential' && isEmpty"
-          kind="no-credential"
-          message="登录后查看作业。"
-          settings-link
-        />
-
-        <PageStateNotice
-          v-else-if="state.status === 'auth-expired' && isEmpty"
-          kind="auth-expired"
-          message="登录状态已失效，请到设置页重新登录。"
-          settings-link
-        />
-
-        <PageStateNotice
-          v-else-if="state.status === 'error' && isEmpty"
-          kind="error"
-          :message="state.error || 'SPOC 作业加载失败'"
-          retryable
+        <SourceStatePanel
+          :status="state.status"
+          :saved-at="state.savedAt"
+          :error="state.error"
+          :loading="state.loading"
+          :data-empty="isEmpty"
+          :labels="labels"
           @retry="retry"
         />
 

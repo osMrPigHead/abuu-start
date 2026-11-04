@@ -48,3 +48,8 @@ export function toShanghaiDateTime(value: unknown): string | null {
     hour12: false,
   });
 }
+
+/** 当前时间的 ISO 字符串；会话与凭据时间统一走这里。 */
+export function nowIso(): string {
+  return new Date().toISOString();
+}

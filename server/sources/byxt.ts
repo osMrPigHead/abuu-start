@@ -14,10 +14,12 @@ import {
 } from "../core/guards.ts";
 import { fetchByxt } from "../upstreams/byxtApi.ts";
 import {
-  FALLBACK_SECTION_TIMES,
-  parseRequestedWeek,
-  resolveCurrentWeek,
-} from "./byxtWeek.ts";
+  normalizeDateKey,
+  normalizeDayOfWeek,
+  normalizeTime,
+  parseSectionTimes,
+} from "../../shared/schedule.ts";
+import { parseRequestedWeek, resolveCurrentWeek } from "./byxtWeek.ts";
 import type {
   ByxtStatusResponse,
   Course,
@@ -105,7 +107,7 @@ async function fetchWeekSchedule(
   );
 
   const payload = isRecord(datas) ? datas : {};
-  const sectionTimes = normalizeSectionTimes(payload.sectionTimes);
+  const sectionTimes = parseSectionTimes(payload.sectionTimes);
   const sectionMap = new Map(sectionTimes.map((item) => [item.section, item]));
   const rawCourses = Array.isArray(payload.arrangedList)
     ? payload.arrangedList
@@ -139,27 +141,6 @@ async function fetchWeekSchedule(
   }
 
   return { sectionTimes, courses: sortCourses(courses) };
-}
-
-function normalizeSectionTimes(value: unknown): SectionTime[] {
-  const result: SectionTime[] = [];
-
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      if (!isRecord(item)) continue;
-      const section = toPositiveInteger(item.section);
-      const start = normalizeTime(item.start);
-      const end = normalizeTime(item.end);
-      if (section === null || !start || !end) continue;
-      result.push({ section, start, end });
-    }
-  }
-
-  if (result.length === 0) {
-    return FALLBACK_SECTION_TIMES.map((item) => ({ ...item }));
-  }
-
-  return result.sort((left, right) => left.section - right.section);
 }
 
 export async function byxtStatus(): Promise<ByxtStatusResponse> {
@@ -283,28 +264,6 @@ function sortCourses(courses: readonly Course[]): Course[] {
 
     return left.courseName.localeCompare(right.courseName, "zh-Hans-CN");
   });
-}
-
-function normalizeDateKey(value: unknown): string {
-  if (typeof value !== "string") return "";
-  const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
-  return match?.[1] ?? "";
-}
-
-function normalizeTime(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const match = value.trim().match(/^(\d{1,2}):(\d{2})/);
-  if (!match) return null;
-  const hour = Number(match[1]);
-  const minute = Number(match[2]);
-  if (hour > 23 || minute > 59) return null;
-  return `${String(hour).padStart(2, "0")}:${match[2]}`;
-}
-
-function normalizeDayOfWeek(value: unknown): number | null {
-  const day = toPositiveInteger(value);
-  if (day === null || day < 1 || day > 7) return null;
-  return day;
 }
 
 function isTruthy(value: unknown): boolean {

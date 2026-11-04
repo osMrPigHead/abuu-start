@@ -3,7 +3,8 @@
  * 同一时间只允许一次重登；认证类失败冷却 5 分钟，瞬时失败冷却 30 秒。
  */
 import { AUTH_SOURCE_IDS } from "../../shared/auth.ts";
-import { RelayError } from "../core/errors.ts";
+import { RelayError, isTransientRelayCode } from "../core/errors.ts";
+import { nowIso } from "../core/datetime.ts";
 import {
   activateUc,
   fetchUcStatus,
@@ -127,10 +128,7 @@ async function performAutoRelogin(
     return { ok: true };
   } catch (error) {
     // fetch 抛出的 UPSTREAM_ERROR/UPSTREAM_TIMEOUT 属于瞬时失败。
-    if (
-      error instanceof RelayError &&
-      (error.code === "UPSTREAM_ERROR" || error.code === "UPSTREAM_TIMEOUT")
-    ) {
+    if (error instanceof RelayError && isTransientRelayCode(error.code)) {
       return failRelogin("upstream", error);
     }
     return failRelogin("auth");
@@ -186,8 +184,4 @@ function failRelogin(
   lastReloginFailedAt = Date.now();
   lastReloginFailureReason = reason;
   return error ? { ok: false, reason, error } : { ok: false, reason };
-}
-
-function nowIso(): string {
-  return new Date().toISOString();
 }

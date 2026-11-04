@@ -6,21 +6,15 @@ import {
   createCachedSource,
 } from "@/composables/useSourceState";
 import type { SpocAssignment, SpocAssignmentDetail, Term } from "@shared/api";
-import type {
-  SourceStatus,
-  SpocAssignmentsCache,
-  SpocDetailCache,
-} from "@/types";
-import { asString, isRecord, nullableText } from "@/utils/guards";
+import type { SourceStatus, SpocAssignmentsCache } from "@/types";
 import { isValidSpocAssignmentId } from "@/domain/spoc";
+import { clearSpocCaches } from "@/cache/storage";
 import {
-  clearSpocCaches,
-  readJson,
-  spocDetailCacheKey,
-  STORAGE_KEYS,
-  writeJson,
-} from "@/cache/storage";
-import { normalizeTerm } from "@/domain/term";
+  readSpocAssignmentsCache,
+  readSpocDetailCache,
+  writeSpocAssignmentsCache,
+  writeSpocDetailCache,
+} from "@/cache/spoc";
 
 type SpocState = {
   status: SourceStatus;
@@ -99,12 +93,22 @@ const detailSource = createCachedDetailSource({
   },
   openKey: (preview) => preview.assignmentId,
   isValidKey: (key) => isValidSpocAssignmentId(key),
-  readCache: readDetailCache,
+  readCache: (assignmentId) => {
+    const cache = readSpocDetailCache(assignmentId);
+    return cache ? { savedAt: cache.savedAt, detail: cache.assignment } : null;
+  },
   fetch: async (key) => (await fetchSpocAssignmentDetail(key)).assignment,
   apply: (detail) => {
     detailState.assignment = detail;
   },
-  persist: persistDetail,
+  persist: (assignmentId) => {
+    if (!detailState.assignment || detailState.savedAt === null) return;
+
+    writeSpocDetailCache(assignmentId, {
+      savedAt: detailState.savedAt,
+      assignment: detailState.assignment,
+    });
+  },
   hasData: () =>
     detailState.assignment !== null || detailState.savedAt !== null,
   fallbackMessage: "SPOC 作业加载失败",
@@ -142,7 +146,7 @@ async function refresh(): Promise<void> {
 }
 
 function hydrateCache(): boolean {
-  const cache = readAssignmentsCache();
+  const cache = readSpocAssignmentsCache();
   if (!cache) return false;
 
   state.term = cache.term;
@@ -162,28 +166,6 @@ function clearSpocData(): void {
   detailSource.close();
 }
 
-/* ------------------------------- 缓存读写 ------------------------------- */
-
-function readAssignmentsCache(): SpocAssignmentsCache | null {
-  const raw = readJson<unknown>(STORAGE_KEYS.spocAssignmentsCache);
-  if (!isRecord(raw)) return null;
-
-  const assignments = Array.isArray(raw.assignments)
-    ? raw.assignments
-        .map(normalizeAssignment)
-        .filter((item): item is SpocAssignment => item !== null)
-    : [];
-
-  const savedAt = typeof raw.savedAt === "string" ? raw.savedAt : "";
-  if (savedAt.length === 0 && assignments.length === 0) return null;
-
-  return {
-    savedAt,
-    term: normalizeTerm(raw.term),
-    assignments,
-  };
-}
-
 function persistAssignments(): void {
   if (!state.term || state.savedAt === null) return;
 
@@ -192,96 +174,5 @@ function persistAssignments(): void {
     term: state.term,
     assignments: state.assignments,
   };
-  writeJson(STORAGE_KEYS.spocAssignmentsCache, cache);
-}
-
-function readDetailCache(
-  assignmentId: string,
-): { savedAt: string; detail: SpocAssignmentDetail } | null {
-  const raw = readJson<unknown>(spocDetailCacheKey(assignmentId));
-  if (!isRecord(raw)) return null;
-
-  const assignment = normalizeDetail(raw.assignment);
-  if (!assignment) return null;
-
-  const savedAt = typeof raw.savedAt === "string" ? raw.savedAt : "";
-  return { savedAt, detail: assignment };
-}
-
-function persistDetail(assignmentId: string): void {
-  if (!detailState.assignment || detailState.savedAt === null) return;
-
-  const cache: SpocDetailCache = {
-    savedAt: detailState.savedAt,
-    assignment: detailState.assignment,
-  };
-  writeJson(spocDetailCacheKey(assignmentId), cache);
-}
-
-/* ------------------------------- 归一化 ------------------------------- */
-
-function normalizeAssignment(value: unknown): SpocAssignment | null {
-  if (!isRecord(value)) return null;
-
-  const assignmentId = asString(value.assignmentId).trim();
-  const title = asString(value.title).trim();
-  if (assignmentId.length === 0 || title.length === 0) return null;
-
-  const status = normalizeSubmissionStatus(value.submissionStatus);
-
-  return {
-    assignmentId,
-    courseId: asString(value.courseId).trim(),
-    courseName: asString(value.courseName).trim() || "未知课程",
-    teacherName: nullableText(value.teacherName),
-    title,
-    startTime: nullableText(value.startTime),
-    dueTime: nullableText(value.dueTime),
-    submissionStatus: status,
-    submissionStatusText:
-      asString(value.submissionStatusText).trim() ||
-      submissionStatusText(status),
-  };
-}
-
-function normalizeDetail(value: unknown): SpocAssignmentDetail | null {
-  const base = normalizeAssignment(value);
-  if (!base || !isRecord(value)) return null;
-
-  const attachments = Array.isArray(value.attachments)
-    ? value.attachments
-        .map((item) => (isRecord(item) ? asString(item.name).trim() : ""))
-        .filter((name) => name.length > 0)
-        .map((name) => ({ name }))
-    : [];
-
-  return {
-    ...base,
-    score: nullableText(value.score),
-    totalScore: nullableText(value.totalScore),
-    contentText: nullableText(value.contentText),
-    attachments,
-    submittedAt: nullableText(value.submittedAt),
-  };
-}
-
-function normalizeSubmissionStatus(
-  value: unknown,
-): SpocAssignment["submissionStatus"] {
-  return value === "submitted" || value === "unsubmitted" || value === "unknown"
-    ? value
-    : "unknown";
-}
-
-function submissionStatusText(
-  status: SpocAssignment["submissionStatus"],
-): string {
-  switch (status) {
-    case "submitted":
-      return "已提交";
-    case "unsubmitted":
-      return "未提交";
-    default:
-      return "未知";
-  }
+  writeSpocAssignmentsCache(cache);
 }

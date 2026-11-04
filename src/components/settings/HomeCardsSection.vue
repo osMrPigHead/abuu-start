@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import SettingsSection from "@/components/settings/SettingsSection.vue";
+import ToggleSwitch from "@/components/common/ToggleSwitch.vue";
 import type { HomeCardId } from "@/composables/useHomeCards";
 import type { HomeCardVisibility } from "@/domain/homeLayout";
 
@@ -32,24 +33,11 @@ const emit = defineEmits<{
             {{ option.hint }}
           </p>
         </div>
-        <button
-          type="button"
-          role="switch"
-          :aria-checked="visibility[option.id]"
-          :aria-label="`${option.title}卡片开关`"
-          class="relative h-6 w-11 shrink-0 rounded-full border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40"
-          :class="
-            visibility[option.id]
-              ? 'border-sky-300/40 bg-sky-300/25'
-              : 'border-white/20 bg-white/10'
-          "
-          @click="emit('toggle', option.id)"
-        >
-          <span
-            class="absolute top-1 h-4 w-4 rounded-full bg-white transition-all"
-            :class="visibility[option.id] ? 'left-6' : 'left-0.5'"
-          ></span>
-        </button>
+        <ToggleSwitch
+          :checked="visibility[option.id]"
+          :label="`${option.title}卡片开关`"
+          @toggle="emit('toggle', option.id)"
+        />
       </div>
     </div>
 

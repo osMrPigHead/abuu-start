@@ -6,12 +6,17 @@ import SourceStatusLine from "@/components/common/SourceStatusLine.vue";
 import WeekSwitcher from "@/components/schedule/WeekSwitcher.vue";
 import { useClock } from "@/composables/useClock";
 import { useBykcChosen } from "@/composables/useBykcChosen";
-import { useSchedule, type WeekEntry } from "@/composables/useSchedule";
+import { useSchedule } from "@/composables/useSchedule";
 import { useScheduleSettings } from "@/composables/useScheduleSettings";
 import { bykcChosenCoursesOnDate } from "@/domain/bykc";
 import { formatDateKey } from "@/utils/date";
 import { coursesOnDay, sortCourses } from "@/domain/schedule";
-import { buildWeekDays, weekDateRange } from "@/domain/week";
+import {
+  buildWeekDays,
+  resolveMaxWeek,
+  weekDateRange,
+  weekRowState,
+} from "@/domain/week";
 
 const { meta, refreshCurrent, loadWeek, weekView } = useSchedule();
 const { state: bykcChosenState, refresh: refreshBykcChosen } = useBykcChosen();
@@ -29,14 +34,7 @@ const minWeek = computed(() => {
   const serialNumbers = meta.weeks.map((week) => week.serialNumber);
   return serialNumbers.length > 0 ? Math.min(...serialNumbers) : 1;
 });
-const maxWeek = computed(() => {
-  const serialNumbers = meta.weeks.map((week) => week.serialNumber);
-  return Math.max(
-    1,
-    meta.currentWeek ?? 1,
-    ...(serialNumbers.length > 0 ? serialNumbers : [1]),
-  );
-});
+const maxWeek = computed(() => resolveMaxWeek(meta));
 const canPrev = computed(() => selectedWeek.value > minWeek.value);
 const canNext = computed(() => selectedWeek.value < maxWeek.value);
 
@@ -91,18 +89,6 @@ onMounted(() => {
   void refreshCurrent();
   void refreshBykcChosen();
 });
-
-function rowState(view: WeekEntry): "loading" | "ready" | "unavailable" {
-  if (view.loaded) return "ready";
-  if (
-    view.status === "error" ||
-    view.status === "no-credential" ||
-    view.status === "auth-expired"
-  ) {
-    return "unavailable";
-  }
-  return "loading";
-}
 
 function selectWeek(week: number): void {
   if (
@@ -186,7 +172,7 @@ function refresh(): void {
               :week-number="day.weekNumber"
               :courses="day.courses"
               :section-times="selectedView.sectionTimes"
-              :state="rowState(selectedView)"
+              :state="weekRowState(selectedView)"
               :now="now"
               :highlight-lead-minutes="highlightLeadMinutes"
             />

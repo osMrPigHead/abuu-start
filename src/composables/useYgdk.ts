@@ -3,14 +3,12 @@ import { reactive } from "vue";
 import { fetchYgdkOverview } from "@/api/ygdk";
 import { createCachedSource } from "@/composables/useSourceState";
 import type { YgdkOverview } from "@shared/api";
-import type { SourceStatus, YgdkOverviewCache } from "@/types";
-import { isRecord } from "@/utils/guards";
+import type { SourceStatus } from "@/types";
 import {
-  clearYgdkCaches,
-  readJson,
-  STORAGE_KEYS,
-  writeJson,
-} from "@/cache/storage";
+  readYgdkOverviewCache,
+  writeYgdkOverviewCache,
+} from "@/cache/ygdk";
+import { clearYgdkCaches } from "@/cache/storage";
 
 type YgdkState = {
   status: SourceStatus;
@@ -64,7 +62,7 @@ async function refresh(): Promise<void> {
 }
 
 function hydrateCache(): boolean {
-  const cache = readOverviewCache();
+  const cache = readYgdkOverviewCache();
   if (!cache) return false;
 
   state.overview = cache.overview;
@@ -81,47 +79,11 @@ function clearYgdkData(): void {
   source.reset({ hydrated: true });
 }
 
-/* ------------------------------- 缓存读写 ------------------------------- */
-
-function readOverviewCache(): YgdkOverviewCache | null {
-  const raw = readJson<unknown>(STORAGE_KEYS.ygdkOverviewCache);
-  if (!isRecord(raw)) return null;
-
-  const overview = normalizeOverview(raw.overview);
-  if (!overview) return null;
-
-  const savedAt = typeof raw.savedAt === "string" ? raw.savedAt : "";
-  return { savedAt, overview };
-}
-
 function persistOverview(): void {
   if (!state.overview || state.savedAt === null) return;
 
-  writeJson(STORAGE_KEYS.ygdkOverviewCache, {
+  writeYgdkOverviewCache({
     savedAt: state.savedAt,
     overview: state.overview,
-  } satisfies YgdkOverviewCache);
-}
-
-/* ------------------------------- 归一化 ------------------------------- */
-
-function normalizeOverview(value: unknown): YgdkOverview | null {
-  if (!isRecord(value)) return null;
-
-  return {
-    termName:
-      typeof value.termName === "string" && value.termName.trim().length > 0
-        ? value.termName.trim()
-        : null,
-    termCount: readCount(value.termCount),
-    termTarget: readCount(value.termTarget),
-    weekCount: readCount(value.weekCount),
-    weekTarget: readCount(value.weekTarget),
-  };
-}
-
-function readCount(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0
-    ? Math.floor(value)
-    : 0;
+  });
 }

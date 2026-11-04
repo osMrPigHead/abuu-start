@@ -174,3 +174,47 @@ export function resolveSourcePlaceholder(
       return labels.empty;
   }
 }
+
+export type SourcePageLabels = {
+  statusNoCredential: string;
+  statusAuthExpired: string;
+  statusFallback: string;
+  noticeLoading: string;
+  noticeNoCredential: string;
+  noticeAuthExpired?: string;
+  noticeError: string;
+};
+
+type SourceEmptyInput = {
+  status: SourceStatus;
+  loading: boolean;
+  hasContent: boolean;
+  dataEmpty: boolean;
+  /** 仅在 ok/cached（已 settled）时显示空态；博雅广场使用。 */
+  settledOnly?: boolean;
+};
+
+/** 列表页空态显示条件：加载中/有内容/被状态提示覆盖时不显示。 */
+export function shouldShowSourceEmpty(input: SourceEmptyInput): boolean {
+  if (input.loading || input.hasContent) return false;
+
+  if (
+    input.settledOnly &&
+    input.status !== "ok" &&
+    input.status !== "cached"
+  ) {
+    return false;
+  }
+
+  if (
+    input.dataEmpty &&
+    (input.status === "loading" ||
+      input.status === "no-credential" ||
+      input.status === "auth-expired" ||
+      input.status === "error")
+  ) {
+    return false;
+  }
+
+  return true;
+}

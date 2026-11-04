@@ -1,5 +1,8 @@
 /** 阳光打卡目标与进度的纯函数，口径见 docs/prd-phase2.md 4.3、docs/trd-phase2.md 7.4。 */
 import type { YgdkSettings } from "@/types";
+import { isValidYgdkUid } from "@shared/validation";
+
+export { isValidYgdkUid };
 
 export const DEFAULT_YGDK_TERM_TARGET = 16;
 export const DEFAULT_YGDK_WEEK_TARGET = 4;
@@ -27,13 +30,6 @@ export function isValidYgdkWeekTarget(value: number): boolean {
     value >= MIN_YGDK_WEEK_TARGET &&
     value <= MAX_YGDK_WEEK_TARGET
   );
-}
-
-/** UID 为十进制整数；与中继的 `X-Ygdk-Uid` 校验保持一致。 */
-export function isValidYgdkUid(value: string): boolean {
-  const text = value.trim();
-  if (!/^\d{1,15}$/.test(text)) return false;
-  return Number.isSafeInteger(Number(text));
 }
 
 /** 学期目标优先取系统值；系统缺失或为 0 时用用户设置，用户值非法回退 20。 */

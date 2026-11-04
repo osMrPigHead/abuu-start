@@ -28,6 +28,13 @@ export type AuthUser = {
 
 export type AuthSources = Record<AuthSourceId, AuthSourceState>;
 
+export const AUTH_SOURCE_LABELS: Record<AuthSourceId, string> = {
+  byxt: "本研教育管理系统",
+  spoc: "SPOC",
+  bykc: "博雅课程",
+  ygdk: "阳光打卡",
+};
+
 export type AuthStatusResponse = {
   authenticated: boolean;
   user: AuthUser | null;

@@ -1,4 +1,5 @@
 import { isRecord } from "../core/guards.ts";
+import { parseJson } from "../core/json.ts";
 import { RelayError } from "../core/errors.ts";
 import { fetchWithTimeout } from "./fetch.ts";
 
@@ -113,12 +114,4 @@ export function looksLikeHtml(text: string): boolean {
 /** 408/429/5xx 视为上游暂时不可用，不是认证失效。 */
 export function isTransientStatus(status: number): boolean {
   return status === 408 || status === 429 || status >= 500;
-}
-
-function parseJson(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return undefined;
-  }
 }

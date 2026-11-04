@@ -5,6 +5,7 @@
 import { AUTH_SOURCE_IDS } from "../../shared/auth.ts";
 import type { AuthLoginResponse } from "../../shared/auth.ts";
 import { RelayError } from "../core/errors.ts";
+import { nowIso } from "../core/datetime.ts";
 import { isRecord } from "../core/guards.ts";
 import {
   activateUc,
@@ -199,8 +200,4 @@ function readSecret(value: unknown, maxLength: number): string | null {
   if (typeof value !== "string") return null;
   if (value.length === 0 || value.length > maxLength) return null;
   return value;
-}
-
-function nowIso(): string {
-  return new Date().toISOString();
 }

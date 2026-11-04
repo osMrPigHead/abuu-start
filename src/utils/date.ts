@@ -1,4 +1,7 @@
 /** 日期与时间格式化，见 docs/trd.md 6 / 7.2。 */
+import { formatDateKey } from "@shared/schedule";
+
+export { formatDateKey };
 
 export const WEEKDAYS_CN = [
   "周日",
@@ -12,11 +15,6 @@ export const WEEKDAYS_CN = [
 
 export function pad2(value: number): string {
   return String(value).padStart(2, "0");
-}
-
-/** Date -> 本地日期键，不经过 UTC，避免时区偏移。 */
-export function formatDateKey(date: Date): string {
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 }
 
 /** "YYYY-MM-DD" -> 本地零点；格式或日期不合法时返回 null。 */

@@ -52,15 +52,17 @@ export function toRelayError(error: unknown): RelayError {
   return new RelayError("INTERNAL", "本地中继内部错误");
 }
 
+/** 传输层瞬时失败：超时或网络/上游不可用。 */
+export function isTransientRelayCode(code: RelayErrorCode): boolean {
+  return code === "UPSTREAM_TIMEOUT" || code === "UPSTREAM_ERROR";
+}
+
 /** 把重登过程中的运输层错误原样映射为 502/504；其余包裹为 UPSTREAM_ERROR。 */
 export function toUpstreamRelayError(
   error: RelayError | undefined,
   fallback: string,
 ): RelayError {
-  if (
-    error &&
-    (error.code === "UPSTREAM_TIMEOUT" || error.code === "UPSTREAM_ERROR")
-  ) {
+  if (error && isTransientRelayCode(error.code)) {
     return new RelayError(
       error.code,
       error.message || fallback,

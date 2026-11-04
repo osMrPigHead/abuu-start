@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /** 设置页统一登录区；props 输入、emits 输出，不直接请求或读写存储。 */
 import { computed, ref, watch } from "vue";
+import SettingsSection from "@/components/settings/SettingsSection.vue";
 import { AUTH_SOURCE_ORDER } from "@/composables/useAuth";
 import type { AuthSources, AuthUser } from "@shared/auth";
 import { formatStamp } from "@/utils/date";
@@ -122,24 +123,13 @@ const fieldClass =
 </script>
 
 <template>
-  <section
-    class="mt-6 rounded-3xl border border-white/12 bg-slate-950/35 p-6 shadow-[0_24px_70px_-36px_rgba(0,0,0,0.95)] backdrop-blur-md"
+  <SettingsSection
+    margin="6"
+    title="统一登录"
+    description="一次学号与密码登录，由本地中继完成学校统一认证并派生四类数据源凭据；凭据加密保存在本机，前端不保存。"
+    :badge="sessionStatus"
+    :badge-class="sessionStatusClass"
   >
-    <div class="flex items-start justify-between gap-4">
-      <div>
-        <h2 class="text-base font-medium text-white/90">统一登录</h2>
-        <p class="mt-1 text-xs leading-relaxed text-white/45">
-          一次学号与密码登录，由本地中继完成学校统一认证并派生四类数据源凭据；凭据加密保存在本机，前端不保存。
-        </p>
-      </div>
-      <span
-        class="shrink-0 rounded-full border px-2.5 py-1 text-[11px]"
-        :class="sessionStatusClass"
-      >
-        {{ sessionStatus }}
-      </span>
-    </div>
-
     <template v-if="!authenticated">
       <div class="mt-4 grid gap-3">
         <label class="flex flex-col gap-2">
@@ -272,5 +262,5 @@ const fieldClass =
 
       <slot></slot>
     </template>
-  </section>
+  </SettingsSection>
 </template>

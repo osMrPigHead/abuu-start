@@ -3,7 +3,7 @@
  * 前端只读错误码，HTTP 状态映射属于中继实现。
  */
 
-export const RELAY_ERROR_CODES = [
+const RELAY_ERROR_CODES = [
   "NO_CREDENTIAL",
   "AUTH_REQUIRED",
   "INVALID_CREDENTIALS",

@@ -1,13 +1,9 @@
 /** SPOC 作业过滤、排序与展示文案，见 docs/trd.md 7.3。 */
 import type { SpocAssignment } from "@shared/api";
+import { isValidSpocAssignmentId } from "@shared/validation";
 import { formatDateTimeValue, parseDateTime } from "@/utils/dateTime";
 
-const SPOC_ASSIGNMENT_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
-
-/** 与中继一致的作业 id 格式校验。 */
-export function isValidSpocAssignmentId(value: string): boolean {
-  return SPOC_ASSIGNMENT_ID_RE.test(value);
-}
+export { isValidSpocAssignmentId };
 
 /** "YYYY-MM-DD HH:mm:ss"（或带 T）按本地时间解析；无效值返回 null。 */
 export function parseSpocDateTime(

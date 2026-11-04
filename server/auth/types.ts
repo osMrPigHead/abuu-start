@@ -6,6 +6,7 @@ import type { CookieJar } from "./cookieJar.ts";
 import type {
   AuthSourceId,
   AuthSourceState,
+  AuthSources,
   AuthUser,
 } from "../../shared/auth.ts";
 
@@ -43,7 +44,7 @@ export type AuthSession = {
   spoc: SpocCredential | null;
   bykc: BykcCredential | null;
   ygdk: YgdkCredential | null;
-  sources: Record<AuthSourceId, AuthSourceState>;
+  sources: AuthSources;
 };
 
 /** 一次登录尝试：只在内存中，默认 10 分钟，最多 5 个。 */

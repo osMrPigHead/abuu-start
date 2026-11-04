@@ -2,10 +2,13 @@
 import { computed, onMounted } from "vue";
 import ExamCard from "@/components/exams/ExamCard.vue";
 import PageHeader from "@/components/common/PageHeader.vue";
-import PageStateNotice from "@/components/common/PageStateNotice.vue";
-import SourceStatusLine from "@/components/common/SourceStatusLine.vue";
+import SourceStatePanel from "@/components/common/SourceStatePanel.vue";
 import { useClock } from "@/composables/useClock";
 import { useExams } from "@/composables/useExams";
+import {
+  shouldShowSourceEmpty,
+  type SourcePageLabels,
+} from "@/domain/sourceStatus";
 import { groupExams } from "@/domain/exams";
 
 const { state, refresh } = useExams();
@@ -16,18 +19,23 @@ const hasUpcoming = computed(() => groups.value.upcoming.length > 0);
 const hasEnded = computed(() => groups.value.ended.length > 0);
 const isEmpty = computed(() => state.exams.length === 0);
 
-const showEmptyUpcoming = computed(
-  () =>
-    !state.loading &&
-    !hasUpcoming.value &&
-    !(
-      isEmpty.value &&
-      (state.status === "loading" ||
-        state.status === "no-credential" ||
-        state.status === "auth-expired" ||
-        state.status === "error")
-    ),
+const showEmptyUpcoming = computed(() =>
+  shouldShowSourceEmpty({
+    status: state.status,
+    loading: state.loading,
+    hasContent: hasUpcoming.value,
+    dataEmpty: isEmpty.value,
+  }),
 );
+
+const labels: SourcePageLabels = {
+  statusNoCredential: "未登录，请前往设置完成登录",
+  statusAuthExpired: "登录状态已失效，请重新登录",
+  statusFallback: "考试加载失败",
+  noticeLoading: "正在加载考试安排…",
+  noticeNoCredential: "登录后查看考试安排。",
+  noticeError: "考试加载失败",
+};
 
 onMounted(() => {
   void refresh();
@@ -47,36 +55,13 @@ function retry(): void {
       />
 
       <div class="route-page-body flow-root">
-        <div
-          class="mt-4 rounded-2xl border border-white/10 bg-slate-950/30 px-4 py-3 backdrop-blur-md"
-        >
-          <SourceStatusLine
-            :status="state.status"
-            :saved-at="state.savedAt"
-            :error="state.error"
-            :refreshing="state.loading"
-            @retry="retry"
-          />
-        </div>
-
-        <PageStateNotice
-          v-if="state.status === 'loading' && isEmpty"
-          kind="loading"
-          message="正在加载考试安排…"
-        />
-
-        <PageStateNotice
-          v-else-if="state.status === 'no-credential' && isEmpty"
-          kind="no-credential"
-          message="登录后查看考试安排。"
-          settings-link
-        />
-
-        <PageStateNotice
-          v-else-if="state.status === 'error' && isEmpty"
-          kind="error"
-          :message="state.error || '考试加载失败'"
-          retryable
+        <SourceStatePanel
+          :status="state.status"
+          :saved-at="state.savedAt"
+          :error="state.error"
+          :loading="state.loading"
+          :data-empty="isEmpty"
+          :labels="labels"
           @retry="retry"
         />
 

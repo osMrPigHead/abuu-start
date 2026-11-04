@@ -5,6 +5,7 @@ import {
   needsSettingsSource,
   resolveAggregateSourceBadge,
   resolveSourceBadge,
+  shouldShowSourceEmpty,
 } from "@/domain/sourceStatus";
 
 describe("source status", () => {
@@ -94,5 +95,36 @@ describe("source status", () => {
     expect(needsSettingsSource({ status: "no-credential" })).toBe(true);
     expect(needsSettingsSource({ status: "auth-expired" })).toBe(true);
     expect(needsSettingsSource({ status: "ok" })).toBe(false);
+  });
+
+  it("shouldShowSourceEmpty 在加载、有内容和状态提示期间不显示", () => {
+    const base = {
+      status: "ok" as const,
+      loading: false,
+      hasContent: false,
+      dataEmpty: true,
+    };
+
+    expect(shouldShowSourceEmpty(base)).toBe(true);
+    expect(shouldShowSourceEmpty({ ...base, loading: true })).toBe(false);
+    expect(shouldShowSourceEmpty({ ...base, hasContent: true })).toBe(false);
+    expect(shouldShowSourceEmpty({ ...base, status: "error" })).toBe(false);
+    expect(
+      shouldShowSourceEmpty({ ...base, status: "error", dataEmpty: false }),
+    ).toBe(true);
+  });
+
+  it("shouldShowSourceEmpty 支持博雅仅 settled 状态显示", () => {
+    const base = {
+      status: "idle" as const,
+      loading: false,
+      hasContent: false,
+      dataEmpty: true,
+      settledOnly: true,
+    };
+
+    expect(shouldShowSourceEmpty(base)).toBe(false);
+    expect(shouldShowSourceEmpty({ ...base, status: "cached" })).toBe(true);
+    expect(shouldShowSourceEmpty({ ...base, status: "ok" })).toBe(true);
   });
 });

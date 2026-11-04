@@ -1,5 +1,6 @@
 /** 教学周解析、日期范围与周视图纯函数，见 docs/trd.md 7.2。 */
 import type { SectionTime, Week } from "@shared/api";
+import { findWeekByDateKey } from "@shared/schedule";
 import type { Course, SourceStatus } from "@/types";
 import {
   addDays,
@@ -56,14 +57,7 @@ export function resolveCurrentWeek(
   const marked = weeks.find((week) => week.curWeek);
   if (marked) return marked.serialNumber;
 
-  const todayKey = formatDateKey(now);
-  const byDate = weeks.find(
-    (week) =>
-      week.startDate.length > 0 &&
-      week.endDate.length > 0 &&
-      todayKey >= week.startDate &&
-      todayKey <= week.endDate,
-  );
+  const byDate = findWeekByDateKey(weeks, formatDateKey(now));
   if (byDate) return byDate.serialNumber;
 
   if (fallback !== null && Number.isSafeInteger(fallback) && fallback > 0) {
@@ -131,15 +125,9 @@ export function weekNumberForDate(
   today: Date,
 ): number | null {
   if (meta.weeks.length > 0) {
-    const key = formatDateKey(date);
-    const found = meta.weeks.find(
-      (week) =>
-        week.startDate.length > 0 &&
-        week.endDate.length > 0 &&
-        key >= week.startDate &&
-        key <= week.endDate,
+    return (
+      findWeekByDateKey(meta.weeks, formatDateKey(date))?.serialNumber ?? null
     );
-    return found?.serialNumber ?? null;
   }
 
   if (meta.currentWeek === null) return null;

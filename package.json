@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "type-check": "vue-tsc -noEmit",
+    "check:shared": "node scripts/check-shared-usage.mjs",
     "lint": "eslint . --cache",
     "lint:fix": "eslint . --fix --cache",
     "format": "prettier --write .",

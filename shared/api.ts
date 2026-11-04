@@ -66,7 +66,32 @@ export type SpocAssignmentDetail = SpocAssignment & {
   submittedAt: string | null;
 };
 
-export type WeekSource = "weeks" | "classWeek" | "default";
+/** SPOC 提交状态对应的展示文案；中继写入响应，前端缓存归一化复用。 */
+const SPOC_SUBMISSION_STATUS_TEXT: Record<
+  SpocAssignment["submissionStatus"],
+  string
+> = {
+  submitted: "已提交",
+  unsubmitted: "未提交",
+  unknown: "未知",
+};
+
+export function spocSubmissionStatusText(
+  status: SpocAssignment["submissionStatus"],
+): string {
+  return SPOC_SUBMISSION_STATUS_TEXT[status];
+}
+
+const WEEK_SOURCES = ["weeks", "classWeek", "default"] as const;
+
+export type WeekSource = (typeof WEEK_SOURCES)[number];
+
+export function isWeekSource(value: unknown): value is WeekSource {
+  return (
+    typeof value === "string" &&
+    (WEEK_SOURCES as readonly string[]).includes(value)
+  );
+}
 
 /* ---------- 中继响应 ---------- */
 
@@ -119,8 +144,16 @@ export type YgdkOverview = {
 };
 
 /** 博雅课程状态，见 docs/api.md 3.3。 */
-export type BykcCourseStatus =
-  "expired" | "selected" | "preview" | "ended" | "full" | "available";
+export const BYKC_COURSE_STATUSES = [
+  "expired",
+  "selected",
+  "preview",
+  "ended",
+  "full",
+  "available",
+] as const;
+
+export type BykcCourseStatus = (typeof BYKC_COURSE_STATUSES)[number];
 
 /** 博雅课程列表项，见 docs/trd-phase2.md 4。 */
 export type BykcCourse = {

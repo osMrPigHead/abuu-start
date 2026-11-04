@@ -9,9 +9,8 @@ import { ygdkCredentials as sessionYgdkCredentials } from "../auth/session.ts";
 import { RelayError } from "../core/errors.ts";
 import { isRecord, readInteger } from "../core/guards.ts";
 import { fetchYgdk, type YgdkCredentials } from "../upstreams/ygdkApi.ts";
+import { isValidYgdkUid } from "../../shared/validation.ts";
 import type { YgdkOverview } from "../../shared/api.ts";
-
-const UID_RE = /^\d{1,15}$/;
 
 type YgdkClassify = {
   classifyId: number;
@@ -57,7 +56,7 @@ function requireYgdkCredentials(): YgdkCredentials {
   const stored = sessionYgdkCredentials();
   const uid = String(stored.uid);
 
-  if (!UID_RE.test(uid)) {
+  if (!isValidYgdkUid(uid)) {
     throw new RelayError("INVALID_REQUEST", "阳光打卡 UID 必须是十进制整数");
   }
 
