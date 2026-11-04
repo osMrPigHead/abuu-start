@@ -64,3 +64,69 @@ export function shortcutWidthRem(title: string, editing = false): number {
 
 const WIDE_CHAR_RE =
   /[\u1100-\u115f\u2e80-\u303e\u3041-\u33ff\u3400-\u4dbf\u4e00-\u9fff\ua000-\ua4cf\uac00-\ud7a3\uf900-\ufaff\ufe10-\ufe19\ufe30-\ufe6b\uff01-\uff60]/;
+
+export type ShortcutDropTarget = {
+  row: number;
+  index: number;
+  insertX: number;
+};
+
+type ShortcutDropPlacement = {
+  id: string;
+  row: number;
+  xRem: number;
+  widthRem: number;
+};
+
+type ShortcutDropInput = {
+  pointerX: number;
+  pointerY: number;
+  rect: { left: number; top: number; width: number };
+  boardWidthRem: number;
+  rowCount: number;
+  rowStepRem: number;
+  rowGapRem: number;
+  rowStarts: readonly number[];
+  placements: readonly ShortcutDropPlacement[];
+  draggingId: string;
+};
+
+/** 把画布上的指针位置换算成行号、行内插入序号与插入线横坐标。 */
+export function resolveShortcutDrop(
+  input: ShortcutDropInput,
+): ShortcutDropTarget | null {
+  if (input.rect.width <= 0 || input.boardWidthRem <= 0) return null;
+
+  const remPx = input.rect.width / input.boardWidthRem;
+  if (!Number.isFinite(remPx) || remPx <= 0) return null;
+
+  const row = Math.min(
+    input.rowCount - 1,
+    Math.max(
+      0,
+      Math.floor(
+        (input.pointerY - input.rect.top) / (input.rowStepRem * remPx),
+      ),
+    ),
+  );
+  const xRem = (input.pointerX - input.rect.left) / remPx;
+  const start = input.rowStarts[row] ?? 0;
+
+  if (xRem < start) return null;
+
+  const others = input.placements.filter(
+    (placement) => placement.row === row && placement.id !== input.draggingId,
+  );
+  let index = others.findIndex(
+    (placement) => xRem < placement.xRem + placement.widthRem / 2,
+  );
+  if (index < 0) index = others.length;
+
+  const previous = others[index - 1];
+  const insertX =
+    index === 0 || !previous
+      ? start
+      : previous.xRem + previous.widthRem + input.rowGapRem;
+
+  return { row, index, insertX };
+}

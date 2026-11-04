@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
-import { RouterLink } from "vue-router";
-import BackHomeLink from "@/components/BackHomeLink.vue";
 import ExamCard from "@/components/ExamCard.vue";
+import PageHeader from "@/components/PageHeader.vue";
+import PageStateNotice from "@/components/PageStateNotice.vue";
 import SourceStatusLine from "@/components/SourceStatusLine.vue";
 import { useClock } from "@/composables/useClock";
 import { useExams } from "@/composables/useExams";
@@ -43,17 +43,10 @@ function retry(): void {
 <template>
   <div class="home-backdrop min-h-screen text-white antialiased">
     <main class="mx-auto w-full max-w-4xl px-8 py-10">
-      <header
-        class="route-page-header flex flex-wrap items-end justify-between gap-4"
-      >
-        <div>
-          <h1 class="text-2xl font-semibold tracking-wide">考试</h1>
-          <p class="mt-1 text-sm text-white/45">
-            {{ state.term?.name || "本学期已排定考试" }}
-          </p>
-        </div>
-        <BackHomeLink />
-      </header>
+      <PageHeader
+        title="考试"
+        :subtitle="state.term?.name || '本学期已排定考试'"
+      />
 
       <div class="route-page-body flow-root">
         <div
@@ -68,41 +61,26 @@ function retry(): void {
           />
         </div>
 
-        <div
+        <PageStateNotice
           v-if="state.status === 'loading' && isEmpty"
-          class="mt-5 rounded-2xl border border-dashed border-white/12 px-5 py-10 text-center text-sm text-white/45"
-        >
-          正在加载考试安排…
-        </div>
+          kind="loading"
+          message="正在加载考试安排…"
+        />
 
-        <div
+        <PageStateNotice
           v-else-if="state.status === 'no-credential' && isEmpty"
-          class="mt-5 rounded-2xl border border-dashed border-white/12 px-5 py-10 text-center"
-        >
-          <p class="text-sm text-white/60">登录后查看考试安排。</p>
-          <RouterLink
-            to="/settings"
-            class="mt-3 inline-flex rounded-full border border-white/20 bg-white/[0.07] px-4 py-2 text-sm text-white/80 transition hover:border-white/35 hover:text-white"
-          >
-            前往设置
-          </RouterLink>
-        </div>
+          kind="no-credential"
+          message="登录后查看考试安排。"
+          settings-link
+        />
 
-        <div
+        <PageStateNotice
           v-else-if="state.status === 'error' && isEmpty"
-          class="mt-5 rounded-2xl border border-dashed border-amber-200/20 px-5 py-10 text-center"
-        >
-          <p class="text-sm text-amber-100/75">
-            {{ state.error || "考试加载失败" }}
-          </p>
-          <button
-            type="button"
-            class="mt-3 inline-flex rounded-full border border-white/20 bg-white/[0.07] px-4 py-2 text-sm text-white/80 transition hover:border-white/35 hover:text-white"
-            @click="retry"
-          >
-            重试
-          </button>
-        </div>
+          kind="error"
+          :message="state.error || '考试加载失败'"
+          retryable
+          @retry="retry"
+        />
 
         <section v-if="hasUpcoming" class="mt-6" aria-label="未开始考试">
           <div

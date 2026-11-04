@@ -1,5 +1,6 @@
 /** 主页卡片开关：五张功能卡片可单独关闭，见 docs/prd-phase3.md 4.3 与 docs/ui-lowfi.md。 */
 import { reactive } from "vue";
+import { isRecord } from "@/utils/guards";
 import type { HomeCardId, HomeCardVisibility } from "@/utils/homeLayout";
 import { readJson, STORAGE_KEYS, writeJson } from "@/utils/storage";
 
@@ -40,8 +41,4 @@ function loadVisibility(): HomeCardVisibility {
     visibility[option.id] = record[option.id] !== false;
   }
   return visibility;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

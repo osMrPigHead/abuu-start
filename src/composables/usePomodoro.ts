@@ -4,18 +4,16 @@
  * 运行态只存在于当前页面，刷新后计时重置；已有完整配置时直接显示专注态。
  */
 import { computed, reactive, ref } from "vue";
+import { usePomodoroNotifications } from "@/composables/usePomodoroNotifications";
 import type { PomodoroRuntime, PomodoroSettings } from "@/types";
 import {
   hasPomodoroSettings,
-  isPomodoroNotificationSupported,
   nextPomodoroPhase,
   POMODORO_ONE_MINUTE_SECONDS,
   POMODORO_PHASE_LABELS,
   playPomodoroChime,
-  pomodoroNotificationPermission,
   pomodoroPhaseSeconds,
   primePomodoroAudio,
-  requestPomodoroNotificationPermission,
   sanitizePomodoroSettings,
   showPomodoroNotification,
   validatePomodoroSettings,
@@ -39,38 +37,7 @@ const paused = ref(false);
 const completedRounds = ref(0);
 const endsAt = ref<number | null>(null);
 const oneMinuteNotified = ref(false);
-
-const storedNotificationPreference = readJson<boolean>(
-  STORAGE_KEYS.pomodoroNotifications,
-);
-const hasStoredNotificationPreference =
-  storedNotificationPreference === true ||
-  storedNotificationPreference === false;
-const initialNotificationPermission = pomodoroNotificationPermission();
-// 未做过选择时默认开启；浏览器权限在首次开始专注时再请求。
-const notificationsEnabled = ref(
-  hasStoredNotificationPreference
-    ? storedNotificationPreference === true
-    : isPomodoroNotificationSupported() &&
-        initialNotificationPermission !== "denied",
-);
-const notificationMessage = ref("");
-const notificationBusy = ref(false);
-const notificationPermission = ref<NotificationPermission | null>(
-  initialNotificationPermission,
-);
-let notificationPromptAttempted = false;
-
-// 权限已被拒绝或浏览器不支持时，开关回到关闭；权限仍为 default 时保留开启，
-// 等用户在“开始”手势中授权。
-if (
-  notificationsEnabled.value &&
-  (initialNotificationPermission === null ||
-    initialNotificationPermission === "denied")
-) {
-  notificationsEnabled.value = false;
-  writeJson(STORAGE_KEYS.pomodoroNotifications, false);
-}
+const notifications = usePomodoroNotifications();
 
 let ticker: number | null = null;
 let visibilityListenerRegistered = false;
@@ -204,7 +171,7 @@ export function usePomodoro() {
 
   function beginRunning(): void {
     // 首次开始时仍处于用户手势内，可在这里请求通知权限。
-    ensureNotificationPermission();
+    notifications.ensurePermission();
     primePomodoroAudio();
     endsAt.value = Date.now() + remainingSeconds.value * 1000;
     running.value = true;
@@ -277,7 +244,7 @@ export function usePomodoro() {
   }
 
   function notifyOneMinute(): void {
-    if (!notificationsEnabled.value) return;
+    if (!notifications.enabled.value) return;
 
     showPomodoroNotification(
       `${POMODORO_PHASE_LABELS[phase.value]}还剩 1 分钟`,
@@ -286,146 +253,13 @@ export function usePomodoro() {
   }
 
   function notifyPhaseEnd(ended: PomodoroPhase, next: PomodoroPhase): void {
-    if (!notificationsEnabled.value) return;
+    if (!notifications.enabled.value) return;
 
     const minutes = pomodoroPhaseSeconds(settings, next) / 60;
     showPomodoroNotification(
       `${POMODORO_PHASE_LABELS[ended]}结束，已开始 ${minutes} 分钟${POMODORO_PHASE_LABELS[next]}`,
       "phase-end",
     );
-  }
-
-  function refreshNotificationPermission(): void {
-    notificationPermission.value = pomodoroNotificationPermission();
-  }
-
-  /**
-   * 首次开始专注时请求一次通知权限；用户已关闭、已拒绝或不支持时不反复弹窗。
-   * 由“开始/继续”点击触发，满足浏览器的用户手势要求。
-   */
-  function ensureNotificationPermission(): void {
-    if (!notificationsEnabled.value) return;
-
-    refreshNotificationPermission();
-    const permission = notificationPermission.value;
-
-    if (permission === "granted") return;
-
-    if (permission === null) {
-      notificationsEnabled.value = false;
-      writeJson(STORAGE_KEYS.pomodoroNotifications, false);
-      notificationMessage.value = "当前浏览器不支持桌面通知";
-      return;
-    }
-
-    if (permission === "denied") {
-      notificationsEnabled.value = false;
-      writeJson(STORAGE_KEYS.pomodoroNotifications, false);
-      notificationMessage.value =
-        "通知权限已被拒绝，请在浏览器设置中允许后重试";
-      return;
-    }
-
-    if (notificationPromptAttempted || notificationBusy.value) return;
-
-    notificationPromptAttempted = true;
-    notificationBusy.value = true;
-    void requestPomodoroNotificationPermission()
-      .then((result) => {
-        notificationPermission.value = result;
-        if (result === "granted") {
-          notificationsEnabled.value = true;
-          writeJson(STORAGE_KEYS.pomodoroNotifications, true);
-          notificationMessage.value = "已开启番茄钟桌面通知";
-          return;
-        }
-
-        notificationsEnabled.value = false;
-        writeJson(STORAGE_KEYS.pomodoroNotifications, false);
-        notificationMessage.value =
-          result === "denied"
-            ? "通知权限已被拒绝，请在浏览器设置中允许后重试"
-            : "未能获得通知权限，番茄钟仍会正常计时";
-      })
-      .finally(() => {
-        notificationBusy.value = false;
-      });
-  }
-
-  /**
-   * 开启时请求通知权限；不支持或被拒绝时开关回到关闭并给出提示。
-   * 关闭只写偏好，不影响正在运行的计时。
-   */
-  async function setNotificationsEnabled(enabled: boolean): Promise<void> {
-    if (notificationBusy.value) return;
-
-    notificationPromptAttempted = true;
-    refreshNotificationPermission();
-
-    if (!enabled) {
-      notificationsEnabled.value = false;
-      const stored = writeJson(STORAGE_KEYS.pomodoroNotifications, false);
-      notificationMessage.value = stored
-        ? "已关闭番茄钟桌面通知"
-        : "已关闭，但本地存储不可用";
-      return;
-    }
-
-    if (!isPomodoroNotificationSupported()) {
-      notificationPermission.value = null;
-      notificationsEnabled.value = false;
-      writeJson(STORAGE_KEYS.pomodoroNotifications, false);
-      notificationMessage.value = "当前浏览器不支持桌面通知";
-      return;
-    }
-
-    notificationBusy.value = true;
-    try {
-      let permission = notificationPermission.value;
-      if (permission === "default") {
-        permission = await requestPomodoroNotificationPermission();
-        notificationPermission.value = permission;
-      }
-
-      if (permission !== "granted") {
-        notificationsEnabled.value = false;
-        writeJson(STORAGE_KEYS.pomodoroNotifications, false);
-        notificationMessage.value =
-          permission === "denied"
-            ? "通知权限已被拒绝，请在浏览器设置中允许后重试"
-            : "未能获得通知权限，番茄钟仍会正常计时";
-        return;
-      }
-
-      notificationsEnabled.value = true;
-      const stored = writeJson(STORAGE_KEYS.pomodoroNotifications, true);
-      notificationMessage.value = stored
-        ? "已开启番茄钟桌面通知"
-        : "已开启，但本地存储不可用，刷新后会恢复默认";
-    } finally {
-      notificationBusy.value = false;
-    }
-  }
-
-  /** 发送一条测试通知，用于确认浏览器与系统通知是否真正放行。 */
-  async function testNotification(): Promise<void> {
-    if (!notificationsEnabled.value) {
-      notificationMessage.value = "请先开启番茄钟桌面通知";
-      return;
-    }
-
-    if (pomodoroNotificationPermission() !== "granted") {
-      await setNotificationsEnabled(true);
-      if (!notificationsEnabled.value) return;
-    }
-
-    const shown = showPomodoroNotification(
-      "这是一条测试通知。若桌面未显示，请检查浏览器与系统通知设置。",
-      "phase-end",
-    );
-    notificationMessage.value = shown
-      ? "测试通知已发送；若桌面仍未显示，请检查系统通知设置"
-      : "测试通知发送失败，请检查浏览器通知设置";
   }
 
   function ensureTicker(): void {
@@ -483,18 +317,18 @@ export function usePomodoro() {
     completedRounds: computed(() => completedRounds.value),
     expectedFinishAt,
     runtime,
-    notificationsEnabled: computed(() => notificationsEnabled.value),
-    notificationBusy: computed(() => notificationBusy.value),
-    notificationMessage: computed(() => notificationMessage.value),
-    notificationPermission: computed(() => notificationPermission.value),
-    refreshNotificationPermission,
-    testNotification,
+    notificationsEnabled: notifications.enabled,
+    notificationBusy: notifications.busy,
+    notificationMessage: notifications.message,
+    notificationPermission: notifications.permission,
+    refreshNotificationPermission: notifications.refreshPermission,
+    testNotification: notifications.testNotification,
     start,
     saveSettings,
     pause,
     resume,
     reset,
     editSettings,
-    setNotificationsEnabled,
+    setNotificationsEnabled: notifications.setEnabled,
   };
 }

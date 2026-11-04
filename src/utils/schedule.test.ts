@@ -3,7 +3,6 @@ import type { SectionTime, Week } from "@shared/api";
 import type { Course } from "@/types";
 import {
   DEFAULT_SECTION_TIMES,
-  buildWeekDays,
   courseHighlightState,
   coursePlaceText,
   courseSectionLabel,
@@ -14,12 +13,15 @@ import {
   findNextCourse,
   isoDayOfWeek,
   normalizeTime,
-  resolveCurrentWeek,
   sortCourses,
   timeToMinutes,
+} from "@/utils/schedule";
+import {
+  buildWeekDays,
+  resolveCurrentWeek,
   weekDateRange,
   weekNumberForDate,
-} from "@/utils/schedule";
+} from "@/utils/week";
 
 function course(overrides: Partial<Course> = {}): Course {
   return {

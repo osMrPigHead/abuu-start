@@ -7,9 +7,8 @@ import HomeCard from "@/components/HomeCard.vue";
 import type { BykcCourse } from "@shared/api";
 import type { SourceStatus } from "@/types";
 import {
-  canRetrySource,
-  needsSettingsSource,
-  resolveSourceBadge,
+  resolveSourcePlaceholder,
+  sourceCardState,
 } from "@/utils/sourceStatus";
 
 const props = withDefaults(
@@ -100,34 +99,30 @@ function shuffle<T>(items: T[]): T[] {
   return result;
 }
 
-const badge = computed(() =>
-  resolveSourceBadge({
+const cardState = computed(() =>
+  sourceCardState({
     status: props.status,
     savedAt: props.savedAt,
+    error: props.error,
     loading: props.loading,
   }),
 );
 
-const emptyText = computed(() => {
-  switch (props.status) {
-    case "loading":
-      return "正在加载课程广场…";
-    case "no-credential":
-      return "登录后查看推荐课程";
-    case "auth-expired":
-      return "登录状态已失效，请到设置页重新登录";
-    case "error":
-      return props.error || "课程广场加载失败";
-    default:
-      return "暂无推荐课程";
-  }
-});
+const badge = computed(() => cardState.value.badge);
+const canRetry = computed(() => cardState.value.canRetry);
+const showSettingsLink = computed(() => cardState.value.needsSettings);
 
-const canRetry = computed(() =>
-  canRetrySource({ status: props.status, error: props.error }),
-);
-const showSettingsLink = computed(() =>
-  needsSettingsSource({ status: props.status }),
+const emptyText = computed(() =>
+  resolveSourcePlaceholder(
+    { status: props.status, error: props.error },
+    {
+      loading: "正在加载课程广场…",
+      noCredential: "登录后查看推荐课程",
+      authExpired: "登录状态已失效，请到设置页重新登录",
+      error: "课程广场加载失败",
+      empty: "暂无推荐课程",
+    },
+  ),
 );
 </script>
 

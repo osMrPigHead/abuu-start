@@ -2,6 +2,6 @@
 import { request } from "./client";
 import type { YgdkOverview } from "@shared/api";
 
-export function fetchYgdkOverview(signal?: AbortSignal): Promise<YgdkOverview> {
-  return request<YgdkOverview>("/api/ygdk/overview", { signal });
+export function fetchYgdkOverview(): Promise<YgdkOverview> {
+  return request<YgdkOverview>("/api/ygdk/overview");
 }

@@ -5,11 +5,8 @@ import type {
   BykcCourseStatus,
 } from "@shared/api";
 import type { Course } from "@/types";
-import { formatDateKey, pad2 } from "@/utils/date";
-import { isoDayOfWeek } from "@/utils/schedule";
-
-const BYKC_DATE_TIME_RE =
-  /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/;
+import { formatDateKey, isoDayOfWeek, pad2 } from "@/utils/date";
+import { parseDateTimeParts } from "@/utils/dateTime";
 
 type BykcDateTime = {
   year: number;
@@ -36,31 +33,19 @@ export function bykcStatusLabel(status: BykcCourseStatus): string {
 export function parseBykcDateTime(
   value: string | null | undefined,
 ): BykcDateTime | null {
-  if (typeof value !== "string") return null;
+  const parts = parseDateTimeParts(value, {
+    allowSpace: true,
+    allowT: true,
+  });
+  if (!parts) return null;
 
-  const match = BYKC_DATE_TIME_RE.exec(value.trim());
-  if (!match) return null;
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const hour = Number(match[4]);
-  const minute = Number(match[5]);
-  const second = match[6] === undefined ? 0 : Number(match[6]);
-
-  const date = new Date(year, month - 1, day, hour, minute, second, 0);
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day ||
-    date.getHours() !== hour ||
-    date.getMinutes() !== minute ||
-    date.getSeconds() !== second
-  ) {
-    return null;
-  }
-
-  return { year, month, day, hour, minute };
+  return {
+    year: parts.year,
+    month: parts.month,
+    day: parts.day,
+    hour: parts.hour,
+    minute: parts.minute,
+  };
 }
 
 /** 主页课程卡片的时间：`MM-DD HH:mm`；缺失或非法返回“时间待定”。 */

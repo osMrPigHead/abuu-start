@@ -93,3 +93,84 @@ export function needsSettingsSource(
 ): boolean {
   return state.status === "no-credential" || state.status === "auth-expired";
 }
+
+export type SourceCardState = {
+  badge: string;
+  canRetry: boolean;
+  needsSettings: boolean;
+};
+
+/** 主页卡片标题右上角的状态三件套，避免每张卡片各算一遍。 */
+export function sourceCardState(state: SourceBadgeState): SourceCardState {
+  return {
+    badge: resolveSourceBadge(state),
+    canRetry: canRetrySource(state),
+    needsSettings: needsSettingsSource(state),
+  };
+}
+
+export type SourceTextLabels = {
+  noCredential: string;
+  authExpired: string;
+  fallback: string;
+};
+
+/** 同步状态行文案；与 `SourceStatusLine` 的展示口径一致。 */
+export function resolveSourceText(
+  state: Pick<SourceBadgeState, "status" | "savedAt" | "error"> & {
+    refreshing?: boolean;
+  },
+  labels: SourceTextLabels,
+): string {
+  const time = formatStamp(state.savedAt);
+  const cachedText = time ? `缓存于 ${time}` : "缓存数据";
+  const refreshingSuffix = state.refreshing ? " · 正在刷新…" : "";
+
+  switch (state.status) {
+    case "no-credential":
+      return time
+        ? `${cachedText} · ${labels.noCredential}`
+        : labels.noCredential;
+    case "auth-expired":
+      return time
+        ? `${cachedText} · ${labels.authExpired}`
+        : labels.authExpired;
+    case "error":
+      return state.error || labels.fallback;
+    case "loading":
+      return time ? `${cachedText} · 正在刷新…` : "正在加载…";
+    case "cached":
+      return `${cachedText}${refreshingSuffix}`;
+    case "ok":
+      return `${time ? `已同步 ${time}` : "已同步"}${refreshingSuffix}`;
+    default:
+      return "等待加载";
+  }
+}
+
+export type SourcePlaceholderLabels = {
+  loading: string;
+  noCredential: string;
+  authExpired: string;
+  error: string;
+  empty: string;
+};
+
+/** 卡片空态文案：加载/未登录/失效/错误优先，其余回退到“暂无”文案。 */
+export function resolveSourcePlaceholder(
+  state: Pick<SourceBadgeState, "status" | "error">,
+  labels: SourcePlaceholderLabels,
+): string {
+  switch (state.status) {
+    case "loading":
+      return labels.loading;
+    case "no-credential":
+      return labels.noCredential;
+    case "auth-expired":
+      return labels.authExpired;
+    case "error":
+      return state.error || labels.error;
+    default:
+      return labels.empty;
+  }
+}

@@ -3,6 +3,7 @@ import { computed } from "vue";
 import type { SectionTime } from "@shared/api";
 import type { Course } from "@/types";
 import {
+  courseDisplayName,
   coursePlaceText,
   courseSectionLabel,
   courseTimeLabel,
@@ -28,9 +29,7 @@ const timeLabel = computed(() =>
 );
 const placeLabel = computed(() => coursePlaceText(props.course));
 const isBykc = computed(() => props.course.source === "bykc");
-const displayName = computed(() =>
-  isBykc.value ? `博雅 · ${props.course.courseName}` : props.course.courseName,
-);
+const displayName = computed(() => courseDisplayName(props.course));
 
 const highlightClass = computed(() => {
   if (props.highlight === "ongoing") {

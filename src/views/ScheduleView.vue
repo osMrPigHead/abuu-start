@@ -1,21 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import BackHomeLink from "@/components/BackHomeLink.vue";
+import PageHeader from "@/components/PageHeader.vue";
 import ScheduleDayRow from "@/components/ScheduleDayRow.vue";
 import SourceStatusLine from "@/components/SourceStatusLine.vue";
 import WeekSwitcher from "@/components/WeekSwitcher.vue";
 import { useClock } from "@/composables/useClock";
-import { useBykcChosen } from "@/composables/useBykc";
+import { useBykcChosen } from "@/composables/useBykcChosen";
 import { useSchedule, type WeekEntry } from "@/composables/useSchedule";
 import { useScheduleSettings } from "@/composables/useScheduleSettings";
 import { bykcChosenCoursesOnDate } from "@/utils/bykc";
 import { formatDateKey } from "@/utils/date";
-import {
-  buildWeekDays,
-  coursesOnDay,
-  sortCourses,
-  weekDateRange,
-} from "@/utils/schedule";
+import { coursesOnDay, sortCourses } from "@/utils/schedule";
+import { buildWeekDays, weekDateRange } from "@/utils/week";
 
 const {
   meta,
@@ -164,15 +160,7 @@ function refresh(): void {
           @select="selectWeek"
         />
 
-        <header class="flex items-end justify-between gap-6">
-          <div>
-            <h1 class="text-2xl font-semibold tracking-wide">
-              第 {{ selectedWeek }} 周
-            </h1>
-            <p class="mt-1 text-sm text-white/45">{{ rangeLabel }}</p>
-          </div>
-          <BackHomeLink />
-        </header>
+        <PageHeader :title="`第 ${selectedWeek} 周`" :subtitle="rangeLabel" />
       </div>
 
       <div class="route-page-body flow-root">

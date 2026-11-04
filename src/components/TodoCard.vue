@@ -9,9 +9,8 @@ import TodoItem from "@/components/TodoItem.vue";
 import type { SpocAssignment } from "@shared/api";
 import type { SourceStatus, Todo } from "@/types";
 import {
-  canRetrySource,
-  needsSettingsSource,
-  resolveSourceBadge,
+  resolveSourcePlaceholder,
+  sourceCardState,
 } from "@/utils/sourceStatus";
 import type { TodoDraft } from "@/utils/todo";
 
@@ -44,35 +43,31 @@ const dialogOpen = ref(false);
 const editingTodo = ref<Todo | null>(null);
 
 /** 待办卡片只为 SPOC 数据源显示同步状态；自定义待办保存在本地。 */
-const spocBadge = computed(() =>
-  resolveSourceBadge({
+const spocCardState = computed(() =>
+  sourceCardState({
     status: props.spocStatus,
     savedAt: props.spocSavedAt,
+    error: props.spocError,
     loading: props.spocLoading,
   }),
 );
 
-const spocCanRetry = computed(() =>
-  canRetrySource({ status: props.spocStatus, error: props.spocError }),
-);
-const showSpocSettings = computed(() =>
-  needsSettingsSource({ status: props.spocStatus }),
-);
+const spocBadge = computed(() => spocCardState.value.badge);
+const spocCanRetry = computed(() => spocCardState.value.canRetry);
+const showSpocSettings = computed(() => spocCardState.value.needsSettings);
 
-const spocEmptyText = computed(() => {
-  switch (props.spocStatus) {
-    case "loading":
-      return "正在加载 SPOC 作业…";
-    case "no-credential":
-      return "登录后查看作业";
-    case "auth-expired":
-      return "登录状态已失效，请到设置页重新登录";
-    case "error":
-      return props.spocError || "SPOC 作业加载失败";
-    default:
-      return "暂无未完成作业";
-  }
-});
+const spocEmptyText = computed(() =>
+  resolveSourcePlaceholder(
+    { status: props.spocStatus, error: props.spocError },
+    {
+      loading: "正在加载 SPOC 作业…",
+      noCredential: "登录后查看作业",
+      authExpired: "登录状态已失效，请到设置页重新登录",
+      error: "SPOC 作业加载失败",
+      empty: "暂无未完成作业",
+    },
+  ),
+);
 
 function openCreate(): void {
   editingTodo.value = null;

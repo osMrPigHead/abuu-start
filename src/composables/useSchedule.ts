@@ -4,26 +4,21 @@ import { fetchByxtSchedule } from "@/api/byxt";
 import { ApiError } from "@/api/client";
 import { isAuthBlocked, markSourceExpired } from "@/composables/useAuth";
 import type { SectionTime, Term, Week, WeekSource } from "@shared/api";
-import type { Course, ScheduleCache, SourceStatus, WeekCache } from "@/types";
-import { readJson, remove, STORAGE_KEYS, writeJson } from "@/utils/storage";
+import type { ScheduleCache, SourceStatus, WeekCache } from "@/types";
+import { mapApiError } from "@/utils/apiError";
+import { readScheduleCache, persistScheduleCache } from "@/utils/scheduleCache";
+import { sortCourses } from "@/utils/schedule";
+import { remove, STORAGE_KEYS } from "@/utils/storage";
 import {
-  DEFAULT_SECTION_TIMES,
-  normalizeTime,
+  createEmptySectionTimes,
+  createEmptyWeekEntry,
   resolveCurrentWeek,
-  sortCourses,
-} from "@/utils/schedule";
+  type WeekEntry,
+} from "@/utils/week";
 
 const DEFAULT_WARNING = "无法确定当前教学周，默认第 1 周";
 
-export type WeekEntry = {
-  status: SourceStatus;
-  courses: Course[];
-  sectionTimes: SectionTime[];
-  savedAt: string | null;
-  error: string | null;
-  loading: boolean;
-  loaded: boolean;
-};
+export type { WeekEntry } from "@/utils/week";
 
 type WeekMeta = {
   term: Term | null;
@@ -40,14 +35,7 @@ type BootState = {
   hydrated: boolean;
 };
 
-type MappedError = {
-  status: SourceStatus;
-  message: string;
-};
-
-const EMPTY_SECTION_TIMES: SectionTime[] = DEFAULT_SECTION_TIMES.map(
-  (item) => ({ ...item }),
-);
+const EMPTY_SECTION_TIMES: SectionTime[] = createEmptySectionTimes();
 
 const meta = reactive<WeekMeta>({
   term: null,
@@ -295,15 +283,7 @@ function ensureEntry(week: number): WeekEntry {
   const existing = entries[week];
   if (existing) return existing;
 
-  const entry: WeekEntry = {
-    status: "idle",
-    courses: [],
-    sectionTimes: EMPTY_SECTION_TIMES,
-    savedAt: null,
-    error: null,
-    loading: false,
-    loaded: false,
-  };
+  const entry = createEmptyWeekEntry();
   entries[week] = entry;
   return entry;
 }
@@ -316,25 +296,20 @@ function weekView(week: number | null): WeekEntry {
     week === null || meta.currentWeek === null || week === meta.currentWeek;
   if (!isCurrent) {
     return {
+      ...createEmptyWeekEntry(),
       status: "loading",
-      courses: [],
       sectionTimes: EMPTY_SECTION_TIMES,
-      savedAt: null,
-      error: null,
       loading: true,
-      loaded: false,
     };
   }
 
   const status = boot.status === "idle" ? "loading" : boot.status;
   return {
+    ...createEmptyWeekEntry(),
     status,
-    courses: [],
     sectionTimes: EMPTY_SECTION_TIMES,
-    savedAt: null,
     error: boot.error,
     loading: boot.loading || status === "loading",
-    loaded: false,
   };
 }
 
@@ -362,42 +337,6 @@ function clearScheduleData(): void {
 
 /* ------------------------------- 缓存读写 ------------------------------- */
 
-function readScheduleCache(): ScheduleCache | null {
-  const raw = readJson<unknown>(STORAGE_KEYS.scheduleCache);
-  if (!isRecord(raw)) return null;
-
-  const term = normalizeTerm(raw.term);
-  const weeks = Array.isArray(raw.weeks)
-    ? raw.weeks.map(normalizeWeek).filter((week): week is Week => week !== null)
-    : [];
-  const currentWeek = toPositiveInteger(raw.currentWeek);
-  const weekSource = normalizeWeekSource(raw.weekSource);
-  const lastWeek = toPositiveInteger(raw.lastWeek);
-  const byWeek: Record<number, WeekCache> = {};
-  const rawByWeek = isRecord(raw.byWeek) ? raw.byWeek : {};
-
-  for (const [key, value] of Object.entries(rawByWeek)) {
-    const week = Number(key);
-    if (!Number.isSafeInteger(week) || week < 1 || !isRecord(value)) continue;
-
-    byWeek[week] = {
-      savedAt: typeof value.savedAt === "string" ? value.savedAt : "",
-      sectionTimes: normalizeSectionTimes(value.sectionTimes),
-      courses: normalizeCourses(value.courses),
-    };
-  }
-
-  return {
-    savedAt: typeof raw.savedAt === "string" ? raw.savedAt : "",
-    term,
-    weeks,
-    currentWeek,
-    weekSource,
-    lastWeek,
-    byWeek,
-  };
-}
-
 function persistCache(): void {
   const byWeek: Record<number, WeekCache> = {};
   for (const [key, entry] of Object.entries(entries)) {
@@ -422,147 +361,21 @@ function persistCache(): void {
     lastWeek: lastFetchedWeek,
     byWeek,
   };
-  writeJson(STORAGE_KEYS.scheduleCache, cache);
-}
-
-/* ------------------------------- 归一化 ------------------------------- */
-
-function normalizeTerm(value: unknown): Term {
-  if (!isRecord(value)) return { code: "", name: "" };
-  return {
-    code: asString(value.code),
-    name: asString(value.name),
-  };
-}
-
-function normalizeWeek(value: unknown): Week | null {
-  if (!isRecord(value)) return null;
-
-  const serialNumber = toPositiveInteger(value.serialNumber);
-  if (serialNumber === null) return null;
-
-  return {
-    serialNumber,
-    name: asString(value.name) || `第${serialNumber}周`,
-    startDate: normalizeDateKey(value.startDate),
-    endDate: normalizeDateKey(value.endDate),
-    curWeek: value.curWeek === true,
-  };
-}
-
-function normalizeSectionTimes(value: unknown): SectionTime[] {
-  if (!Array.isArray(value)) return EMPTY_SECTION_TIMES;
-
-  const result: SectionTime[] = [];
-  for (const item of value) {
-    if (!isRecord(item)) continue;
-    const section = toPositiveInteger(item.section);
-    const start = normalizeTime(asString(item.start));
-    const end = normalizeTime(asString(item.end));
-    if (section === null || !start || !end) continue;
-    result.push({ section, start, end });
-  }
-
-  return result.length > 0
-    ? result.sort((left, right) => left.section - right.section)
-    : EMPTY_SECTION_TIMES;
-}
-
-function normalizeCourses(value: unknown): Course[] {
-  if (!Array.isArray(value)) return [];
-
-  const courses: Course[] = [];
-  for (const item of value) {
-    if (!isRecord(item)) continue;
-    const courseName = asString(item.courseName).trim();
-    if (courseName.length === 0) continue;
-
-    courses.push({
-      courseCode: asString(item.courseCode),
-      courseName,
-      beginSection: toPositiveInteger(item.beginSection),
-      endSection: toPositiveInteger(item.endSection),
-      beginTime: normalizeTime(asString(item.beginTime)),
-      endTime: normalizeTime(asString(item.endTime)),
-      placeName: nullableText(item.placeName),
-      weeksAndTeachers: nullableText(item.weeksAndTeachers),
-      dayOfWeek: normalizeDayOfWeek(item.dayOfWeek),
-    });
-  }
-
-  return courses;
-}
-
-function normalizeDateKey(value: unknown): string {
-  if (typeof value !== "string") return "";
-  return value.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? "";
-}
-
-function normalizeDayOfWeek(value: unknown): number | null {
-  const day = toPositiveInteger(value);
-  if (day === null || day > 7) return null;
-  return day;
-}
-
-function normalizeWeekSource(value: unknown): WeekSource {
-  return value === "weeks" || value === "classWeek" || value === "default"
-    ? value
-    : "default";
+  persistScheduleCache(cache);
 }
 
 /* ------------------------------- 错误映射 ------------------------------- */
 
-function mapScheduleError(error: unknown): MappedError {
-  if (error instanceof ApiError) {
-    switch (error.code) {
-      case "NO_CREDENTIAL":
-      case "AUTH_REQUIRED":
-        return {
-          status: "no-credential",
-          message: "未登录，请前往设置完成登录",
-        };
-      case "AUTH_EXPIRED":
-        return {
-          status: "auth-expired",
-          message: "登录状态已失效，请到设置页重新登录",
-        };
-      case "SOURCE_BUSY":
-        return { status: "error", message: "数据源正在派生，请稍后重试" };
-      case "INVALID_WEEK":
-        return { status: "error", message: "周次无效或超出当前学期范围" };
-      case "RELAY_UNREACHABLE":
-        return { status: "error", message: error.message };
-      default:
-        return { status: "error", message: error.message || "课表加载失败" };
-    }
+function mapScheduleError(error: unknown): {
+  status: SourceStatus;
+  message: string;
+} {
+  if (!(error instanceof ApiError)) {
+    return { status: "error", message: "课表加载失败，请稍后重试" };
   }
 
-  return { status: "error", message: "课表加载失败，请稍后重试" };
-}
-
-/* ------------------------------- 基础辅助 ------------------------------- */
-
-function toPositiveInteger(value: unknown): number | null {
-  const number =
-    typeof value === "number"
-      ? value
-      : typeof value === "string" && value.trim().length > 0
-        ? Number(value)
-        : Number.NaN;
-  if (!Number.isSafeInteger(number) || number < 1) return null;
-  return number;
-}
-
-function nullableText(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const text = value.trim();
-  return text.length > 0 ? text : null;
-}
-
-function asString(value: unknown): string {
-  return typeof value === "string" ? value : "";
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return mapApiError(error, {
+    fallback: "课表加载失败",
+    messageOverrides: { INVALID_WEEK: "周次无效或超出当前学期范围" },
+  });
 }

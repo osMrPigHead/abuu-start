@@ -3,31 +3,18 @@ import { request } from "./client";
 import type {
   SpocAssignmentDetailResponse,
   SpocAssignmentsResponse,
-  SpocStatusResponse,
 } from "@shared/api";
 
-export function fetchSpocStatus(
-  signal?: AbortSignal,
-): Promise<SpocStatusResponse> {
-  return request<SpocStatusResponse>("/api/spoc/status", { signal });
-}
-
-export function fetchSpocAssignments(
-  signal?: AbortSignal,
-): Promise<SpocAssignmentsResponse> {
-  return request<SpocAssignmentsResponse>("/api/spoc/assignments", { signal });
+export function fetchSpocAssignments(): Promise<SpocAssignmentsResponse> {
+  return request<SpocAssignmentsResponse>("/api/spoc/assignments");
 }
 
 export function fetchSpocAssignmentDetail(
   assignmentId: string,
-  signal?: AbortSignal,
 ): Promise<SpocAssignmentDetailResponse> {
   const encodedId = encodeURIComponent(assignmentId);
 
   return request<SpocAssignmentDetailResponse>(
     `/api/spoc/assignments/${encodedId}`,
-    {
-      signal,
-    },
   );
 }

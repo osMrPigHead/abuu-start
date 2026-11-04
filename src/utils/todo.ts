@@ -1,6 +1,6 @@
 /** 待办草稿校验、排序与展示文案，见 docs/trd.md 7.4。 */
 import type { Todo } from "@/types";
-import { pad2 } from "@/utils/date";
+import { formatDateTimeValue } from "@/utils/dateTime";
 import { parseLocalDateTime } from "@/utils/repeat";
 
 export type TodoDraft = Pick<
@@ -52,9 +52,7 @@ export function todoRepeatLabel(repeat: Todo["repeat"]): string {
 /** 截止时间统一显示为本地 "YYYY-MM-DD HH:mm"；无截止时间返回空串。 */
 export function formatTodoDue(dueAt: string | null): string {
   const date = parseLocalDateTime(dueAt);
-  if (!date) return "";
-
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+  return date ? formatDateTimeValue(date) : "";
 }
 
 /** 返回第一个校验错误；通过时返回 null。 */

@@ -1,14 +1,17 @@
 /** SPOC 作业列表与详情：缓存优先、独立数据源状态，见 docs/trd.md 7.3 / 7.6。 */
 import { reactive } from "vue";
-import { ApiError } from "@/api/client";
 import { fetchSpocAssignmentDetail, fetchSpocAssignments } from "@/api/spoc";
-import { isAuthBlocked, markSourceExpired } from "@/composables/useAuth";
+import {
+  createCachedDetailSource,
+  createCachedSource,
+} from "@/composables/useSourceState";
 import type { SpocAssignment, SpocAssignmentDetail, Term } from "@shared/api";
 import type {
   SourceStatus,
   SpocAssignmentsCache,
   SpocDetailCache,
 } from "@/types";
+import { asString, isRecord, nullableText } from "@/utils/guards";
 import { isValidSpocAssignmentId } from "@/utils/spoc";
 import {
   clearSpocCaches,
@@ -17,6 +20,7 @@ import {
   STORAGE_KEYS,
   writeJson,
 } from "@/utils/storage";
+import { normalizeTerm } from "@/utils/term";
 
 type SpocState = {
   status: SourceStatus;
@@ -40,12 +44,6 @@ type SpocDetailState = {
   notFound: boolean;
 };
 
-type MappedError = {
-  status: SourceStatus;
-  message: string;
-  notFound?: boolean;
-};
-
 const state = reactive<SpocState>({
   status: "idle",
   term: null,
@@ -67,8 +65,52 @@ const detailState = reactive<SpocDetailState>({
   notFound: false,
 });
 
-let requestId = 0;
-let detailRequestId = 0;
+const listSource = createCachedSource({
+  state,
+  sourceId: "spoc",
+  hydrateCache: hydrateCache,
+  clearData: clearData,
+  fetch: () => fetchSpocAssignments(),
+  apply: (response) => {
+    state.term = response.term;
+    state.assignments = response.assignments;
+  },
+  persist: persistAssignments,
+  hasData: () => state.assignments.length > 0 || state.savedAt !== null,
+  fallbackMessage: "SPOC 作业加载失败",
+});
+
+const detailSource = createCachedDetailSource({
+  state: detailState,
+  sourceId: "spoc",
+  accessors: {
+    getKey: () => detailState.assignmentId,
+    setKey: (key) => {
+      detailState.assignmentId = key;
+    },
+    getPreview: () => detailState.preview,
+    setPreview: (preview) => {
+      detailState.preview = preview;
+    },
+    getDetail: () => detailState.assignment,
+    setDetail: (detail) => {
+      detailState.assignment = detail;
+    },
+  },
+  openKey: (preview) => preview.assignmentId,
+  isValidKey: (key) => isValidSpocAssignmentId(key),
+  readCache: readDetailCache,
+  fetch: async (key) => (await fetchSpocAssignmentDetail(key)).assignment,
+  apply: (detail) => {
+    detailState.assignment = detail;
+  },
+  persist: persistDetail,
+  hasData: () =>
+    detailState.assignment !== null || detailState.savedAt !== null,
+  fallbackMessage: "SPOC 作业加载失败",
+  notFoundMessage: "未找到该 SPOC 作业",
+  invalidKeyMessage: "未找到该作业",
+});
 
 export function useSpoc() {
   hydrate();
@@ -84,211 +126,40 @@ export function useSpoc() {
 export function useSpocDetail() {
   return {
     state: detailState,
-    open: openDetail,
-    openById: openDetailById,
-    refresh: refreshDetail,
-    close: closeDetail,
+    open: detailSource.open,
+    openById: detailSource.openById,
+    refresh: detailSource.refresh,
+    close: detailSource.close,
   };
 }
 
 function hydrate(): void {
-  if (state.hydrated) return;
-  state.hydrated = true;
+  listSource.hydrate();
+}
 
+async function refresh(): Promise<void> {
+  await listSource.refresh();
+}
+
+function hydrateCache(): boolean {
   const cache = readAssignmentsCache();
-  if (!cache) return;
+  if (!cache) return false;
 
   state.term = cache.term;
   state.assignments = cache.assignments;
   state.savedAt = cache.savedAt || null;
-  state.status = isAuthBlocked() ? "no-credential" : "cached";
+  return true;
 }
 
-async function refresh(): Promise<void> {
-  hydrate();
-
-  if (isAuthBlocked()) {
-    state.status = "no-credential";
-    state.error = null;
-    state.loading = false;
-    return;
-  }
-
-  const hadData = state.savedAt !== null;
-  const currentRequest = ++requestId;
-
-  state.loading = true;
-  state.error = null;
-  if (!hadData) {
-    state.status = "loading";
-  } else if (
-    state.status === "no-credential" ||
-    state.status === "auth-expired"
-  ) {
-    state.status = "cached";
-  }
-
-  try {
-    const response = await fetchSpocAssignments();
-    if (currentRequest !== requestId) return;
-
-    state.term = response.term;
-    state.assignments = response.assignments;
-    state.savedAt = new Date().toISOString();
-    state.status = "ok";
-    state.error = null;
-    state.loading = false;
-    persistAssignments();
-  } catch (error) {
-    if (currentRequest !== requestId) return;
-
-    const mapped = mapSpocError(error);
-    if (mapped.status === "auth-expired") markSourceExpired("spoc");
-
-    state.loading = false;
-    state.error = mapped.message;
-
-    if (hadData) {
-      state.status = mapped.status === "error" ? "cached" : mapped.status;
-    } else {
-      state.status = mapped.status;
-      state.assignments = [];
-      state.savedAt = null;
-      state.term = null;
-    }
-  }
-}
-
-function openDetail(assignment: SpocAssignment): void {
-  openDetailById(assignment.assignmentId, assignment);
-}
-
-function openDetailById(
-  assignmentId: string,
-  preview: SpocAssignment | null = null,
-): void {
-  detailRequestId += 1;
-
-  detailState.assignmentId = assignmentId;
-  detailState.preview = preview;
-  detailState.status = "idle";
-  detailState.assignment = null;
-  detailState.savedAt = null;
-  detailState.error = null;
-  detailState.loading = false;
-  detailState.notFound = false;
-
-  if (!isValidSpocAssignmentId(assignmentId)) {
-    detailState.notFound = true;
-    detailState.status = "error";
-    detailState.error = "未找到该作业";
-    return;
-  }
-
-  const cache = readDetailCache(assignmentId);
-  if (cache) {
-    detailState.assignment = cache.assignment;
-    detailState.savedAt = cache.savedAt || null;
-    detailState.status = isAuthBlocked() ? "no-credential" : "cached";
-  }
-
-  void refreshDetail();
-}
-
-async function refreshDetail(): Promise<void> {
-  const assignmentId = detailState.assignmentId;
-  if (assignmentId === null || !isValidSpocAssignmentId(assignmentId)) return;
-
-  if (isAuthBlocked()) {
-    detailState.status = "no-credential";
-    detailState.error = null;
-    detailState.loading = false;
-    return;
-  }
-
-  const hadData = detailState.savedAt !== null;
-  const currentRequest = ++detailRequestId;
-
-  detailState.loading = true;
-  detailState.error = null;
-  detailState.notFound = false;
-  if (!hadData) {
-    detailState.status = "loading";
-  } else if (
-    detailState.status === "no-credential" ||
-    detailState.status === "auth-expired"
-  ) {
-    detailState.status = "cached";
-  }
-
-  try {
-    const response = await fetchSpocAssignmentDetail(assignmentId);
-    if (
-      currentRequest !== detailRequestId ||
-      detailState.assignmentId !== assignmentId
-    )
-      return;
-
-    detailState.assignment = response.assignment;
-    detailState.savedAt = new Date().toISOString();
-    detailState.status = "ok";
-    detailState.error = null;
-    detailState.loading = false;
-    persistDetail(assignmentId);
-  } catch (error) {
-    if (
-      currentRequest !== detailRequestId ||
-      detailState.assignmentId !== assignmentId
-    )
-      return;
-
-    const mapped = mapSpocError(error);
-    if (mapped.status === "auth-expired") markSourceExpired("spoc");
-
-    detailState.loading = false;
-    detailState.error = mapped.message;
-
-    if (mapped.notFound) {
-      detailState.notFound = true;
-      detailState.status = "error";
-      return;
-    }
-
-    if (hadData) {
-      detailState.status = mapped.status === "error" ? "cached" : mapped.status;
-    } else {
-      detailState.status = mapped.status;
-      detailState.assignment = null;
-      detailState.savedAt = null;
-    }
-  }
-}
-
-function closeDetail(): void {
-  detailRequestId += 1;
-  detailState.assignmentId = null;
-  detailState.preview = null;
-  detailState.status = "idle";
-  detailState.assignment = null;
-  detailState.savedAt = null;
-  detailState.error = null;
-  detailState.loading = false;
-  detailState.notFound = false;
+function clearData(): void {
+  state.term = null;
+  state.assignments = [];
 }
 
 function clearSpocData(): void {
   clearSpocCaches();
-
-  state.status = "idle";
-  state.term = null;
-  state.assignments = [];
-  state.savedAt = null;
-  state.error = null;
-  state.loading = false;
-  state.hydrated = true;
-  requestId += 1;
-
-  closeDetail();
+  listSource.reset({ hydrated: true });
+  detailSource.close();
 }
 
 /* ------------------------------- 缓存读写 ------------------------------- */
@@ -324,7 +195,9 @@ function persistAssignments(): void {
   writeJson(STORAGE_KEYS.spocAssignmentsCache, cache);
 }
 
-function readDetailCache(assignmentId: string): SpocDetailCache | null {
+function readDetailCache(
+  assignmentId: string,
+): { savedAt: string; detail: SpocAssignmentDetail } | null {
   const raw = readJson<unknown>(spocDetailCacheKey(assignmentId));
   if (!isRecord(raw)) return null;
 
@@ -332,7 +205,7 @@ function readDetailCache(assignmentId: string): SpocDetailCache | null {
   if (!assignment) return null;
 
   const savedAt = typeof raw.savedAt === "string" ? raw.savedAt : "";
-  return { savedAt, assignment };
+  return { savedAt, detail: assignment };
 }
 
 function persistDetail(assignmentId: string): void {
@@ -392,14 +265,6 @@ function normalizeDetail(value: unknown): SpocAssignmentDetail | null {
   };
 }
 
-function normalizeTerm(value: unknown): Term {
-  if (!isRecord(value)) return { code: "", name: "" };
-  return {
-    code: asString(value.code),
-    name: asString(value.name),
-  };
-}
-
 function normalizeSubmissionStatus(
   value: unknown,
 ): SpocAssignment["submissionStatus"] {
@@ -419,56 +284,4 @@ function submissionStatusText(
     default:
       return "未知";
   }
-}
-
-/* ------------------------------- 错误映射 ------------------------------- */
-
-function mapSpocError(error: unknown): MappedError {
-  if (error instanceof ApiError) {
-    switch (error.code) {
-      case "NO_CREDENTIAL":
-      case "AUTH_REQUIRED":
-        return {
-          status: "no-credential",
-          message: "未登录，请前往设置完成登录",
-        };
-      case "AUTH_EXPIRED":
-        return {
-          status: "auth-expired",
-          message: "登录状态已失效，请到设置页重新登录",
-        };
-      case "SOURCE_BUSY":
-        return { status: "error", message: "数据源正在派生，请稍后重试" };
-      case "INVALID_REQUEST":
-      case "NOT_FOUND":
-        return {
-          status: "error",
-          message: error.message || "未找到该 SPOC 作业",
-          notFound: true,
-        };
-      default:
-        return {
-          status: "error",
-          message: error.message || "SPOC 作业加载失败",
-        };
-    }
-  }
-
-  return { status: "error", message: "SPOC 作业加载失败，请稍后重试" };
-}
-
-/* ------------------------------- 基础辅助 ------------------------------- */
-
-function nullableText(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const text = value.trim();
-  return text.length > 0 ? text : null;
-}
-
-function asString(value: unknown): string {
-  return typeof value === "string" ? value : "";
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

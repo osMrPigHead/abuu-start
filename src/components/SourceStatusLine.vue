@@ -2,7 +2,11 @@
 import { computed } from "vue";
 import { RouterLink } from "vue-router";
 import type { SourceStatus } from "@/types";
-import { formatStamp } from "@/utils/date";
+import {
+  canRetrySource,
+  needsSettingsSource,
+  resolveSourceText,
+} from "@/utils/sourceStatus";
 
 const props = withDefaults(
   defineProps<{
@@ -53,22 +57,32 @@ const hasSecondary = computed(
 );
 
 const text = computed(() =>
-  statusText(props.status, props.savedAt, props.error, props.refreshing, {
-    noCredential: props.noCredentialText,
-    authExpired: props.authExpiredText,
-    fallback: props.fallbackErrorText,
-  }),
+  resolveSourceText(
+    {
+      status: props.status,
+      savedAt: props.savedAt,
+      error: props.error,
+      refreshing: props.refreshing,
+    },
+    {
+      noCredential: props.noCredentialText,
+      authExpired: props.authExpiredText,
+      fallback: props.fallbackErrorText,
+    },
+  ),
 );
 
 const secondaryText = computed(() => {
   const status = props.secondaryStatus;
   if (status === null) return "";
 
-  return statusText(
-    status,
-    props.secondarySavedAt,
-    props.secondaryError,
-    props.secondaryRefreshing,
+  return resolveSourceText(
+    {
+      status,
+      savedAt: props.secondarySavedAt,
+      error: props.secondaryError,
+      refreshing: props.secondaryRefreshing,
+    },
     {
       noCredential: props.secondaryNoCredentialText,
       authExpired: props.secondaryAuthExpiredText,
@@ -79,10 +93,13 @@ const secondaryText = computed(() => {
 
 const showSettingsLink = computed(
   () =>
-    needsSettings(props.status) ||
-    (props.secondaryStatus !== null && needsSettings(props.secondaryStatus)),
+    needsSettingsSource({ status: props.status }) ||
+    (props.secondaryStatus !== null &&
+      needsSettingsSource({ status: props.secondaryStatus })),
 );
-const showRetry = computed(() => canRetry(props.status, props.error));
+const showRetry = computed(() =>
+  canRetrySource({ status: props.status, error: props.error }),
+);
 const showRefresh = computed(
   () =>
     !props.refreshing &&
@@ -99,7 +116,10 @@ const showInlineError = computed(
 const secondaryShowRetry = computed(() =>
   props.secondaryStatus === null
     ? false
-    : canRetry(props.secondaryStatus, props.secondaryError),
+    : canRetrySource({
+        status: props.secondaryStatus,
+        error: props.secondaryError,
+      }),
 );
 const secondaryShowRefresh = computed(
   () =>
@@ -117,47 +137,6 @@ const secondaryShowInlineError = computed(
     props.secondaryStatus !== "auth-expired" &&
     props.secondaryStatus !== "no-credential",
 );
-
-function statusText(
-  status: SourceStatus,
-  savedAt: string | null,
-  error: string | null,
-  refreshing: boolean,
-  fallback: { noCredential: string; authExpired: string; fallback: string },
-): string {
-  const time = formatStamp(savedAt);
-  const cachedText = time ? `缓存于 ${time}` : "缓存数据";
-  const refreshingSuffix = refreshing ? " · 正在刷新…" : "";
-
-  switch (status) {
-    case "no-credential":
-      return time
-        ? `${cachedText} · ${fallback.noCredential}`
-        : fallback.noCredential;
-    case "auth-expired":
-      return time
-        ? `${cachedText} · ${fallback.authExpired}`
-        : fallback.authExpired;
-    case "error":
-      return error || fallback.fallback;
-    case "loading":
-      return time ? `${cachedText} · 正在刷新…` : "正在加载…";
-    case "cached":
-      return `${cachedText}${refreshingSuffix}`;
-    case "ok":
-      return `${time ? `已同步 ${time}` : "已同步"}${refreshingSuffix}`;
-    default:
-      return "等待加载";
-  }
-}
-
-function needsSettings(status: SourceStatus): boolean {
-  return status === "no-credential" || status === "auth-expired";
-}
-
-function canRetry(status: SourceStatus, error: string | null): boolean {
-  return status === "error" || (status === "cached" && error !== null);
-}
 </script>
 
 <template>

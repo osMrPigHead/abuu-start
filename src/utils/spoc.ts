@@ -1,9 +1,7 @@
 /** SPOC 作业过滤、排序与展示文案，见 docs/trd.md 7.3。 */
 import type { SpocAssignment } from "@shared/api";
-import { pad2 } from "@/utils/date";
+import { formatDateTimeValue, parseDateTime } from "@/utils/dateTime";
 
-const SPOC_DATE_TIME_RE =
-  /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/;
 const SPOC_ASSIGNMENT_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
 
 /** 与中继一致的作业 id 格式校验。 */
@@ -15,39 +13,13 @@ export function isValidSpocAssignmentId(value: string): boolean {
 export function parseSpocDateTime(
   value: string | null | undefined,
 ): Date | null {
-  if (typeof value !== "string") return null;
-
-  const match = SPOC_DATE_TIME_RE.exec(value.trim());
-  if (!match) return null;
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const hour = Number(match[4]);
-  const minute = Number(match[5]);
-  const second = match[6] === undefined ? 0 : Number(match[6]);
-
-  const date = new Date(year, month - 1, day, hour, minute, second, 0);
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day ||
-    date.getHours() !== hour ||
-    date.getMinutes() !== minute ||
-    date.getSeconds() !== second
-  ) {
-    return null;
-  }
-
-  return date;
+  return parseDateTime(value, { allowSpace: true, allowT: true });
 }
 
 /** "YYYY-MM-DD HH:mm:ss" -> 本地 "YYYY-MM-DD HH:mm"；无效值返回空串。 */
 export function formatSpocDateTime(value: string | null): string {
   const date = parseSpocDateTime(value);
-  if (!date) return "";
-
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+  return date ? formatDateTimeValue(date) : "";
 }
 
 /** 截止时间；无截止时间返回“无截止时间”。 */

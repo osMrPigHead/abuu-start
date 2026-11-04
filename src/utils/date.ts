@@ -68,6 +68,11 @@ export function weekdayCn(date: Date): string {
   return WEEKDAYS_CN[date.getDay()] ?? "周日";
 }
 
+/** JS getDay()（周日 0）-> 教学日 1-7（周一 1、周日 7）。 */
+export function isoDayOfWeek(date: Date): number {
+  return ((date.getDay() + 6) % 7) + 1;
+}
+
 /** 仅对今天/明天返回相对文案，其余日期返回 null。 */
 export function describeRelativeDay(target: Date, today: Date): string | null {
   const targetStart = new Date(

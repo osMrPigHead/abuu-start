@@ -4,6 +4,8 @@
  */
 import { computed, ref } from "vue";
 import type { Todo } from "@/types";
+import { asString, isRecord } from "@/utils/guards";
+import { createId } from "@/utils/id";
 import { nextRepeatDueAt, parseLocalDateTime } from "@/utils/repeat";
 import {
   isTodoPriority,
@@ -30,7 +32,7 @@ export function useTodos() {
 
     const now = new Date();
     const todo: Todo = {
-      id: createId(),
+      id: createId("todo"),
       ...normalized,
       done: false,
       completedAt: null,
@@ -105,7 +107,7 @@ export function useTodos() {
     if (nextDueAt !== null) {
       replacements.push({
         ...target,
-        id: createId(),
+        id: createId("todo"),
         dueAt: nextDueAt,
         done: false,
         completedAt: null,
@@ -165,7 +167,7 @@ function normalizeStoredTodo(value: unknown): Todo | null {
   const repeat = isTodoRepeat(value.repeat) ? value.repeat : "none";
 
   return {
-    id: asString(value.id).trim() || createId(),
+    id: asString(value.id).trim() || createId("todo"),
     title,
     dueAt,
     note: asString(value.note).trim(),
@@ -190,19 +192,4 @@ function asIsoString(value: unknown): string | null {
   return text.length > 0 && !Number.isNaN(new Date(text).getTime())
     ? text
     : null;
-}
-
-function asString(value: unknown): string {
-  return typeof value === "string" ? value : "";
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function createId(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return `todo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }

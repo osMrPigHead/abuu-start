@@ -1,6 +1,7 @@
 /** 阳光打卡目标偏好：学期目标 1–100（默认 20）、周限制 1–14（默认 4）。 */
 import { computed, reactive } from "vue";
 import type { YgdkSettings } from "@/types";
+import { isRecord } from "@/utils/guards";
 import { readJson, STORAGE_KEYS, writeJson } from "@/utils/storage";
 import {
   DEFAULT_YGDK_SETTINGS,
@@ -67,8 +68,4 @@ function readTarget(
         : Number.NaN;
 
   return isValid(number) ? number : fallback;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

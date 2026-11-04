@@ -1,5 +1,6 @@
 import { readonly, ref } from "vue";
 import type { Shortcut } from "@/types";
+import { createId } from "@/utils/id";
 import {
   normalizeShortcutRow,
   normalizeShortcutUrl,
@@ -108,7 +109,7 @@ export function useShortcuts() {
     if (!normalized) return null;
 
     const shortcut: Shortcut = {
-      id: createId(),
+      id: createId("shortcut"),
       ...normalized,
       row: normalizeShortcutRow(row),
     };
@@ -218,7 +219,7 @@ function loadShortcuts(): Shortcut[] {
     const id =
       typeof candidate.id === "string" && candidate.id.length > 0
         ? candidate.id
-        : createId();
+        : createId("shortcut");
     if (seen.has(id)) continue;
 
     const fallbackRow = Math.min(
@@ -250,11 +251,4 @@ function createPresetShortcuts(): Shortcut[] {
 
 function persist(): void {
   writeJson(STORAGE_KEYS.shortcuts, shortcuts.value);
-}
-
-function createId(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return `shortcut-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }

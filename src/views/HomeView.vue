@@ -1,76 +1,46 @@
 <script setup lang="ts">
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  watch,
-} from "vue";
-import { RouterLink, useRouter } from "vue-router";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 import BykcCourseModal from "@/components/BykcCourseModal.vue";
 import BykcSquareCard from "@/components/BykcSquareCard.vue";
-import CardStatusActions from "@/components/CardStatusActions.vue";
-import ExamCard from "@/components/ExamCard.vue";
 import FocusCard from "@/components/FocusCard.vue";
-import HomeCard from "@/components/HomeCard.vue";
-import ScheduleDayRow from "@/components/ScheduleDayRow.vue";
+import HomeBoard from "@/components/home/HomeBoard.vue";
+import HomeTopBar from "@/components/home/HomeTopBar.vue";
+import MinimalClockLayer from "@/components/home/MinimalClockLayer.vue";
+import ScheduleOverviewCard from "@/components/home/ScheduleOverviewCard.vue";
 import ShortcutCard from "@/components/ShortcutCard.vue";
 import ShortcutDialog from "@/components/ShortcutDialog.vue";
 import SpocDetailDialog from "@/components/SpocDetailDialog.vue";
 import TodoCard from "@/components/TodoCard.vue";
 import YgdkCard from "@/components/YgdkCard.vue";
-import { useBykc, useBykcChosen, useBykcDetail } from "@/composables/useBykc";
+import { useBykcDetail } from "@/composables/useBykcDetail";
+import { useBykc } from "@/composables/useBykcList";
 import { useClock } from "@/composables/useClock";
-import { useExams } from "@/composables/useExams";
+import { useDataSourceActions } from "@/composables/useDataSourceActions";
+import {
+  HOME_BOARD_ROW_COUNT,
+  HOME_BOARD_ROW_GAP_REM,
+  HOME_BOARD_ROW_STEP_REM,
+  useHomeBoard,
+} from "@/composables/useHomeBoard";
 import { useHomeCards } from "@/composables/useHomeCards";
 import { useHomeDisplay } from "@/composables/useHomeDisplay";
+import { useHomePreload } from "@/composables/useHomePreload";
+import { useHomeSummary } from "@/composables/useHomeSummary";
 import { useHorizontalWheelScroll } from "@/composables/useHorizontalWheelScroll";
 import { usePomodoro } from "@/composables/usePomodoro";
-import { useSchedule, type WeekEntry } from "@/composables/useSchedule";
-import { useScheduleSettings } from "@/composables/useScheduleSettings";
-import { useShortcuts } from "@/composables/useShortcuts";
+import { useShortcutDrag } from "@/composables/useShortcutDrag";
+import { useShortcutEditor } from "@/composables/useShortcutEditor";
 import { useSpoc, useSpocDetail } from "@/composables/useSpoc";
 import { useTodos } from "@/composables/useTodos";
 import { useYgdk } from "@/composables/useYgdk";
 import { useYgdkSettings } from "@/composables/useYgdkSettings";
-import type { Course, Shortcut } from "@/types";
-import { bykcChosenCoursesOnDate } from "@/utils/bykc";
-import { addDays, formatDateKey, startOfWeekMonday } from "@/utils/date";
-import { recentExamEntries } from "@/utils/exams";
-import {
-  computeHomeLayout,
-  HOME_ROW_COUNT,
-  HOME_ROW_GAP_REM,
-  HOME_ROW_HEIGHT_REM,
-  type PlacementGeometry,
-} from "@/utils/homeLayout";
-import {
-  coursesOnDay,
-  DEFAULT_SECTION_TIMES,
-  findCourseStates,
-  isoDayOfWeek,
-  sortCourses,
-  weekNumberForDate,
-} from "@/utils/schedule";
 import { filterOpenSpocAssignments } from "@/utils/spoc";
-import {
-  canRetrySource,
-  needsSettingsSource,
-  resolveAggregateSourceBadge,
-  type SourceBadgeState,
-} from "@/utils/sourceStatus";
 import { resolveYgdkTermTarget, resolveYgdkWeekLimit } from "@/utils/ygdk";
-import {
-  normalizeShortcutRow,
-  shortcutWidthRem,
-  type ShortcutDraft,
-} from "@/utils/shortcut";
 
 const { now } = useClock();
 const { now: spocNow } = useClock(30_000);
 const router = useRouter();
-const keyword = ref("");
 
 const { visibility: cardVisibility } = useHomeCards();
 const {
@@ -78,6 +48,7 @@ const {
   enterMinimalMode,
   exitMinimalMode,
 } = useHomeDisplay();
+const { hydrateAll, refreshVisible } = useDataSourceActions();
 
 /** 仅时钟与背景模式只在本页（`/`）生效，离开主页不影响子页面。 */
 const minimalMode = computed(() => homeDisplay.minimalMode);
@@ -88,41 +59,69 @@ const homeAreaVisible = computed(
 
 const {
   meta,
-  entries,
-  hydrate: hydrateSchedule,
-  refreshCurrent,
-  loadWeek,
-  weekView,
-} = useSchedule();
-const { highlightLeadMinutes } = useScheduleSettings();
-const {
-  state: examState,
-  hydrate: hydrateExams,
-  refresh: refreshExams,
-} = useExams();
-const {
-  state: ygdkState,
-  hydrate: hydrateYgdk,
-  refresh: refreshYgdk,
-} = useYgdk();
+  maxWeek,
+  todayDate,
+  tomorrowDate,
+  todayWeekNumber,
+  tomorrowWeekNumber,
+  todayView,
+  tomorrowView,
+  todayCourses,
+  tomorrowCourses,
+  todayState,
+  tomorrowState,
+  scheduleBadge,
+  scheduleCanRetry,
+  scheduleNeedsSettings,
+  retryScheduleSources,
+  nextLine,
+  nextPromptState,
+  recentExams,
+  examEmptyText,
+  examState,
+  refreshExams,
+  highlightLeadMinutes,
+} = useHomeSummary(now);
+
+const { preloadTomorrow } = useHomePreload({
+  homeAreaVisible,
+  cardVisibility,
+  tomorrowWeekNumber,
+  todayWeekNumber,
+  maxWeek,
+});
+
+const { state: ygdkState, refresh: refreshYgdk } = useYgdk();
 const { termTarget: ygdkUserTermTarget, weekTarget: ygdkUserWeekTarget } =
   useYgdkSettings();
-const {
-  state: bykcState,
-  loadPage: loadBykcPage,
-  refresh: refreshBykc,
-} = useBykc();
-const {
-  state: bykcChosenState,
-  hydrate: hydrateBykcChosen,
-  refresh: refreshBykcChosen,
-} = useBykcChosen();
+const { state: bykcState, refresh: refreshBykc } = useBykc();
 const {
   state: bykcDetailState,
   open: openBykcDetail,
   refresh: refreshBykcDetail,
   close: closeBykcDetail,
 } = useBykcDetail();
+const { state: spocState, refresh: refreshSpoc } = useSpoc();
+const {
+  state: spocDetailState,
+  open: openSpocDetail,
+  refresh: refreshSpocDetail,
+  close: closeSpocDetail,
+} = useSpocDetail();
+const { todos, addTodo, updateTodo, removeTodo, toggleTodo } = useTodos();
+const {
+  shortcuts,
+  moveShortcutTo,
+  isEditing,
+  shortcutDialogOpen,
+  editingShortcut,
+  openCreateDialog,
+  openEditDialog,
+  closeShortcutDialog,
+  submitShortcut,
+  removeShortcutFromDialog,
+  toggleEditing: toggleShortcutEditing,
+} = useShortcutEditor();
 
 /** 学期目标优先系统值；周限制始终用用户设置，见 docs/trd-phase2.md 7.4。 */
 const ygdkTermTarget = computed(() =>
@@ -135,291 +134,77 @@ const ygdkWeekLimit = computed(() =>
   resolveYgdkWeekLimit(ygdkUserWeekTarget.value),
 );
 
-const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+const openSpocAssignments = computed(() =>
+  filterOpenSpocAssignments(spocState.assignments, spocNow.value),
+);
 
-const dateText = computed(() => {
-  const value = now.value;
-  const weekday = weekdays[value.getDay()] ?? "Sun";
-  return `${value.getFullYear()}${pad(value.getMonth() + 1)}${pad(value.getDate())}\u2002${weekday}`;
+const {
+  settings: pomodoroSettings,
+  phase: pomodoroPhase,
+  phaseSeconds: pomodoroPhaseSeconds,
+  remainingSeconds: pomodoroRemainingSeconds,
+  running: pomodoroRunning,
+  started: pomodoroStarted,
+  paused: pomodoroPaused,
+  completedRounds: pomodoroCompletedRounds,
+  expectedFinishAt: pomodoroExpectedFinishAt,
+  start: startPomodoro,
+  saveSettings: savePomodoroSettings,
+  pause: pausePomodoro,
+  resume: resumePomodoro,
+  reset: resetPomodoro,
+  editSettings: editPomodoroSettings,
+} = usePomodoro();
+
+const {
+  homeLayout,
+  cardPlacements,
+  boardStyle,
+  placementStyle,
+  rowGuideStyle,
+  shortcutPlacements,
+  boardWidthRem,
+} = useHomeBoard({
+  visibility: cardVisibility,
+  shortcuts,
+  isEditing,
 });
 
-const timeText = computed(() => {
-  const value = now.value;
-  return `${pad(value.getHours())}:${pad(value.getMinutes())}:${pad(value.getSeconds())}`;
+const boardElement = ref<HTMLElement | null>(null);
+const { setScrollElement: setBoardScrollElement, onWheel: handleBoardWheel } =
+  useHorizontalWheelScroll();
+
+const rowStarts = computed(() => homeLayout.value.rowStarts);
+const {
+  draggingId,
+  dragRow,
+  insertionStyle,
+  handleShortcutDragStart,
+  handleBoardDragOver,
+  handleBoardDrop,
+  handleShortcutDragEnd,
+  resetDragState,
+} = useShortcutDrag({
+  boardElement,
+  isEditing,
+  boardWidthRem,
+  shortcutPlacements,
+  rowStarts,
+  rowCount: HOME_BOARD_ROW_COUNT,
+  rowStepRem: HOME_BOARD_ROW_STEP_REM,
+  rowGapRem: HOME_BOARD_ROW_GAP_REM,
+  rowTopRem: (row) => row * HOME_BOARD_ROW_STEP_REM,
+  moveShortcutTo,
 });
-
-const dateTime = computed(() => now.value.toISOString());
-
-const EMPTY_SECTION_TIMES = DEFAULT_SECTION_TIMES.map((item) => ({ ...item }));
-const emptyLoadedView: WeekEntry = {
-  status: "ok",
-  courses: [],
-  sectionTimes: EMPTY_SECTION_TIMES,
-  savedAt: null,
-  error: null,
-  loading: false,
-  loaded: true,
-};
-
-const todayDate = computed(() => now.value);
-const tomorrowDate = computed(() => addDays(now.value, 1));
-
-const maxWeek = computed(() => {
-  const serialNumbers = meta.weeks.map((week) => week.serialNumber);
-  return Math.max(
-    1,
-    meta.currentWeek ?? 1,
-    ...(serialNumbers.length > 0 ? serialNumbers : [1]),
-  );
-});
-
-const todayWeekNumber = computed(
-  () =>
-    weekNumberForDate(todayDate.value, meta, todayDate.value) ??
-    meta.currentWeek,
-);
-
-const tomorrowWeekNumber = computed(() => {
-  const byDate = weekNumberForDate(tomorrowDate.value, meta, todayDate.value);
-  if (byDate !== null) return byDate;
-
-  if (meta.weeks.length > 0) return null;
-  if (meta.currentWeek === null) return null;
-
-  const sameNaturalWeek =
-    formatDateKey(startOfWeekMonday(tomorrowDate.value)) ===
-    formatDateKey(startOfWeekMonday(todayDate.value));
-  return sameNaturalWeek ? meta.currentWeek : meta.currentWeek + 1;
-});
-
-const todayView = computed(() => weekView(todayWeekNumber.value));
-const tomorrowView = computed(() => {
-  const week = tomorrowWeekNumber.value;
-  if (week === null || week > maxWeek.value) {
-    return todayView.value.loaded ? emptyLoadedView : weekView(null);
-  }
-  return weekView(week);
-});
-
-const todayCourses = computed(() =>
-  sortCourses(
-    [
-      ...coursesOnDay(todayView.value.courses, isoDayOfWeek(todayDate.value)),
-      ...bykcChosenCoursesOnDate(bykcChosenState.courses, todayDate.value),
-    ],
-    todayView.value.sectionTimes,
-  ),
-);
-
-const tomorrowCourses = computed(() =>
-  sortCourses(
-    [
-      ...coursesOnDay(
-        tomorrowView.value.courses,
-        isoDayOfWeek(tomorrowDate.value),
-      ),
-      ...bykcChosenCoursesOnDate(bykcChosenState.courses, tomorrowDate.value),
-    ],
-    tomorrowView.value.sectionTimes,
-  ),
-);
-
-/** 博雅已选课程已有可用数据（缓存或已同步），可单独支撑今日/明日课程。 */
-const todayReady = computed(
-  () => todayView.value.loaded || bykcChosenState.savedAt !== null,
-);
-const tomorrowReady = computed(
-  () => tomorrowView.value.loaded || bykcChosenState.savedAt !== null,
-);
-
-const todayState = computed(() => rowState(todayView.value));
-const tomorrowState = computed(() => rowState(tomorrowView.value));
-
-const statusView = computed(() =>
-  meta.currentWeek === null ? todayView.value : weekView(meta.currentWeek),
-);
-
-/** 日程卡片聚合课表、博雅已选课程与考试三个数据源。 */
-const scheduleSyncSources = computed<SourceBadgeState[]>(() => [
-  {
-    status: statusView.value.status,
-    savedAt: statusView.value.savedAt,
-    error: statusView.value.error,
-    loading: statusView.value.loading,
-  },
-  {
-    status: bykcChosenState.status,
-    savedAt: bykcChosenState.savedAt,
-    error: bykcChosenState.error,
-    loading: bykcChosenState.loading,
-  },
-  {
-    status: examState.status,
-    savedAt: examState.savedAt,
-    error: examState.error,
-    loading: examState.loading,
-  },
-]);
-
-const scheduleBadge = computed(() =>
-  resolveAggregateSourceBadge(scheduleSyncSources.value),
-);
-
-const scheduleCanRetry = computed(() =>
-  scheduleSyncSources.value.some(canRetrySource),
-);
-const scheduleNeedsSettings = computed(() =>
-  scheduleSyncSources.value.some(needsSettingsSource),
-);
-
-function retryScheduleSources(): void {
-  const [schedule, bykc, exams] = scheduleSyncSources.value;
-  if (schedule && canRetrySource(schedule)) refreshSchedule();
-  if (bykc && canRetrySource(bykc)) void refreshBykcChosen();
-  if (exams && canRetrySource(exams)) void refreshExams();
-}
-
-const courseStates = computed(() =>
-  findCourseStates(
-    {
-      date: todayDate.value,
-      courses: todayCourses.value,
-      sectionTimes: todayView.value.sectionTimes,
-      loaded: todayReady.value,
-    },
-    tomorrowReady.value
-      ? {
-          date: tomorrowDate.value,
-          courses: tomorrowCourses.value,
-          sectionTimes: tomorrowView.value.sectionTimes,
-          loaded: true,
-        }
-      : null,
-    now.value,
-  ),
-);
-
-const nextCourse = computed(
-  () => courseStates.value.ongoing ?? courseStates.value.upcoming,
-);
-
-/** 博雅课程在摘要中带来源前缀，便于与常规课表区分。 */
-function courseDisplayName(course: Course): string {
-  return course.source === "bykc"
-    ? `博雅 · ${course.courseName}`
-    : course.courseName;
-}
-
-const nextLine = computed(() => {
-  const next = nextCourse.value;
-  if (next) {
-    const name = courseDisplayName(next.course);
-    if (next.kind === "ongoing") {
-      return `正在上《${name}》 · 还有 ${next.remainingMinutes} 分钟`;
-    }
-
-    const place = next.course.placeName?.trim() || "";
-    const where = next.dayOffset === 1 ? "明天" : "今天";
-    const location = place ? ` · ${place}` : "";
-    return `下一节《${name}》 · ${where} ${next.startText}-${next.endText}${location}`;
-  }
-
-  if (!todayReady.value) return "课表未加载";
-  if (
-    !tomorrowReady.value &&
-    tomorrowWeekNumber.value !== todayWeekNumber.value
-  ) {
-    return "明日课表未加载";
-  }
-  return "暂无后续课程";
-});
-
-const nextPromptState = computed<"upcoming" | "ongoing" | null>(() => {
-  const upcoming = courseStates.value.upcoming;
-  const withinLead =
-    upcoming !== null &&
-    upcoming.startAt.getTime() - now.value.getTime() <=
-      highlightLeadMinutes.value * 60_000;
-
-  // 进行中与即将开始同时成立时，文案仍显示“正在上课”，但颜色按即将开始处理。
-  if (withinLead) return "upcoming";
-  if (courseStates.value.ongoing) return "ongoing";
-  return null;
-});
-
-const nextLineClass = computed(() => {
-  if (nextPromptState.value === "ongoing") return "font-medium text-sky-200";
-  if (nextPromptState.value === "upcoming") return "font-medium text-amber-200";
-  return "text-white/55";
-});
-
-const recentExams = computed(() =>
-  recentExamEntries(examState.exams, now.value, 3),
-);
-
-const examEmptyText = computed(() => {
-  switch (examState.status) {
-    case "loading":
-    case "idle":
-      return "考试加载中…";
-    case "no-credential":
-      return "登录后查看考试";
-    case "auth-expired":
-      return "考试登录状态已失效";
-    case "error":
-      return examState.error || "考试加载失败";
-    default:
-      return "暂无未开始考试";
-  }
-});
-
-function rowState(view: WeekEntry): "loading" | "ready" | "unavailable" {
-  if (view.loaded) return "ready";
-  if (
-    view.status === "error" ||
-    view.status === "no-credential" ||
-    view.status === "auth-expired"
-  ) {
-    return "unavailable";
-  }
-  return "loading";
-}
-
-function preloadTomorrow(): void {
-  if (!homeAreaVisible.value) return;
-  if (!cardVisibility.schedule) return;
-
-  const week = tomorrowWeekNumber.value;
-  if (week === null || week > maxWeek.value) return;
-  if (week === todayWeekNumber.value) return;
-
-  const existing = entries[week];
-  if (!existing || (!existing.loaded && !existing.loading)) {
-    void loadWeek(week);
-  }
-}
-
-watch(tomorrowWeekNumber, preloadTomorrow, { immediate: true });
 
 /** 缓存优先：只读 localStorage，不发请求。 */
 function hydrateHomeData(): void {
-  hydrateSchedule();
-  hydrateExams();
-  hydrateSpoc();
-  hydrateYgdk();
-  hydrateBykcChosen();
+  hydrateAll();
 }
 
 /** 卡片关闭时不请求；功能区隐藏或仅时钟模式下整体不请求。 */
 function refreshHomeData(): void {
-  if (cardVisibility.schedule) {
-    void refreshCurrent();
-    void refreshExams();
-    void refreshBykcChosen();
-  }
-  if (cardVisibility.bykc) void loadBykcPage(1);
-  if (cardVisibility.todo) void refreshSpoc();
-  if (cardVisibility.ygdk) void refreshYgdk();
+  refreshVisible(cardVisibility);
   preloadTomorrow();
 }
 
@@ -454,10 +239,6 @@ function closeHomeEditing(): void {
   resetDragState();
 }
 
-function refreshSchedule(): void {
-  void refreshCurrent();
-}
-
 function openSchedule(): void {
   void router.push("/schedule");
 }
@@ -466,303 +247,18 @@ function openExams(): void {
   void router.push("/exams");
 }
 
-function submitSearch(): void {
-  const query = keyword.value.trim();
-  if (query.length === 0) return;
-
+function submitSearch(query: string): void {
   window.location.assign(
     `https://www.bing.com/search?q=${encodeURIComponent(query)}`,
   );
 }
 
-type ShortcutPlacement = PlacementGeometry & {
-  id: string;
-  shortcut: Shortcut;
-};
-
-const ROW_HEIGHT_REM = HOME_ROW_HEIGHT_REM;
-const ROW_GAP_REM = HOME_ROW_GAP_REM;
-const ROW_STEP_REM = ROW_HEIGHT_REM + ROW_GAP_REM;
-const ROW_COUNT = HOME_ROW_COUNT;
-
-/** 卡片开关后的重排规则见 docs/ui-lowfi.md 主页；行数固定，只改变卡片位置。 */
-const homeLayout = computed(() => computeHomeLayout(cardVisibility));
-const cardPlacements = computed(() => homeLayout.value.placements);
-
-const boardHeightRem =
-  ROW_COUNT * ROW_HEIGHT_REM + (ROW_COUNT - 1) * ROW_GAP_REM;
-
-const {
-  shortcuts,
-  addShortcut,
-  updateShortcut,
-  removeShortcut,
-  moveShortcutTo,
-} = useShortcuts();
-const { todos, addTodo, updateTodo, removeTodo, toggleTodo } = useTodos();
-const {
-  state: spocState,
-  hydrate: hydrateSpoc,
-  refresh: refreshSpoc,
-} = useSpoc();
-
-const openSpocAssignments = computed(() =>
-  filterOpenSpocAssignments(spocState.assignments, spocNow.value),
-);
-const {
-  state: spocDetailState,
-  open: openSpocDetail,
-  refresh: refreshSpocDetail,
-  close: closeSpocDetail,
-} = useSpocDetail();
+function toggleEditing(): void {
+  toggleShortcutEditing();
+  resetDragState();
+}
 
 onBeforeUnmount(closeSpocDetail);
-const {
-  settings: pomodoroSettings,
-  phase: pomodoroPhase,
-  phaseSeconds: pomodoroPhaseSeconds,
-  remainingSeconds: pomodoroRemainingSeconds,
-  running: pomodoroRunning,
-  started: pomodoroStarted,
-  paused: pomodoroPaused,
-  completedRounds: pomodoroCompletedRounds,
-  expectedFinishAt: pomodoroExpectedFinishAt,
-  start: startPomodoro,
-  saveSettings: savePomodoroSettings,
-  pause: pausePomodoro,
-  resume: resumePomodoro,
-  reset: resetPomodoro,
-  editSettings: editPomodoroSettings,
-} = usePomodoro();
-
-const isEditing = ref(false);
-const shortcutDialogOpen = ref(false);
-const editingShortcut = ref<Shortcut | null>(null);
-
-/**
- * 每行独立排列，行数固定、行内数量不限。
- * 快捷方式显式保存 row，横向位置由该行大卡与前面的卡片顺序推算，不做换行装箱。
- */
-const shortcutLayout = computed(() => {
-  const rowCursors = [...homeLayout.value.rowStarts];
-  const placements: ShortcutPlacement[] = [];
-  let maxEndRem = 0;
-
-  for (const shortcut of shortcuts.value) {
-    const row = normalizeShortcutRow(shortcut.row);
-    const width = shortcutWidthRem(shortcut.title, isEditing.value);
-    const x = rowCursors[row] ?? 0;
-
-    placements.push({
-      id: shortcut.id,
-      shortcut,
-      widthRem: width,
-      rows: 1,
-      row,
-      xRem: x,
-    });
-    rowCursors[row] = x + width + ROW_GAP_REM;
-    maxEndRem = Math.max(maxEndRem, x + width);
-  }
-
-  return { placements, maxEndRem };
-});
-
-const shortcutPlacements = computed(() => shortcutLayout.value.placements);
-
-const boardWidthRem = computed(() =>
-  Math.max(homeLayout.value.boardWidthRem, shortcutLayout.value.maxEndRem),
-);
-
-const boardStyle = computed(() => ({
-  width: `${boardWidthRem.value}rem`,
-  height: `${boardHeightRem}rem`,
-}));
-
-function placementStyle(item: PlacementGeometry | undefined) {
-  if (!item) return {};
-
-  return {
-    left: `${item.xRem}rem`,
-    top: `${item.row * (ROW_HEIGHT_REM + ROW_GAP_REM)}rem`,
-    width: `${item.widthRem}rem`,
-    height: `${item.rows * ROW_HEIGHT_REM + (item.rows - 1) * ROW_GAP_REM}rem`,
-  };
-}
-
-const boardElement = ref<HTMLElement | null>(null);
-const { setScrollElement: setBoardScrollElement, onWheel: handleBoardWheel } =
-  useHorizontalWheelScroll();
-
-/** 该行快捷方式的起始横坐标；无大卡的行从 0 开始。 */
-function availableStartRem(row: number): number {
-  return homeLayout.value.rowStarts[row] ?? 0;
-}
-
-function rowTopRem(row: number): number {
-  return row * ROW_STEP_REM;
-}
-
-function rowGuideStyle(row: number) {
-  const start = availableStartRem(row);
-  return {
-    left: `${start}rem`,
-    top: `${rowTopRem(row)}rem`,
-    width: `${Math.max(0, boardWidthRem.value - start)}rem`,
-    height: `${ROW_HEIGHT_REM}rem`,
-  };
-}
-
-const topButtonClass =
-  "flex h-[2.43rem] w-[2.43rem] shrink-0 items-center justify-center rounded-full border border-white/20 bg-slate-950/40 text-white/60 backdrop-blur-xl transition hover:border-white/35 hover:bg-slate-950/55 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40";
-
-function openCreateDialog(): void {
-  editingShortcut.value = null;
-  shortcutDialogOpen.value = true;
-}
-
-function openEditDialog(shortcut: Shortcut): void {
-  editingShortcut.value = shortcut;
-  shortcutDialogOpen.value = true;
-}
-
-function closeShortcutDialog(): void {
-  shortcutDialogOpen.value = false;
-}
-
-function submitShortcut(draft: ShortcutDraft): void {
-  const current = editingShortcut.value;
-
-  if (current) {
-    if (updateShortcut(current.id, draft)) shortcutDialogOpen.value = false;
-    return;
-  }
-
-  const created = addShortcut(draft, 0);
-  if (!created) return;
-
-  shortcutDialogOpen.value = false;
-  void nextTick(() => scrollShortcutIntoView(created.id));
-}
-
-function scrollShortcutIntoView(id: string): void {
-  const card = [
-    ...document.querySelectorAll<HTMLElement>("[data-shortcut-id]"),
-  ].find((element) => element.dataset.shortcutId === id);
-  card?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "end" });
-}
-
-function removeShortcutFromDialog(id: string): void {
-  removeShortcut(id);
-  shortcutDialogOpen.value = false;
-}
-
-function toggleEditing(): void {
-  isEditing.value = !isEditing.value;
-  resetDragState();
-}
-
-const draggingId = ref<string | null>(null);
-const dragRow = ref<number | null>(null);
-const dragIndex = ref<number | null>(null);
-const dragInsertX = ref<number | null>(null);
-
-const insertionStyle = computed(() => {
-  if (dragRow.value === null || dragInsertX.value === null) return {};
-  return {
-    left: `${Math.min(dragInsertX.value, boardWidthRem.value)}rem`,
-    top: `${rowTopRem(dragRow.value)}rem`,
-    height: `${ROW_HEIGHT_REM}rem`,
-  };
-});
-
-function handleShortcutDragStart(shortcut: Shortcut): void {
-  if (!isEditing.value) return;
-  clearDragTarget();
-  draggingId.value = shortcut.id;
-}
-
-/**
- * 在整块功能区上计算落点：纵向按 11 行取行号，横向按该行现有卡片取插入序号。
- * 因此空行、行尾空白和超出当前画布宽度的行尾都可作为放置目标。
- */
-function handleBoardDragOver(event: DragEvent): void {
-  if (!isEditing.value || !draggingId.value) return;
-
-  const board = boardElement.value;
-  if (!board) return;
-
-  const rect = board.getBoundingClientRect();
-  if (rect.width <= 0) return;
-
-  const remPx = rect.width / boardWidthRem.value;
-  if (!Number.isFinite(remPx) || remPx <= 0) return;
-
-  const row = Math.min(
-    ROW_COUNT - 1,
-    Math.max(
-      0,
-      Math.floor((event.clientY - rect.top) / (ROW_STEP_REM * remPx)),
-    ),
-  );
-  const xRem = (event.clientX - rect.left) / remPx;
-  const start = availableStartRem(row);
-
-  if (xRem < start) {
-    clearDragTarget();
-    return;
-  }
-
-  const others = shortcutLayout.value.placements.filter(
-    (placement) => placement.row === row && placement.id !== draggingId.value,
-  );
-  let index = others.findIndex(
-    (placement) => xRem < placement.xRem + placement.widthRem / 2,
-  );
-  if (index < 0) index = others.length;
-
-  const previous = others[index - 1];
-  dragRow.value = row;
-  dragIndex.value = index;
-  dragInsertX.value =
-    index === 0 || !previous
-      ? start
-      : previous.xRem + previous.widthRem + ROW_GAP_REM;
-
-  event.preventDefault();
-  if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
-}
-
-function handleBoardDrop(event: DragEvent): void {
-  if (!isEditing.value || !draggingId.value) return;
-
-  const row = dragRow.value;
-  const index = dragIndex.value;
-  if (row === null || index === null) return;
-
-  event.preventDefault();
-  moveShortcutTo(draggingId.value, row, index);
-  resetDragState();
-}
-
-function handleShortcutDragEnd(): void {
-  resetDragState();
-}
-
-function clearDragTarget(): void {
-  dragRow.value = null;
-  dragIndex.value = null;
-  dragInsertX.value = null;
-}
-
-function resetDragState(): void {
-  draggingId.value = null;
-  clearDragTarget();
-}
-
-function pad(value: number): string {
-  return String(value).padStart(2, "0");
-}
 </script>
 
 <template>
@@ -770,23 +266,10 @@ function pad(value: number): string {
     class="home-backdrop min-h-screen text-white antialiased"
     :class="{ 'home-backdrop-minimal': minimalMode }"
   >
-    <!-- 仅时钟与背景模式：时间在上、日期在下，固定在左下角。 -->
     <Transition name="minimal-clock">
-      <div
-        v-if="minimalMode"
-        class="minimal-clock route-page-minimal"
-        aria-label="当前时间与日期"
-      >
-        <time :datetime="dateTime" class="minimal-clock-time">{{
-          timeText
-        }}</time>
-        <time :datetime="dateTime" class="minimal-clock-date">{{
-          dateText
-        }}</time>
-      </div>
+      <MinimalClockLayer v-if="minimalMode" :now="now" />
     </Transition>
 
-    <!-- 点击视口任意位置回到完全功能模式；全屏按钮同时承接键盘 Enter/Space。 -->
     <button
       v-if="minimalMode"
       type="button"
@@ -798,167 +281,16 @@ function pad(value: number): string {
     <main class="flex min-h-screen w-full flex-col py-8">
       <div class="mx-auto w-full max-w-[1440px] px-6 sm:px-10">
         <Transition name="home-top">
-          <header
+          <HomeTopBar
             v-if="!minimalMode"
-            class="route-page-header flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between"
-          >
-            <div class="home-clock" aria-label="当前日期与时间">
-              <time :datetime="dateTime" class="home-clock-date">{{
-                dateText
-              }}</time>
-              <time :datetime="dateTime" class="home-clock-time">{{
-                timeText
-              }}</time>
-            </div>
-
-            <div class="flex w-full items-center justify-end gap-3 lg:w-auto">
-              <form
-                class="flex h-[2.43rem] w-full max-w-[26rem] items-center gap-1.5 rounded-full border border-white/20 bg-slate-950/40 pl-4 pr-1.5 backdrop-blur-xl transition focus-within:border-white/35 focus-within:bg-slate-950/55 lg:w-[22rem] lg:max-w-none lg:flex-none xl:w-[24rem]"
-                role="search"
-                @submit.prevent="submitSearch"
-              >
-                <input
-                  v-model="keyword"
-                  type="text"
-                  inputmode="search"
-                  enterkeyhint="search"
-                  autocomplete="off"
-                  spellcheck="false"
-                  placeholder="使用 Bing 搜索"
-                  aria-label="搜索关键词"
-                  class="h-full min-w-0 flex-1 bg-transparent text-[15px] text-white outline-none placeholder:text-white/45"
-                />
-                <button
-                  type="submit"
-                  aria-label="使用 Bing 搜索"
-                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white/60 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40"
-                >
-                  <svg
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    aria-hidden="true"
-                    class="h-[18px] w-[18px]"
-                  >
-                    <path
-                      d="m14.5 14.5 3 3m-2-8.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z"
-                      stroke="currentColor"
-                      stroke-width="1.5"
-                      stroke-linecap="round"
-                    />
-                  </svg>
-                </button>
-              </form>
-
-              <button
-                v-if="homeDisplay.showActionButtons"
-                type="button"
-                :class="topButtonClass"
-                aria-label="新建快捷方式"
-                title="新建快捷方式"
-                @click="openCreateDialog"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden="true"
-                  class="h-5 w-5"
-                >
-                  <path
-                    d="M12 5v14M5 12h14"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    stroke-linecap="round"
-                  />
-                </svg>
-              </button>
-
-              <button
-                v-if="homeDisplay.showActionButtons"
-                type="button"
-                :class="[
-                  topButtonClass,
-                  isEditing ? 'ring-2 ring-white/50 text-white' : '',
-                ]"
-                :aria-pressed="isEditing"
-                :aria-label="isEditing ? '退出编辑' : '编辑快捷方式'"
-                :title="isEditing ? '退出编辑' : '编辑快捷方式'"
-                @click="toggleEditing"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden="true"
-                  class="h-5 w-5"
-                >
-                  <path
-                    d="m4 20 4.4-1 9.6-9.6a2.1 2.1 0 0 0-3-3L5.4 16 4 20Z"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                </svg>
-              </button>
-
-              <button
-                type="button"
-                :class="topButtonClass"
-                aria-label="进入仅时钟与背景模式"
-                title="仅时钟与背景模式"
-                @click="enterMinimalMode"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden="true"
-                  class="h-5 w-5"
-                >
-                  <path
-                    d="M2.75 12S6.2 5.75 12 5.75 21.25 12 21.25 12 17.8 18.25 12 18.25 2.75 12 2.75 12Z"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="2.75"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                  />
-                </svg>
-              </button>
-
-              <RouterLink
-                v-if="homeDisplay.showActionButtons"
-                to="/settings"
-                :class="topButtonClass"
-                aria-label="设置"
-                title="设置"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden="true"
-                  class="h-5 w-5"
-                >
-                  <path
-                    d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                  />
-                  <path
-                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6h.08A1.65 1.65 0 0 0 10.1 3.09V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 15.2 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.14.6.64 1.04 1.25 1.09H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"
-                    stroke="currentColor"
-                    stroke-width="1.2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                </svg>
-              </RouterLink>
-            </div>
-          </header>
+            :now="now"
+            :show-actions="homeDisplay.showActionButtons"
+            :is-editing="isEditing"
+            @search="submitSearch"
+            @create="openCreateDialog"
+            @edit="toggleEditing"
+            @minimal="enterMinimalMode"
+          />
         </Transition>
       </div>
 
@@ -979,233 +311,149 @@ function pad(value: number): string {
             @dragover="handleBoardDragOver"
             @drop="handleBoardDrop"
           >
-            <template v-for="row in ROW_COUNT" :key="`row-guide-${row}`">
-              <div
-                v-if="isEditing"
-                :data-row-guide="row - 1"
-                class="pointer-events-none absolute rounded-xl border border-dashed transition-colors"
-                :class="
-                  dragRow === row - 1
-                    ? 'border-sky-300/40 bg-sky-300/5'
-                    : 'border-white/10'
-                "
-                :style="rowGuideStyle(row - 1)"
-              ></div>
-            </template>
-
-            <div
-              v-if="cardPlacements.schedule"
-              class="absolute"
-              :style="placementStyle(cardPlacements.schedule)"
-            >
-              <HomeCard
-                title="日程"
-                :badge="scheduleBadge"
-                dense
-                class="h-full w-full cursor-pointer"
-                role="link"
-                tabindex="0"
-                aria-label="打开日程详情"
-                @click="openSchedule"
-                @keydown.enter="openSchedule"
-                @keydown.space.prevent="openSchedule"
-              >
-                <template #actions>
-                  <CardStatusActions
-                    :retryable="scheduleCanRetry"
-                    :needs-settings="scheduleNeedsSettings"
-                    @retry="retryScheduleSources"
-                  />
-                </template>
-
-                <div class="flex min-h-0 flex-1 flex-col gap-1">
-                  <p
-                    class="shrink-0 truncate text-[11px] leading-tight transition-colors"
-                    :class="nextLineClass"
-                  >
-                    {{ nextLine }}
-                  </p>
-
-                  <div class="flex min-h-0 flex-1 flex-col gap-1">
-                    <ScheduleDayRow
-                      :date="todayDate"
-                      :week-number="todayWeekNumber"
-                      relative-label="今天"
-                      :courses="todayCourses"
-                      :section-times="todayView.sectionTimes"
-                      :state="todayState"
-                      :now="now"
-                      :highlight-lead-minutes="highlightLeadMinutes"
-                      compact
-                      class="min-h-0 flex-1"
-                    />
-                    <ScheduleDayRow
-                      :date="tomorrowDate"
-                      :week-number="tomorrowWeekNumber"
-                      relative-label="明天"
-                      :courses="tomorrowCourses"
-                      :section-times="tomorrowView.sectionTimes"
-                      :state="tomorrowState"
-                      :now="now"
-                      :highlight-lead-minutes="highlightLeadMinutes"
-                      compact
-                      class="min-h-0 flex-1"
-                    />
-                  </div>
-
-                  <div
-                    class="min-w-0 cursor-pointer"
-                    role="link"
-                    tabindex="0"
-                    aria-label="打开考试详情"
-                    @click.stop="openExams"
-                    @keydown.enter.stop="openExams"
-                    @keydown.space.stop.prevent="openExams"
-                  >
-                    <div
-                      v-if="recentExams.length > 0"
-                      class="grid min-w-0 auto-cols-fr grid-flow-col gap-2"
-                    >
-                      <ExamCard
-                        v-for="entry in recentExams"
-                        :key="`${entry.exam.courseName}-${entry.exam.examDate}-${entry.exam.startTime}`"
-                        :exam="entry.exam"
-                        :now="now"
-                        compact
-                      />
-                    </div>
-
-                    <div
-                      v-else
-                      class="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-2 py-1.5 text-[9.5px] leading-tight text-white/45 transition hover:border-white/25"
-                    >
-                      <span class="min-w-0 truncate">{{ examEmptyText }}</span>
-                      <button
-                        v-if="examState.status === 'error'"
-                        type="button"
-                        class="shrink-0 text-white/65 transition hover:text-white"
-                        @click.stop="refreshExams"
-                      >
-                        重试
-                      </button>
-                    </div>
-                  </div>
-
-                  <p
-                    v-if="meta.warning"
-                    class="shrink-0 truncate text-[9px] leading-tight text-amber-200/65"
-                    :title="meta.warning"
-                  >
-                    {{ meta.warning }}
-                  </p>
-                </div>
-              </HomeCard>
-            </div>
-
-            <div
-              v-if="cardPlacements.bykc"
-              class="absolute"
-              :style="placementStyle(cardPlacements.bykc)"
-            >
-              <BykcSquareCard
-                class="h-full w-full"
-                :courses="bykcState.courses"
-                :status="bykcState.status"
-                :saved-at="bykcState.savedAt"
-                :error="bykcState.error"
-                :loading="bykcState.loading"
-                @open="openBykcDetail"
-                @retry="refreshBykc"
-              />
-            </div>
-
-            <div
-              v-if="cardPlacements.todo"
-              class="absolute"
-              :style="placementStyle(cardPlacements.todo)"
-            >
-              <TodoCard
-                :todos="todos"
-                :spoc-assignments="openSpocAssignments"
-                :spoc-status="spocState.status"
-                :spoc-saved-at="spocState.savedAt"
-                :spoc-error="spocState.error"
-                :spoc-loading="spocState.loading"
-                class="h-full w-full"
-                @create="addTodo"
-                @update="updateTodo"
-                @remove="removeTodo"
-                @toggle="toggleTodo"
-                @refresh-spoc="refreshSpoc"
-                @open-spoc="openSpocDetail"
-              />
-            </div>
-
-            <div
-              v-if="cardPlacements.focus"
-              class="absolute"
-              :style="placementStyle(cardPlacements.focus)"
-            >
-              <FocusCard
-                :settings="pomodoroSettings"
-                :phase="pomodoroPhase"
-                :phase-seconds="pomodoroPhaseSeconds"
-                :remaining-seconds="pomodoroRemainingSeconds"
-                :running="pomodoroRunning"
-                :started="pomodoroStarted"
-                :paused="pomodoroPaused"
-                :completed-rounds="pomodoroCompletedRounds"
-                :expected-finish-at="pomodoroExpectedFinishAt"
-                @start="startPomodoro"
-                @settings-change="savePomodoroSettings"
-                @pause="pausePomodoro"
-                @resume="resumePomodoro"
-                @reset="resetPomodoro"
-                @edit="editPomodoroSettings"
-              />
-            </div>
-
-            <div
-              v-if="cardPlacements.ygdk"
-              class="absolute"
-              :style="placementStyle(cardPlacements.ygdk)"
-            >
-              <YgdkCard
-                class="h-full w-full"
-                :status="ygdkState.status"
-                :overview="ygdkState.overview"
-                :term-target="ygdkTermTarget"
-                :week-limit="ygdkWeekLimit"
-                :saved-at="ygdkState.savedAt"
-                :error="ygdkState.error"
-                :loading="ygdkState.loading"
-                @retry="refreshYgdk"
-              />
-            </div>
-
-            <ShortcutCard
-              v-for="placement in shortcutPlacements"
-              :key="placement.id"
-              :shortcut="placement.shortcut"
-              :editing="isEditing"
-              :dragging="draggingId === placement.id"
-              :style="placementStyle(placement)"
-              @edit="openEditDialog(placement.shortcut)"
-              @dragstart="handleShortcutDragStart(placement.shortcut)"
-              @dragend="handleShortcutDragEnd"
-            />
-
-            <div
-              v-if="
-                isEditing &&
-                draggingId &&
-                dragRow !== null &&
-                dragInsertX !== null
+            <HomeBoard
+              :row-count="HOME_BOARD_ROW_COUNT"
+              :is-editing="isEditing"
+              :drag-row="dragRow"
+              :row-guide-style="rowGuideStyle"
+              :insertion-style="insertionStyle"
+              :show-insertion="
+                Boolean(
+                  isEditing &&
+                  draggingId &&
+                  dragRow !== null &&
+                  insertionStyle.left,
+                )
               "
-              aria-hidden="true"
-              class="pointer-events-none absolute z-20 w-0.5 rounded-full bg-sky-300 shadow-[0_0_12px_rgba(125,211,252,0.75)]"
-              :style="insertionStyle"
-            ></div>
+            >
+              <div
+                v-if="cardPlacements.schedule"
+                class="absolute"
+                :style="placementStyle(cardPlacements.schedule)"
+              >
+                <ScheduleOverviewCard
+                  :badge="scheduleBadge"
+                  :can-retry="scheduleCanRetry"
+                  :needs-settings="scheduleNeedsSettings"
+                  :next-line="nextLine"
+                  :next-prompt-state="nextPromptState"
+                  :today-date="todayDate"
+                  :today-week-number="todayWeekNumber"
+                  :today-courses="todayCourses"
+                  :today-section-times="todayView.sectionTimes"
+                  :today-state="todayState"
+                  :tomorrow-date="tomorrowDate"
+                  :tomorrow-week-number="tomorrowWeekNumber"
+                  :tomorrow-courses="tomorrowCourses"
+                  :tomorrow-section-times="tomorrowView.sectionTimes"
+                  :tomorrow-state="tomorrowState"
+                  :now="now"
+                  :highlight-lead-minutes="highlightLeadMinutes"
+                  :recent-exams="recentExams"
+                  :exam-status="examState.status"
+                  :exam-error="examState.error"
+                  :exam-empty-text="examEmptyText"
+                  :warning="meta.warning"
+                  @open-schedule="openSchedule"
+                  @open-exams="openExams"
+                  @retry="retryScheduleSources"
+                  @refresh-exams="refreshExams"
+                />
+              </div>
+
+              <div
+                v-if="cardPlacements.bykc"
+                class="absolute"
+                :style="placementStyle(cardPlacements.bykc)"
+              >
+                <BykcSquareCard
+                  class="h-full w-full"
+                  :courses="bykcState.courses"
+                  :status="bykcState.status"
+                  :saved-at="bykcState.savedAt"
+                  :error="bykcState.error"
+                  :loading="bykcState.loading"
+                  @open="openBykcDetail"
+                  @retry="refreshBykc"
+                />
+              </div>
+
+              <div
+                v-if="cardPlacements.todo"
+                class="absolute"
+                :style="placementStyle(cardPlacements.todo)"
+              >
+                <TodoCard
+                  :todos="todos"
+                  :spoc-assignments="openSpocAssignments"
+                  :spoc-status="spocState.status"
+                  :spoc-saved-at="spocState.savedAt"
+                  :spoc-error="spocState.error"
+                  :spoc-loading="spocState.loading"
+                  class="h-full w-full"
+                  @create="addTodo"
+                  @update="updateTodo"
+                  @remove="removeTodo"
+                  @toggle="toggleTodo"
+                  @refresh-spoc="refreshSpoc"
+                  @open-spoc="openSpocDetail"
+                />
+              </div>
+
+              <div
+                v-if="cardPlacements.focus"
+                class="absolute"
+                :style="placementStyle(cardPlacements.focus)"
+              >
+                <FocusCard
+                  :settings="pomodoroSettings"
+                  :phase="pomodoroPhase"
+                  :phase-seconds="pomodoroPhaseSeconds"
+                  :remaining-seconds="pomodoroRemainingSeconds"
+                  :running="pomodoroRunning"
+                  :started="pomodoroStarted"
+                  :paused="pomodoroPaused"
+                  :completed-rounds="pomodoroCompletedRounds"
+                  :expected-finish-at="pomodoroExpectedFinishAt"
+                  @start="startPomodoro"
+                  @settings-change="savePomodoroSettings"
+                  @pause="pausePomodoro"
+                  @resume="resumePomodoro"
+                  @reset="resetPomodoro"
+                  @edit="editPomodoroSettings"
+                />
+              </div>
+
+              <div
+                v-if="cardPlacements.ygdk"
+                class="absolute"
+                :style="placementStyle(cardPlacements.ygdk)"
+              >
+                <YgdkCard
+                  class="h-full w-full"
+                  :status="ygdkState.status"
+                  :overview="ygdkState.overview"
+                  :term-target="ygdkTermTarget"
+                  :week-limit="ygdkWeekLimit"
+                  :saved-at="ygdkState.savedAt"
+                  :error="ygdkState.error"
+                  :loading="ygdkState.loading"
+                  @retry="refreshYgdk"
+                />
+              </div>
+
+              <ShortcutCard
+                v-for="placement in shortcutPlacements"
+                :key="placement.id"
+                :shortcut="placement.shortcut"
+                :editing="isEditing"
+                :dragging="draggingId === placement.id"
+                :style="placementStyle(placement)"
+                @edit="openEditDialog(placement.shortcut)"
+                @dragstart="handleShortcutDragStart(placement.shortcut)"
+                @dragend="handleShortcutDragEnd"
+              />
+            </HomeBoard>
           </div>
         </div>
       </Transition>

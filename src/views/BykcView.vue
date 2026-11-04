@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, watch } from "vue";
-import { RouterLink, useRoute, useRouter } from "vue-router";
-import BackHomeLink from "@/components/BackHomeLink.vue";
+import { useRoute, useRouter } from "vue-router";
 import BykcCourseCard from "@/components/BykcCourseCard.vue";
 import BykcCourseModal from "@/components/BykcCourseModal.vue";
+import PageHeader from "@/components/PageHeader.vue";
+import PageStateNotice from "@/components/PageStateNotice.vue";
 import SourceStatusLine from "@/components/SourceStatusLine.vue";
-import { useBykc, useBykcDetail } from "@/composables/useBykc";
+import { useBykcDetail } from "@/composables/useBykcDetail";
+import { useBykc } from "@/composables/useBykcList";
 import type { BykcCourse } from "@shared/api";
 
 const route = useRoute();
@@ -102,15 +104,7 @@ function handleOpen(course: BykcCourse): void {
 <template>
   <div class="home-backdrop min-h-screen text-white antialiased">
     <main class="mx-auto w-full max-w-5xl px-8 py-10">
-      <header
-        class="route-page-header flex flex-wrap items-end justify-between gap-4"
-      >
-        <div>
-          <h1 class="text-2xl font-semibold tracking-wide">博雅课程广场</h1>
-          <p class="mt-1 text-sm text-white/45">{{ pageSummary }}</p>
-        </div>
-        <BackHomeLink />
-      </header>
+      <PageHeader title="博雅课程广场" :subtitle="pageSummary" />
 
       <div class="route-page-body flow-root">
         <div
@@ -128,56 +122,33 @@ function handleOpen(course: BykcCourse): void {
           />
         </div>
 
-        <div
+        <PageStateNotice
           v-if="state.status === 'loading' && isEmpty"
-          class="mt-5 rounded-2xl border border-dashed border-white/12 px-5 py-10 text-center text-sm text-white/45"
-        >
-          正在加载课程广场…
-        </div>
+          kind="loading"
+          message="正在加载课程广场…"
+        />
 
-        <div
+        <PageStateNotice
           v-else-if="state.status === 'no-credential' && isEmpty"
-          class="mt-5 rounded-2xl border border-dashed border-white/12 px-5 py-10 text-center"
-        >
-          <p class="text-sm text-white/60">登录后浏览课程广场。</p>
-          <RouterLink
-            to="/settings"
-            class="mt-3 inline-flex rounded-full border border-white/20 bg-white/[0.07] px-4 py-2 text-sm text-white/80 transition hover:border-white/35 hover:text-white"
-          >
-            前往设置
-          </RouterLink>
-        </div>
+          kind="no-credential"
+          message="登录后浏览课程广场。"
+          settings-link
+        />
 
-        <div
+        <PageStateNotice
           v-else-if="state.status === 'auth-expired' && isEmpty"
-          class="mt-5 rounded-2xl border border-dashed border-amber-200/20 px-5 py-10 text-center"
-        >
-          <p class="text-sm text-amber-100/75">
-            登录状态已失效，请到设置页重新登录。
-          </p>
-          <RouterLink
-            to="/settings"
-            class="mt-3 inline-flex rounded-full border border-white/20 bg-white/[0.07] px-4 py-2 text-sm text-white/80 transition hover:border-white/35 hover:text-white"
-          >
-            前往设置
-          </RouterLink>
-        </div>
+          kind="auth-expired"
+          message="登录状态已失效，请到设置页重新登录。"
+          settings-link
+        />
 
-        <div
+        <PageStateNotice
           v-else-if="state.status === 'error' && isEmpty"
-          class="mt-5 rounded-2xl border border-dashed border-amber-200/20 px-5 py-10 text-center"
-        >
-          <p class="text-sm text-amber-100/75">
-            {{ state.error || "博雅课程广场加载失败" }}
-          </p>
-          <button
-            type="button"
-            class="mt-3 inline-flex rounded-full border border-white/20 bg-white/[0.07] px-4 py-2 text-sm text-white/80 transition hover:border-white/35 hover:text-white"
-            @click="refresh"
-          >
-            重试
-          </button>
-        </div>
+          kind="error"
+          :message="state.error || '博雅课程广场加载失败'"
+          retryable
+          @retry="refresh"
+        />
 
         <section
           v-if="hasCourses"

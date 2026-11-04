@@ -1,5 +1,6 @@
 /** 主页显示状态：仅时钟与背景模式、功能区与功能按钮开关，见 docs/trd-phase3.md 7.4。 */
 import { reactive } from "vue";
+import { isRecord } from "@/utils/guards";
 import { readJson, STORAGE_KEYS, writeJson } from "@/utils/storage";
 
 export type HomeDisplayState = {
@@ -61,8 +62,4 @@ function loadDisplay(): HomeDisplayState {
     showActionButtons: record.showActionButtons !== false,
     minimalMode: record.minimalMode === true,
   };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

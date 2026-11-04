@@ -1,12 +1,8 @@
 /** 课表纯计算：节次/时间、周视图、今日明日与下一节课，见 docs/trd.md 7.2。 */
-import type { SectionTime, Week } from "@shared/api";
+import type { BykcChosenCourse, SectionTime } from "@shared/api";
 import type { Course } from "@/types";
-import {
-  addDays,
-  formatDateKey,
-  parseDateKey,
-  startOfWeekMonday,
-} from "./date";
+import { bykcChosenCoursesOnDate } from "@/utils/bykc";
+import { isoDayOfWeek } from "./date";
 
 /** docs/api.md 1.2 的固定作息表。 */
 export const DEFAULT_SECTION_TIMES: readonly SectionTime[] = [
@@ -32,17 +28,6 @@ export const MIN_HIGHLIGHT_LEAD_MINUTES = 0;
 export const MAX_HIGHLIGHT_LEAD_MINUTES = 180;
 
 export type CourseHighlight = "upcoming" | "ongoing" | null;
-
-export type WeekMeta = {
-  weeks: Week[];
-  currentWeek: number | null;
-};
-
-export type WeekDay = {
-  date: Date;
-  dayOfWeek: number;
-  weekNumber: number;
-};
 
 export type CourseTime = {
   startText: string;
@@ -217,11 +202,6 @@ export function sortCourses(
   });
 }
 
-/** JS getDay()（周日 0）-> 教学日 1-7（周一 1、周日 7）。 */
-export function isoDayOfWeek(date: Date): number {
-  return ((date.getDay() + 6) % 7) + 1;
-}
-
 export function coursesOnDay(
   courses: readonly Course[],
   dayOfWeek: number,
@@ -229,110 +209,27 @@ export function coursesOnDay(
   return courses.filter((course) => course.dayOfWeek === dayOfWeek);
 }
 
-/**
- * 当前教学周：优先 curWeek，其次日期范围，最后使用 classWeek。
- * 都没有时返回 null，由调用方按默认第 1 周处理。
- */
-export function resolveCurrentWeek(
-  weeks: readonly Week[],
-  fallback: number | null,
-  now: Date,
-): number | null {
-  const marked = weeks.find((week) => week.curWeek);
-  if (marked) return marked.serialNumber;
-
-  const todayKey = formatDateKey(now);
-  const byDate = weeks.find(
-    (week) =>
-      week.startDate.length > 0 &&
-      week.endDate.length > 0 &&
-      todayKey >= week.startDate &&
-      todayKey <= week.endDate,
-  );
-  if (byDate) return byDate.serialNumber;
-
-  if (fallback !== null && Number.isSafeInteger(fallback) && fallback > 0) {
-    return fallback;
-  }
-  return null;
-}
-
-/**
- * 指定教学周的周一至周日。
- * weeks 中有该周时用真实起止日期，否则按当前自然周 + 周次差推算。
- */
-export function weekDateRange(
-  weekNumber: number,
-  meta: WeekMeta,
-  today: Date,
-): { start: Date; end: Date } {
-  const week = meta.weeks.find((item) => item.serialNumber === weekNumber);
-  if (week) {
-    const start =
-      week.startDate.length > 0 ? parseDateKey(week.startDate) : null;
-    const end = week.endDate.length > 0 ? parseDateKey(week.endDate) : null;
-
-    if (start) {
-      return {
-        start,
-        end: end && end.getTime() >= start.getTime() ? end : addDays(start, 6),
-      };
-    }
-    if (end) {
-      return { start: addDays(end, -6), end };
-    }
-  }
-
-  const current = meta.currentWeek ?? 1;
-  const start = addDays(startOfWeekMonday(today), (weekNumber - current) * 7);
-  return { start, end: addDays(start, 6) };
-}
-
-export function buildWeekDays(
-  weekNumber: number,
-  meta: WeekMeta,
-  today: Date,
-): WeekDay[] {
-  const range = weekDateRange(weekNumber, meta, today);
-
-  return Array.from({ length: 7 }, (_, index) => {
-    const date = addDays(range.start, index);
-    return {
-      date,
-      dayOfWeek: isoDayOfWeek(date),
-      weekNumber,
-    };
-  });
-}
-
-/**
- * 某日期所属教学周。
- * - 有周次表：只在真实周范围内返回周次；
- * - 无周次表：以当前自然周为 meta.currentWeek，按周差推算。
- */
-export function weekNumberForDate(
+/** 合并中继课表与指定日期的博雅已选课程，并按开始时间排序。 */
+export function mergeCoursesForDate(
+  byxtCourses: readonly Course[],
+  bykcCourses: readonly BykcChosenCourse[],
   date: Date,
-  meta: WeekMeta,
-  today: Date,
-): number | null {
-  if (meta.weeks.length > 0) {
-    const key = formatDateKey(date);
-    const found = meta.weeks.find(
-      (week) =>
-        week.startDate.length > 0 &&
-        week.endDate.length > 0 &&
-        key >= week.startDate &&
-        key <= week.endDate,
-    );
-    return found?.serialNumber ?? null;
-  }
+  sectionTimes: readonly SectionTime[],
+): Course[] {
+  return sortCourses(
+    [
+      ...coursesOnDay(byxtCourses, isoDayOfWeek(date)),
+      ...bykcChosenCoursesOnDate(bykcCourses, date),
+    ],
+    sectionTimes,
+  );
+}
 
-  if (meta.currentWeek === null) return null;
-
-  const todayMonday = startOfWeekMonday(today).getTime();
-  const dateMonday = startOfWeekMonday(date).getTime();
-  const diffWeeks = Math.round((dateMonday - todayMonday) / (7 * 86_400_000));
-  return meta.currentWeek + diffWeeks;
+/** 博雅课程在摘要/卡片中带来源前缀，便于与常规课表区分。 */
+export function courseDisplayName(course: Course): string {
+  return course.source === "bykc"
+    ? `博雅 · ${course.courseName}`
+    : course.courseName;
 }
 
 /** 今日/明日课程中的“进行中”与“下一节”；两者可同时存在。 */
@@ -419,6 +316,8 @@ export function findCourseStates(
 
   return { ongoing, upcoming };
 }
+
+export { isoDayOfWeek } from "./date";
 
 /** 兼容旧调用：有进行中课程时优先返回进行中。 */
 export function findNextCourse(

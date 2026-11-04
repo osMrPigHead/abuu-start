@@ -5,6 +5,7 @@
  */
 import type { PomodoroSettings } from "@/types";
 import { pad2 } from "@/utils/date";
+import { isRecord } from "@/utils/guards";
 
 export type PomodoroPhase = "focus" | "short-break" | "long-break";
 
@@ -142,10 +143,6 @@ function isValidFieldValue(
 
   const limit = POMODORO_LIMITS[field];
   return value >= limit.min && value <= limit.max;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /* ---------- 提示音 ---------- */

@@ -5,9 +5,8 @@ import HomeCard from "@/components/HomeCard.vue";
 import type { YgdkOverview } from "@shared/api";
 import type { SourceStatus } from "@/types";
 import {
-  canRetrySource,
-  needsSettingsSource,
-  resolveSourceBadge,
+  resolveSourcePlaceholder,
+  sourceCardState,
 } from "@/utils/sourceStatus";
 import {
   DEFAULT_YGDK_TERM_TARGET,
@@ -42,13 +41,16 @@ const emit = defineEmits<{
   retry: [];
 }>();
 
-const badge = computed(() =>
-  resolveSourceBadge({
+const cardState = computed(() =>
+  sourceCardState({
     status: props.status,
     savedAt: props.savedAt,
+    error: props.error,
     loading: props.loading,
   }),
 );
+
+const badge = computed(() => cardState.value.badge);
 
 const rows = computed(() => {
   const overview = props.overview;
@@ -70,27 +72,21 @@ const rows = computed(() => {
   ];
 });
 
-const emptyText = computed(() => {
-  switch (props.status) {
-    case "no-credential":
-      return "未登录";
-    case "auth-expired":
-      return "登录状态已失效";
-    case "error":
-      return props.error || "加载失败";
-    case "loading":
-      return "正在加载…";
-    default:
-      return "暂无数据";
-  }
-});
+const emptyText = computed(() =>
+  resolveSourcePlaceholder(
+    { status: props.status, error: props.error },
+    {
+      loading: "正在加载…",
+      noCredential: "未登录",
+      authExpired: "登录状态已失效",
+      error: "加载失败",
+      empty: "暂无数据",
+    },
+  ),
+);
 
-const canRetry = computed(() =>
-  canRetrySource({ status: props.status, error: props.error }),
-);
-const showSettingsLink = computed(() =>
-  needsSettingsSource({ status: props.status }),
-);
+const canRetry = computed(() => cardState.value.canRetry);
+const showSettingsLink = computed(() => cardState.value.needsSettings);
 </script>
 
 <template>

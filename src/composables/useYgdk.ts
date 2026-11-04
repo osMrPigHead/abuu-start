@@ -1,10 +1,10 @@
 /** 阳光打卡概览：缓存优先、独立数据源状态，见 docs/trd-phase2.md 7.4 / 7.6。 */
 import { reactive } from "vue";
-import { ApiError } from "@/api/client";
 import { fetchYgdkOverview } from "@/api/ygdk";
-import { isAuthBlocked, markSourceExpired } from "@/composables/useAuth";
+import { createCachedSource } from "@/composables/useSourceState";
 import type { YgdkOverview } from "@shared/api";
 import type { SourceStatus, YgdkOverviewCache } from "@/types";
+import { isRecord } from "@/utils/guards";
 import {
   clearYgdkCaches,
   readJson,
@@ -21,11 +21,6 @@ type YgdkState = {
   hydrated: boolean;
 };
 
-type MappedError = {
-  status: SourceStatus;
-  message: string;
-};
-
 const state = reactive<YgdkState>({
   status: "idle",
   overview: null,
@@ -35,7 +30,19 @@ const state = reactive<YgdkState>({
   hydrated: false,
 });
 
-let requestId = 0;
+const source = createCachedSource({
+  state,
+  sourceId: "ygdk",
+  hydrateCache: hydrateCache,
+  clearData: clearData,
+  fetch: () => fetchYgdkOverview(),
+  apply: (overview) => {
+    state.overview = overview;
+  },
+  persist: persistOverview,
+  hasData: () => state.overview !== null || state.savedAt !== null,
+  fallbackMessage: "阳光打卡概览加载失败",
+});
 
 export function useYgdk() {
   hydrate();
@@ -49,80 +56,29 @@ export function useYgdk() {
 }
 
 function hydrate(): void {
-  if (state.hydrated) return;
-  state.hydrated = true;
-
-  const cache = readOverviewCache();
-  if (!cache) return;
-
-  state.overview = cache.overview;
-  state.savedAt = cache.savedAt;
-  state.status = isAuthBlocked() ? "no-credential" : "cached";
+  source.hydrate();
 }
 
 async function refresh(): Promise<void> {
-  hydrate();
+  await source.refresh();
+}
 
-  if (isAuthBlocked()) {
-    state.status = "no-credential";
-    state.error = null;
-    state.loading = false;
-    return;
-  }
+function hydrateCache(): boolean {
+  const cache = readOverviewCache();
+  if (!cache) return false;
 
-  const hadData = state.savedAt !== null;
-  const currentRequest = ++requestId;
+  state.overview = cache.overview;
+  state.savedAt = cache.savedAt;
+  return true;
+}
 
-  state.loading = true;
-  state.error = null;
-  if (!hadData) {
-    state.status = "loading";
-  } else if (
-    state.status === "no-credential" ||
-    state.status === "auth-expired"
-  ) {
-    state.status = "cached";
-  }
-
-  try {
-    const overview = await fetchYgdkOverview();
-    if (currentRequest !== requestId) return;
-
-    state.overview = overview;
-    state.savedAt = new Date().toISOString();
-    state.status = "ok";
-    state.error = null;
-    state.loading = false;
-    persistOverview();
-  } catch (error) {
-    if (currentRequest !== requestId) return;
-
-    const mapped = mapYgdkError(error);
-    if (mapped.status === "auth-expired") markSourceExpired("ygdk");
-
-    state.loading = false;
-    state.error = mapped.message;
-
-    if (hadData) {
-      state.status = mapped.status === "error" ? "cached" : mapped.status;
-    } else {
-      state.status = mapped.status;
-      state.overview = null;
-      state.savedAt = null;
-    }
-  }
+function clearData(): void {
+  state.overview = null;
 }
 
 function clearYgdkData(): void {
   clearYgdkCaches();
-
-  state.status = "idle";
-  state.overview = null;
-  state.savedAt = null;
-  state.error = null;
-  state.loading = false;
-  state.hydrated = true;
-  requestId += 1;
+  source.reset({ hydrated: true });
 }
 
 /* ------------------------------- 缓存读写 ------------------------------- */
@@ -168,39 +124,4 @@ function readCount(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0
     ? Math.floor(value)
     : 0;
-}
-
-/* ------------------------------- 错误映射 ------------------------------- */
-
-function mapYgdkError(error: unknown): MappedError {
-  if (error instanceof ApiError) {
-    switch (error.code) {
-      case "NO_CREDENTIAL":
-      case "AUTH_REQUIRED":
-        return {
-          status: "no-credential",
-          message: "未登录，请前往设置完成登录",
-        };
-      case "AUTH_EXPIRED":
-        return {
-          status: "auth-expired",
-          message: "登录状态已失效，请到设置页重新登录",
-        };
-      case "SOURCE_BUSY":
-        return { status: "error", message: "数据源正在派生，请稍后重试" };
-      default:
-        return {
-          status: "error",
-          message: error.message || "阳光打卡概览加载失败",
-        };
-    }
-  }
-
-  return { status: "error", message: "阳光打卡概览加载失败，请稍后重试" };
-}
-
-/* ------------------------------- 基础辅助 ------------------------------- */
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
