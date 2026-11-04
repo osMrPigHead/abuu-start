@@ -22,8 +22,8 @@ import { useRelay, type RelayStatus } from "@/composables/useRelay";
 import { useScheduleSettings } from "@/composables/useScheduleSettings";
 import { useYgdk } from "@/composables/useYgdk";
 import { useYgdkSettings } from "@/composables/useYgdkSettings";
-import { resolveYgdkTermTarget, resolveYgdkWeekLimit } from "@/utils/ygdk";
-import { isStorageDegraded } from "@/utils/storage";
+import { resolveYgdkTermTarget, resolveYgdkWeekLimit } from "@/domain/ygdk";
+import { isStorageDegraded } from "@/cache/storage";
 import type { AuthSourceId } from "@shared/auth";
 
 const {

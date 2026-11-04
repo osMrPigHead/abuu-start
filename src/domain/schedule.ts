@@ -1,8 +1,8 @@
 /** 课表纯计算：节次/时间、周视图、今日明日与下一节课，见 docs/trd.md 7.2。 */
 import type { BykcChosenCourse, SectionTime } from "@shared/api";
 import type { Course } from "@/types";
-import { bykcChosenCoursesOnDate } from "@/utils/bykc";
-import { isoDayOfWeek } from "./date";
+import { bykcChosenCoursesOnDate } from "@/domain/bykc";
+import { isoDayOfWeek } from "@/utils/date";
 
 /** docs/api.md 1.2 的固定作息表。 */
 export const DEFAULT_SECTION_TIMES: readonly SectionTime[] = [
@@ -317,7 +317,7 @@ export function findCourseStates(
   return { ongoing, upcoming };
 }
 
-export { isoDayOfWeek } from "./date";
+export { isoDayOfWeek } from "@/utils/date";
 
 /** 兼容旧调用：有进行中课程时优先返回进行中。 */
 export function findNextCourse(

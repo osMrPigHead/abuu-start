@@ -1,6 +1,6 @@
 /** 考试时间解析、状态、分组与倒计时，见 docs/trd.md 7.2。 */
 import type { Exam } from "@shared/api";
-import { formatDateKey, pad2 } from "./date";
+import { formatDateKey, pad2 } from "@/utils/date";
 
 export type ExamStatus = "upcoming" | "ongoing" | "ended" | "unknown";
 

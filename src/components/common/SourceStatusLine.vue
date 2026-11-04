@@ -6,7 +6,7 @@ import {
   canRetrySource,
   needsSettingsSource,
   resolveSourceText,
-} from "@/utils/sourceStatus";
+} from "@/domain/sourceStatus";
 
 const props = withDefaults(
   defineProps<{

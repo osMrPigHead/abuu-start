@@ -4,8 +4,8 @@ import { BYKC_PAGE_SIZE, fetchBykcCourses } from "@/api/bykc";
 import { createCachedSource } from "@/composables/useSourceState";
 import type { BykcCourse } from "@shared/api";
 import type { BykcCoursesCache, SourceStatus } from "@/types";
-import { readBykcPageCache, writeBykcPageCache } from "@/utils/bykcCache";
-import { clearBykcCaches } from "@/utils/storage";
+import { readBykcPageCache, writeBykcPageCache } from "@/cache/bykc";
+import { clearBykcCaches } from "@/cache/storage";
 
 type BykcPageState = {
   page: number;

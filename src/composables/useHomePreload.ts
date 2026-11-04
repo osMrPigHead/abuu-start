@@ -1,7 +1,7 @@
 /** 主页明日课表预取：功能区隐藏、卡片关闭或明日仍在当前周时不请求。 */
 import { watch, type Ref } from "vue";
 import { useSchedule } from "@/composables/useSchedule";
-import type { HomeCardVisibility } from "@/utils/homeLayout";
+import type { HomeCardVisibility } from "@/domain/homeLayout";
 
 type UseHomePreloadOptions = {
   homeAreaVisible: Ref<boolean>;

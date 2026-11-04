@@ -6,8 +6,8 @@ import { useExams } from "@/composables/useExams";
 import { useSchedule } from "@/composables/useSchedule";
 import { useSpoc } from "@/composables/useSpoc";
 import { useYgdk } from "@/composables/useYgdk";
-import type { HomeCardVisibility } from "@/utils/homeLayout";
-import { clearCache } from "@/utils/storage";
+import type { HomeCardVisibility } from "@/domain/homeLayout";
+import { clearCache } from "@/cache/storage";
 
 export function useDataSourceActions() {
   const schedule = useSchedule();

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { STORAGE_KEYS } from "@/utils/storage";
+import { STORAGE_KEYS } from "@/cache/storage";
 
 async function loadChosen(stored?: unknown) {
   window.localStorage.clear();

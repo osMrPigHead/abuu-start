@@ -3,7 +3,7 @@ import {
   HOME_ROW_COUNT,
   computeHomeLayout,
   type HomeCardVisibility,
-} from "@/utils/homeLayout";
+} from "@/domain/homeLayout";
 
 function visibility(
   overrides: Partial<HomeCardVisibility> = {},

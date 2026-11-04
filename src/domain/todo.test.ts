@@ -10,7 +10,7 @@ import {
   todoRepeatLabel,
   validateTodoDraft,
   type TodoDraft,
-} from "@/utils/todo";
+} from "@/domain/todo";
 
 function todo(overrides: Partial<Todo> = {}): Todo {
   return {

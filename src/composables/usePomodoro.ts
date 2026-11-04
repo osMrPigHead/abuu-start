@@ -11,15 +11,14 @@ import {
   nextPomodoroPhase,
   POMODORO_ONE_MINUTE_SECONDS,
   POMODORO_PHASE_LABELS,
-  playPomodoroChime,
   pomodoroPhaseSeconds,
-  primePomodoroAudio,
   sanitizePomodoroSettings,
-  showPomodoroNotification,
   validatePomodoroSettings,
   type PomodoroPhase,
-} from "@/utils/pomodoro";
-import { readJson, STORAGE_KEYS, writeJson } from "@/utils/storage";
+} from "@/domain/pomodoro";
+import { playPomodoroChime, primePomodoroAudio } from "@/utils/pomodoroAudio";
+import { showPomodoroNotification } from "@/utils/pomodoroNotifications";
+import { readJson, STORAGE_KEYS, writeJson } from "@/cache/storage";
 
 /** 后台休眠跨过多个阶段时最多推进的次数，防止异常数据导致死循环。 */
 const MAX_CATCH_UP_PHASES = 10_000;

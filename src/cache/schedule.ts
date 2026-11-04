@@ -7,10 +7,10 @@ import {
   nullableText,
   toPositiveInteger,
 } from "@/utils/guards";
-import { normalizeTime } from "@/utils/schedule";
-import { readJson, STORAGE_KEYS, writeJson } from "@/utils/storage";
-import { normalizeTerm } from "@/utils/term";
-import { createEmptySectionTimes } from "@/utils/week";
+import { normalizeTime } from "@/domain/schedule";
+import { readJson, STORAGE_KEYS, writeJson } from "@/cache/storage";
+import { normalizeTerm } from "@/domain/term";
+import { createEmptySectionTimes } from "@/domain/week";
 
 export function readScheduleCache(): ScheduleCache | null {
   const raw = readJson<unknown>(STORAGE_KEYS.scheduleCache);

@@ -1,7 +1,7 @@
 /** 主页显示状态：仅时钟与背景模式、功能区与功能按钮开关，见 docs/trd-phase3.md 7.4。 */
 import { reactive } from "vue";
 import { isRecord } from "@/utils/guards";
-import { readJson, STORAGE_KEYS, writeJson } from "@/utils/storage";
+import { readJson, STORAGE_KEYS, writeJson } from "@/cache/storage";
 
 export type HomeDisplayState = {
   /** 隐藏功能区（五张卡片与快捷方式），时钟行与搜索框保留。 */

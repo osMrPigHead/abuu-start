@@ -8,7 +8,7 @@ import {
   bykcPlaceText,
   bykcStatusLabel,
   formatBykcDetailTime,
-} from "@/utils/bykc";
+} from "@/domain/bykc";
 import { formatStamp } from "@/utils/date";
 
 const props = withDefaults(

@@ -16,7 +16,7 @@ import {
   parseExamTimeOnly,
   recentExamEntries,
   sortExamEntries,
-} from "@/utils/exams";
+} from "@/domain/exams";
 
 function exam(overrides: Partial<Exam> = {}): Exam {
   return {

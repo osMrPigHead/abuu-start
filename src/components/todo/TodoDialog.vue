@@ -9,7 +9,7 @@ import {
   todoRepeatLabel,
   validateTodoDraft,
   type TodoDraft,
-} from "@/utils/todo";
+} from "@/domain/todo";
 
 const props = defineProps<{
   open: boolean;

@@ -8,7 +8,7 @@ import {
   parseDateKey,
   startOfWeekMonday,
 } from "@/utils/date";
-import { DEFAULT_SECTION_TIMES } from "@/utils/schedule";
+import { DEFAULT_SECTION_TIMES } from "@/domain/schedule";
 
 export type WeekMeta = {
   weeks: Week[];

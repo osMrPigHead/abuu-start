@@ -14,7 +14,7 @@ import {
   removeLegacyCredentials,
   spocDetailCacheKey,
   writeJson,
-} from "@/utils/storage";
+} from "@/cache/storage";
 
 describe("storage json helpers", () => {
   it("readJson / writeJson 往返", () => {
@@ -152,7 +152,7 @@ describe("storage keys and cache clearing", () => {
 describe("storage degradation", () => {
   it("localStorage 写入失败时降级到内存并标记", async () => {
     vi.resetModules();
-    const storage = await import("@/utils/storage");
+    const storage = await import("@/cache/storage");
     vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
       throw new Error("quota exceeded");
     });

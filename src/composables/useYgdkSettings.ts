@@ -2,12 +2,12 @@
 import { computed, reactive } from "vue";
 import type { YgdkSettings } from "@/types";
 import { isRecord } from "@/utils/guards";
-import { readJson, STORAGE_KEYS, writeJson } from "@/utils/storage";
+import { readJson, STORAGE_KEYS, writeJson } from "@/cache/storage";
 import {
   DEFAULT_YGDK_SETTINGS,
   isValidYgdkTermTarget,
   isValidYgdkWeekTarget,
-} from "@/utils/ygdk";
+} from "@/domain/ygdk";
 
 const state = reactive<YgdkSettings>(loadSettings());
 

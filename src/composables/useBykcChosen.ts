@@ -4,7 +4,7 @@ import { fetchBykcChosen } from "@/api/bykc";
 import { createCachedSource } from "@/composables/useSourceState";
 import type { BykcChosenCourse, BykcChosenTerm } from "@shared/api";
 import type { BykcChosenCache, SourceStatus } from "@/types";
-import { readBykcChosenCache, writeBykcChosenCache } from "@/utils/bykcCache";
+import { readBykcChosenCache, writeBykcChosenCache } from "@/cache/bykc";
 
 type BykcChosenState = {
   status: SourceStatus;

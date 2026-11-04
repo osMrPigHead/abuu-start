@@ -12,15 +12,15 @@ import type {
   SpocDetailCache,
 } from "@/types";
 import { asString, isRecord, nullableText } from "@/utils/guards";
-import { isValidSpocAssignmentId } from "@/utils/spoc";
+import { isValidSpocAssignmentId } from "@/domain/spoc";
 import {
   clearSpocCaches,
   readJson,
   spocDetailCacheKey,
   STORAGE_KEYS,
   writeJson,
-} from "@/utils/storage";
-import { normalizeTerm } from "@/utils/term";
+} from "@/cache/storage";
+import { normalizeTerm } from "@/domain/term";
 
 type SpocState = {
   status: SourceStatus;

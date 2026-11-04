@@ -14,7 +14,7 @@ import {
   formatLocalDateTime,
   nextRepeatDueAt,
   parseLocalDateTime,
-} from "@/utils/repeat";
+} from "@/domain/repeat";
 
 describe("date utils", () => {
   it("pad2 补足两位", () => {

@@ -1,8 +1,8 @@
 /** 主页卡片开关：五张功能卡片可单独关闭，见 docs/prd-phase3.md 4.3 与 docs/ui-lowfi.md。 */
 import { reactive } from "vue";
 import { isRecord } from "@/utils/guards";
-import type { HomeCardId, HomeCardVisibility } from "@/utils/homeLayout";
-import { readJson, STORAGE_KEYS, writeJson } from "@/utils/storage";
+import type { HomeCardId, HomeCardVisibility } from "@/domain/homeLayout";
+import { readJson, STORAGE_KEYS, writeJson } from "@/cache/storage";
 
 export type { HomeCardId, HomeCardVisibility };
 

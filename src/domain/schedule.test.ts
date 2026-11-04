@@ -15,13 +15,13 @@ import {
   normalizeTime,
   sortCourses,
   timeToMinutes,
-} from "@/utils/schedule";
+} from "@/domain/schedule";
 import {
   buildWeekDays,
   resolveCurrentWeek,
   weekDateRange,
   weekNumberForDate,
-} from "@/utils/week";
+} from "@/domain/week";
 
 function course(overrides: Partial<Course> = {}): Course {
   return {

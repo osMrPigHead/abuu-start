@@ -2,7 +2,7 @@ import { createApp } from "vue";
 import App from "./App.vue";
 import { useAuth } from "./composables/useAuth";
 import router from "./router";
-import { removeLegacyCredentials } from "./utils/storage";
+import { removeLegacyCredentials } from "./cache/storage";
 import "./style.css";
 
 /**

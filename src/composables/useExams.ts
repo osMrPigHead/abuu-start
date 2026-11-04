@@ -4,8 +4,8 @@ import { fetchByxtExams } from "@/api/byxt";
 import { createCachedSource } from "@/composables/useSourceState";
 import type { Exam, Term } from "@shared/api";
 import type { ExamsCache, SourceStatus } from "@/types";
-import { readExamsCache, writeExamsCache } from "@/utils/examsCache";
-import { remove, STORAGE_KEYS } from "@/utils/storage";
+import { readExamsCache, writeExamsCache } from "@/cache/exams";
+import { remove, STORAGE_KEYS } from "@/cache/storage";
 
 type ExamsState = {
   status: SourceStatus;

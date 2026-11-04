@@ -8,7 +8,7 @@ import {
   resolveYgdkTermTarget,
   resolveYgdkWeekLimit,
   ygdkProgressPercent,
-} from "@/utils/ygdk";
+} from "@/domain/ygdk";
 
 describe("ygdk utils", () => {
   it("目标校验上下界", () => {

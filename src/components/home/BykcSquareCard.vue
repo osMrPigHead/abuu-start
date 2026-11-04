@@ -9,7 +9,7 @@ import type { SourceStatus } from "@/types";
 import {
   resolveSourcePlaceholder,
   sourceCardState,
-} from "@/utils/sourceStatus";
+} from "@/domain/sourceStatus";
 
 const props = withDefaults(
   defineProps<{

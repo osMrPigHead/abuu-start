@@ -8,7 +8,7 @@ import {
   formatExamTimeText,
   formatExamWeek,
   isExamEnded,
-} from "@/utils/exams";
+} from "@/domain/exams";
 
 const props = withDefaults(
   defineProps<{

@@ -1,8 +1,8 @@
 /** 快捷方式拖拽：画布落点、行内插入序号与插入线。 */
 import { computed, ref, type CSSProperties } from "vue";
 import type { Shortcut } from "@/types";
-import { HOME_ROW_HEIGHT_REM } from "@/utils/homeLayout";
-import { resolveShortcutDrop } from "@/utils/shortcut";
+import { HOME_ROW_HEIGHT_REM } from "@/domain/homeLayout";
+import { resolveShortcutDrop } from "@/domain/shortcut";
 import type { ShortcutPlacement } from "@/composables/useHomeBoard";
 
 type BooleanSource = {

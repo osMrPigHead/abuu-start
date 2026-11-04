@@ -2,7 +2,7 @@
 import { nextTick, ref } from "vue";
 import { useShortcuts } from "@/composables/useShortcuts";
 import type { Shortcut } from "@/types";
-import type { ShortcutDraft } from "@/utils/shortcut";
+import type { ShortcutDraft } from "@/domain/shortcut";
 
 export function useShortcutEditor() {
   const {

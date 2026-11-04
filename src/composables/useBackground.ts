@@ -7,7 +7,7 @@ import {
 } from "@/api/background";
 import { ApiError } from "@/api/client";
 import type { BackgroundImage, BackgroundManifest } from "@shared/api";
-import { pickBuiltinBackground } from "@/utils/builtinBackground";
+import { pickBuiltinBackground } from "@/domain/background";
 
 export type BackgroundBusyAction = "save" | "rescan" | "clear";
 

@@ -9,7 +9,7 @@ import {
   courseHighlightState,
   DEFAULT_HIGHLIGHT_LEAD_MINUTES,
   type CourseHighlight,
-} from "@/utils/schedule";
+} from "@/domain/schedule";
 
 const props = withDefaults(
   defineProps<{

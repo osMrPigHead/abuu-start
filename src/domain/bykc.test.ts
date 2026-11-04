@@ -10,7 +10,7 @@ import {
   formatBykcDetailTime,
   formatBykcListTime,
   parseBykcDateTime,
-} from "@/utils/bykc";
+} from "@/domain/bykc";
 
 function chosen(overrides: Partial<BykcChosenCourse> = {}): BykcChosenCourse {
   return {

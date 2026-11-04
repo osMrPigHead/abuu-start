@@ -6,7 +6,7 @@ import {
   formatSpocStart,
   spocCourseLine,
   spocSubmissionLabel,
-} from "@/utils/spoc";
+} from "@/domain/spoc";
 
 const props = defineProps<{
   assignment: SpocAssignment;

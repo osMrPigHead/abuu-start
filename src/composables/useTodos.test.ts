@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Todo } from "@/types";
-import { STORAGE_KEYS } from "@/utils/storage";
-import type { TodoDraft } from "@/utils/todo";
+import { STORAGE_KEYS } from "@/cache/storage";
+import type { TodoDraft } from "@/domain/todo";
 
 async function loadTodos(stored?: unknown) {
   window.localStorage.clear();

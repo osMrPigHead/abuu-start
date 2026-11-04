@@ -6,7 +6,7 @@
 import { isAuthBlocked, markSourceExpired } from "@/composables/useAuth";
 import type { AuthSourceId } from "@shared/auth";
 import type { ApiErrorCode, SourceStatus } from "@/types";
-import { mapApiError } from "@/utils/apiError";
+import { mapApiError } from "@/api/errors";
 
 export type SourceLifecycle = {
   status: SourceStatus;

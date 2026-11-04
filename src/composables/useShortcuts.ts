@@ -6,8 +6,8 @@ import {
   normalizeShortcutUrl,
   SHORTCUT_ROW_COUNT,
   type ShortcutDraft,
-} from "@/utils/shortcut";
-import { readJson, STORAGE_KEYS, writeJson } from "@/utils/storage";
+} from "@/domain/shortcut";
+import { readJson, STORAGE_KEYS, writeJson } from "@/cache/storage";
 
 /** 预置快捷方式，见 docs/prd.md 3.2；默认分到前两行。 */
 const PRESET_SHORTCUTS: readonly Shortcut[] = [

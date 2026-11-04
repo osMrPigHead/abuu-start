@@ -5,20 +5,20 @@ import { ApiError } from "@/api/client";
 import { isAuthBlocked, markSourceExpired } from "@/composables/useAuth";
 import type { SectionTime, Term, Week, WeekSource } from "@shared/api";
 import type { ScheduleCache, SourceStatus, WeekCache } from "@/types";
-import { mapApiError } from "@/utils/apiError";
-import { readScheduleCache, persistScheduleCache } from "@/utils/scheduleCache";
-import { sortCourses } from "@/utils/schedule";
-import { remove, STORAGE_KEYS } from "@/utils/storage";
+import { mapApiError } from "@/api/errors";
+import { readScheduleCache, persistScheduleCache } from "@/cache/schedule";
+import { sortCourses } from "@/domain/schedule";
+import { remove, STORAGE_KEYS } from "@/cache/storage";
 import {
   createEmptySectionTimes,
   createEmptyWeekEntry,
   resolveCurrentWeek,
   type WeekEntry,
-} from "@/utils/week";
+} from "@/domain/week";
 
 const DEFAULT_WARNING = "无法确定当前教学周，默认第 1 周";
 
-export type { WeekEntry } from "@/utils/week";
+export type { WeekEntry } from "@/domain/week";
 
 type WeekMeta = {
   term: Term | null;

@@ -5,7 +5,7 @@ import {
   DEFAULT_HIGHLIGHT_LEAD_MINUTES,
   MAX_HIGHLIGHT_LEAD_MINUTES,
   MIN_HIGHLIGHT_LEAD_MINUTES,
-} from "@/utils/schedule";
+} from "@/domain/schedule";
 
 const props = defineProps<{
   leadMinutes: number;

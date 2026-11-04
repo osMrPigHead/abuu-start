@@ -5,7 +5,7 @@ import {
   needsSettingsSource,
   resolveAggregateSourceBadge,
   resolveSourceBadge,
-} from "@/utils/sourceStatus";
+} from "@/domain/sourceStatus";
 
 describe("source status", () => {
   it("cacheBadge 显示缓存时间或兜底文案", () => {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import SettingsSection from "@/components/settings/SettingsSection.vue";
-import type { BuiltinBackground } from "@/utils/builtinBackground";
+import type { BuiltinBackground } from "@/domain/background";
 
 type BackgroundStateView = {
   directory: string | null;

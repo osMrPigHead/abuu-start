@@ -35,8 +35,8 @@ import { useSpoc, useSpocDetail } from "@/composables/useSpoc";
 import { useTodos } from "@/composables/useTodos";
 import { useYgdk } from "@/composables/useYgdk";
 import { useYgdkSettings } from "@/composables/useYgdkSettings";
-import { filterOpenSpocAssignments } from "@/utils/spoc";
-import { resolveYgdkTermTarget, resolveYgdkWeekLimit } from "@/utils/ygdk";
+import { filterOpenSpocAssignments } from "@/domain/spoc";
+import { resolveYgdkTermTarget, resolveYgdkWeekLimit } from "@/domain/ygdk";
 
 const { now } = useClock();
 const { now: spocNow } = useClock(30_000);

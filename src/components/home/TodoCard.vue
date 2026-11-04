@@ -11,8 +11,8 @@ import type { SourceStatus, Todo } from "@/types";
 import {
   resolveSourcePlaceholder,
   sourceCardState,
-} from "@/utils/sourceStatus";
-import type { TodoDraft } from "@/utils/todo";
+} from "@/domain/sourceStatus";
+import type { TodoDraft } from "@/domain/todo";
 
 const props = withDefaults(
   defineProps<{

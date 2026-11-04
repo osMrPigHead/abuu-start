@@ -6,7 +6,7 @@ import {
   bykcStatusLabel,
   formatBykcCardTime,
   formatBykcListTime,
-} from "@/utils/bykc";
+} from "@/domain/bykc";
 
 const props = withDefaults(
   defineProps<{

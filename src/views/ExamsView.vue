@@ -6,7 +6,7 @@ import PageStateNotice from "@/components/common/PageStateNotice.vue";
 import SourceStatusLine from "@/components/common/SourceStatusLine.vue";
 import { useClock } from "@/composables/useClock";
 import { useExams } from "@/composables/useExams";
-import { groupExams } from "@/utils/exams";
+import { groupExams } from "@/domain/exams";
 
 const { state, refresh } = useExams();
 const { now } = useClock(30_000);

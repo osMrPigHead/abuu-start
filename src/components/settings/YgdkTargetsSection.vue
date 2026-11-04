@@ -8,7 +8,7 @@ import {
   MAX_YGDK_WEEK_TARGET,
   MIN_YGDK_TERM_TARGET,
   MIN_YGDK_WEEK_TARGET,
-} from "@/utils/ygdk";
+} from "@/domain/ygdk";
 
 const props = defineProps<{
   termTarget: number;

@@ -6,15 +6,15 @@ import { computed, ref } from "vue";
 import type { Todo } from "@/types";
 import { asString, isRecord } from "@/utils/guards";
 import { createId } from "@/utils/id";
-import { nextRepeatDueAt, parseLocalDateTime } from "@/utils/repeat";
+import { nextRepeatDueAt, parseLocalDateTime } from "@/domain/repeat";
 import {
   isTodoPriority,
   isTodoRepeat,
   normalizeTodoDraft,
   sortTodos,
   type TodoDraft,
-} from "@/utils/todo";
-import { readJson, STORAGE_KEYS, writeJson } from "@/utils/storage";
+} from "@/domain/todo";
+import { readJson, STORAGE_KEYS, writeJson } from "@/cache/storage";
 
 const todos = ref<Todo[]>([]);
 let hydrated = false;

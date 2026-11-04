@@ -5,8 +5,8 @@ import {
   pomodoroNotificationPermission,
   requestPomodoroNotificationPermission,
   showPomodoroNotification,
-} from "@/utils/pomodoro";
-import { readJson, STORAGE_KEYS, writeJson } from "@/utils/storage";
+} from "@/utils/pomodoroNotifications";
+import { readJson, STORAGE_KEYS, writeJson } from "@/cache/storage";
 
 const storedPreference = readJson<boolean>(STORAGE_KEYS.pomodoroNotifications);
 const hasStoredPreference =

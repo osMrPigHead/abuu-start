@@ -4,7 +4,7 @@ import {
   normalizeShortcutUrl,
   resolveShortcutDrop,
   shortcutWidthRem,
-} from "@/utils/shortcut";
+} from "@/domain/shortcut";
 
 describe("shortcut utils", () => {
   it("normalizeShortcutUrl 只接受绝对 http(s)", () => {

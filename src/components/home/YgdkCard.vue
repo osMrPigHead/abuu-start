@@ -7,12 +7,12 @@ import type { SourceStatus } from "@/types";
 import {
   resolveSourcePlaceholder,
   sourceCardState,
-} from "@/utils/sourceStatus";
+} from "@/domain/sourceStatus";
 import {
   DEFAULT_YGDK_TERM_TARGET,
   DEFAULT_YGDK_WEEK_TARGET,
   ygdkProgressPercent,
-} from "@/utils/ygdk";
+} from "@/domain/ygdk";
 
 const props = withDefaults(
   defineProps<{

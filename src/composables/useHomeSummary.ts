@@ -5,26 +5,26 @@ import { useExams } from "@/composables/useExams";
 import { useSchedule } from "@/composables/useSchedule";
 import { useScheduleSettings } from "@/composables/useScheduleSettings";
 import { addDays, formatDateKey, startOfWeekMonday } from "@/utils/date";
-import { recentExamEntries } from "@/utils/exams";
+import { recentExamEntries } from "@/domain/exams";
 import {
   courseDisplayName,
   findCourseStates,
   mergeCoursesForDate,
-} from "@/utils/schedule";
+} from "@/domain/schedule";
 import {
   canRetrySource,
   needsSettingsSource,
   resolveAggregateSourceBadge,
   resolveSourcePlaceholder,
   type SourceBadgeState,
-} from "@/utils/sourceStatus";
+} from "@/domain/sourceStatus";
 import {
   createEmptyWeekEntry,
   resolveMaxWeek,
   weekNumberForDate,
   weekRowState,
   type WeekEntry,
-} from "@/utils/week";
+} from "@/domain/week";
 
 export function useHomeSummary(now: Ref<Date>) {
   const { meta, entries, loadWeek, refreshCurrent, weekView } = useSchedule();

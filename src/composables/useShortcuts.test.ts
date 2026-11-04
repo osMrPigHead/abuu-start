@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Shortcut } from "@/types";
-import { STORAGE_KEYS } from "@/utils/storage";
+import { STORAGE_KEYS } from "@/cache/storage";
 
 async function loadShortcuts(stored?: unknown) {
   window.localStorage.clear();

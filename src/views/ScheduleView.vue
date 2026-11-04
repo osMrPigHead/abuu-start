@@ -8,21 +8,13 @@ import { useClock } from "@/composables/useClock";
 import { useBykcChosen } from "@/composables/useBykcChosen";
 import { useSchedule, type WeekEntry } from "@/composables/useSchedule";
 import { useScheduleSettings } from "@/composables/useScheduleSettings";
-import { bykcChosenCoursesOnDate } from "@/utils/bykc";
+import { bykcChosenCoursesOnDate } from "@/domain/bykc";
 import { formatDateKey } from "@/utils/date";
-import { coursesOnDay, sortCourses } from "@/utils/schedule";
-import { buildWeekDays, weekDateRange } from "@/utils/week";
+import { coursesOnDay, sortCourses } from "@/domain/schedule";
+import { buildWeekDays, weekDateRange } from "@/domain/week";
 
-const {
-  meta,
-  refreshCurrent,
-  loadWeek,
-  weekView,
-} = useSchedule();
-const {
-  state: bykcChosenState,
-  refresh: refreshBykcChosen,
-} = useBykcChosen();
+const { meta, refreshCurrent, loadWeek, weekView } = useSchedule();
+const { state: bykcChosenState, refresh: refreshBykcChosen } = useBykcChosen();
 const { highlightLeadMinutes } = useScheduleSettings();
 const { now } = useClock(Math.max(5, highlightLeadMinutes.value) * 1000);
 

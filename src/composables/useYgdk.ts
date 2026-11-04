@@ -10,7 +10,7 @@ import {
   readJson,
   STORAGE_KEYS,
   writeJson,
-} from "@/utils/storage";
+} from "@/cache/storage";
 
 type YgdkState = {
   status: SourceStatus;

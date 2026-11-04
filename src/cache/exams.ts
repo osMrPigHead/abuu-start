@@ -7,8 +7,8 @@ import {
   nullableText,
   toPositiveInteger,
 } from "@/utils/guards";
-import { readJson, STORAGE_KEYS, writeJson } from "@/utils/storage";
-import { normalizeTerm } from "@/utils/term";
+import { readJson, STORAGE_KEYS, writeJson } from "@/cache/storage";
+import { normalizeTerm } from "@/domain/term";
 
 export function readExamsCache(): ExamsCache | null {
   const raw = readJson<unknown>(STORAGE_KEYS.examsCache);

@@ -6,7 +6,7 @@ import HomeCard from "@/components/home/HomeCard.vue";
 import ScheduleDayRow from "@/components/schedule/ScheduleDayRow.vue";
 import type { SectionTime } from "@shared/api";
 import type { Course, SourceStatus } from "@/types";
-import type { ExamEntry } from "@/utils/exams";
+import type { ExamEntry } from "@/domain/exams";
 
 const props = defineProps<{
   badge: string;

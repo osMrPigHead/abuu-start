@@ -1,5 +1,5 @@
 /** 主页功能区布局：卡片开关后的重排规则，见 docs/ui-lowfi.md 主页。 */
-import { SHORTCUT_MIN_WIDTH_REM, SHORTCUT_ROW_COUNT } from "@/utils/shortcut";
+import { SHORTCUT_MIN_WIDTH_REM, SHORTCUT_ROW_COUNT } from "@/domain/shortcut";
 
 export type HomeCardId = "schedule" | "bykc" | "todo" | "focus" | "ygdk";
 

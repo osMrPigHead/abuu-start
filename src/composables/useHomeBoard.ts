@@ -8,8 +8,8 @@ import {
   HOME_ROW_HEIGHT_REM,
   type HomeCardVisibility,
   type PlacementGeometry,
-} from "@/utils/homeLayout";
-import { normalizeShortcutRow, shortcutWidthRem } from "@/utils/shortcut";
+} from "@/domain/homeLayout";
+import { normalizeShortcutRow, shortcutWidthRem } from "@/domain/shortcut";
 
 export type ShortcutPlacement = PlacementGeometry & {
   id: string;

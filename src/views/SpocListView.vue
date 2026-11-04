@@ -9,7 +9,7 @@ import SpocDetailDialog from "@/components/spoc/SpocDetailDialog.vue";
 import { useClock } from "@/composables/useClock";
 import { useSpoc, useSpocDetail } from "@/composables/useSpoc";
 import type { SpocAssignment } from "@shared/api";
-import { filterOpenSpocAssignments } from "@/utils/spoc";
+import { filterOpenSpocAssignments } from "@/domain/spoc";
 
 const { state, refresh } = useSpoc();
 const {

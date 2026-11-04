@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { Todo } from "@/types";
-import { formatTodoDue, todoPriorityLabel } from "@/utils/todo";
+import { formatTodoDue, todoPriorityLabel } from "@/domain/todo";
 
 const props = defineProps<{
   todo: Todo;

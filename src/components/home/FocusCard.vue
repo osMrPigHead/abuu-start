@@ -8,7 +8,7 @@ import {
   POMODORO_PHASE_LABELS,
   validatePomodoroSettings,
   type PomodoroPhase,
-} from "@/utils/pomodoro";
+} from "@/domain/pomodoro";
 
 const props = defineProps<{
   settings: PomodoroSettings;

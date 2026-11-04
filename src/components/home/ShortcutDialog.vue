@@ -2,7 +2,7 @@
 import { nextTick, ref, watch } from "vue";
 import AppDialog from "@/components/common/AppDialog.vue";
 import type { Shortcut } from "@/types";
-import { normalizeShortcutUrl, type ShortcutDraft } from "@/utils/shortcut";
+import { normalizeShortcutUrl, type ShortcutDraft } from "@/domain/shortcut";
 
 const props = defineProps<{
   open: boolean;

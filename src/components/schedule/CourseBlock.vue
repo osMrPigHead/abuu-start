@@ -8,7 +8,7 @@ import {
   courseSectionLabel,
   courseTimeLabel,
   type CourseHighlight,
-} from "@/utils/schedule";
+} from "@/domain/schedule";
 
 const props = withDefaults(
   defineProps<{

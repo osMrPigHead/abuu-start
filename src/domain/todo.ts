@@ -1,7 +1,7 @@
 /** 待办草稿校验、排序与展示文案，见 docs/trd.md 7.4。 */
 import type { Todo } from "@/types";
 import { formatDateTimeValue } from "@/utils/dateTime";
-import { parseLocalDateTime } from "@/utils/repeat";
+import { parseLocalDateTime } from "@/domain/repeat";
 
 export type TodoDraft = Pick<
   Todo,

@@ -9,7 +9,7 @@ import {
   parseSpocDateTime,
   spocCourseLine,
   spocSubmissionLabel,
-} from "@/utils/spoc";
+} from "@/domain/spoc";
 
 function assignment(overrides: Partial<SpocAssignment> = {}): SpocAssignment {
   return {

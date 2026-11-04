@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PomodoroSettings } from "@/types";
-import { STORAGE_KEYS } from "@/utils/storage";
+import { STORAGE_KEYS } from "@/cache/storage";
 
 class FakeNotification {
   static permission: NotificationPermission = "granted";

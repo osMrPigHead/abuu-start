@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mount } from "@vue/test-utils";
 import CourseBlock from "@/components/schedule/CourseBlock.vue";
 import type { Course } from "@/types";
-import { DEFAULT_SECTION_TIMES } from "@/utils/schedule";
+import { DEFAULT_SECTION_TIMES } from "@/domain/schedule";
 
 const sectionTimes = [...DEFAULT_SECTION_TIMES];
 

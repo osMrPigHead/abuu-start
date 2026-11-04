@@ -4,7 +4,7 @@ import { fetchBykcCourse } from "@/api/bykc";
 import { createCachedDetailSource } from "@/composables/useSourceState";
 import type { BykcCourse, BykcCourseDetail } from "@shared/api";
 import type { SourceStatus } from "@/types";
-import { readBykcCourseCache, writeBykcCourseCache } from "@/utils/bykcCache";
+import { readBykcCourseCache, writeBykcCourseCache } from "@/cache/bykc";
 
 type BykcDetailState = {
   courseId: number | null;

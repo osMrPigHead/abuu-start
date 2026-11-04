@@ -4,8 +4,8 @@ import {
   DEFAULT_HIGHLIGHT_LEAD_MINUTES,
   MAX_HIGHLIGHT_LEAD_MINUTES,
   MIN_HIGHLIGHT_LEAD_MINUTES,
-} from "@/utils/schedule";
-import { readJson, STORAGE_KEYS, writeJson } from "@/utils/storage";
+} from "@/domain/schedule";
+import { readJson, STORAGE_KEYS, writeJson } from "@/cache/storage";
 
 const state = reactive({
   highlightLeadMinutes: loadHighlightLeadMinutes(),

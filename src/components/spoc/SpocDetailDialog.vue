@@ -4,7 +4,7 @@ import AppDialog from "@/components/common/AppDialog.vue";
 import SourceStatusLine from "@/components/common/SourceStatusLine.vue";
 import type { SpocAssignment, SpocAssignmentDetail } from "@shared/api";
 import type { SourceStatus } from "@/types";
-import { formatSpocDue, formatSpocStart } from "@/utils/spoc";
+import { formatSpocDue, formatSpocStart } from "@/domain/spoc";
 
 const props = withDefaults(
   defineProps<{

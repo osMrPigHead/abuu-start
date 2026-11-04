@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import SettingsSection from "@/components/settings/SettingsSection.vue";
 import type { HomeCardId } from "@/composables/useHomeCards";
-import type { HomeCardVisibility } from "@/utils/homeLayout";
+import type { HomeCardVisibility } from "@/domain/homeLayout";
 
 defineProps<{
   options: readonly { id: HomeCardId; title: string; hint: string }[];
