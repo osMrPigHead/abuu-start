@@ -48,7 +48,7 @@ const {
   enterMinimalMode,
   exitMinimalMode,
 } = useHomeDisplay();
-const { hydrateAll, refreshVisible } = useDataSourceActions();
+const { refreshVisible } = useDataSourceActions();
 
 /** 仅时钟与背景模式只在本页（`/`）生效，离开主页不影响子页面。 */
 const minimalMode = computed(() => homeDisplay.minimalMode);
@@ -197,11 +197,6 @@ const {
   moveShortcutTo,
 });
 
-/** 缓存优先：只读 localStorage，不发请求。 */
-function hydrateHomeData(): void {
-  hydrateAll();
-}
-
 /** 卡片关闭时不请求；功能区隐藏或仅时钟模式下整体不请求。 */
 function refreshHomeData(): void {
   refreshVisible(cardVisibility);
@@ -209,11 +204,10 @@ function refreshHomeData(): void {
 }
 
 onMounted(() => {
-  hydrateHomeData();
   if (homeAreaVisible.value) refreshHomeData();
 });
 
-/** 恢复显示时按缓存优先刷新；进入仅时钟模式或隐藏功能区时先退出编辑并关闭弹层。 */
+/** 恢复显示时按卡片开关刷新；进入仅时钟模式或隐藏功能区时先退出编辑并关闭弹层。 */
 watch(homeAreaVisible, (visible) => {
   if (!visible) {
     closeHomeEditing();
@@ -223,7 +217,6 @@ watch(homeAreaVisible, (visible) => {
     return;
   }
 
-  hydrateHomeData();
   refreshHomeData();
 });
 

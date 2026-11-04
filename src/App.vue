@@ -48,6 +48,7 @@ function onBackgroundError(): void {
 }
 
 onMounted(() => {
+  // 背景清单只在这里读一次（docs/trd-phase3.md 7.5）；页面不得重复调用。
   void hydrate();
 });
 </script>

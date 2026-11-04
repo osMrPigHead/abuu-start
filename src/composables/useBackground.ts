@@ -63,6 +63,11 @@ export function useBackground() {
   };
 }
 
+/**
+ * 应用启动时由 App.vue 调用一次 `GET /api/background`，见 docs/trd-phase3.md 7.5。
+ * 记忆化后不再重试；页面不得重复调用——它一旦真正重跑就会重新随机选图，
+ * 与「同一 SPA 会话内所有页面共用一张图」冲突。
+ */
 function hydrate(): Promise<void> {
   if (hydratePromise) return hydratePromise;
 

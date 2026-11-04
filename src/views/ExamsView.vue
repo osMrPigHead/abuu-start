@@ -8,10 +8,8 @@ import { useClock } from "@/composables/useClock";
 import { useExams } from "@/composables/useExams";
 import { groupExams } from "@/utils/exams";
 
-const { state, hydrate, refresh } = useExams();
+const { state, refresh } = useExams();
 const { now } = useClock(30_000);
-
-hydrate();
 
 const groups = computed(() => groupExams(state.exams, now.value));
 const hasUpcoming = computed(() => groups.value.upcoming.length > 0);

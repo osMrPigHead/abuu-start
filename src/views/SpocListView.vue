@@ -11,7 +11,7 @@ import { useSpoc, useSpocDetail } from "@/composables/useSpoc";
 import type { SpocAssignment } from "@shared/api";
 import { filterOpenSpocAssignments } from "@/utils/spoc";
 
-const { state, hydrate, refresh } = useSpoc();
+const { state, refresh } = useSpoc();
 const {
   state: detailState,
   open: openDetail,
@@ -25,8 +25,6 @@ onBeforeUnmount(closeDetail);
 const route = useRoute();
 const router = useRouter();
 const { now } = useClock(30_000);
-
-hydrate();
 
 const assignments = computed(() =>
   filterOpenSpocAssignments(state.assignments, now.value),

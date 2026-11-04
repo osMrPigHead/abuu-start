@@ -15,14 +15,12 @@ import { buildWeekDays, weekDateRange } from "@/utils/week";
 
 const {
   meta,
-  hydrate: hydrateSchedule,
   refreshCurrent,
   loadWeek,
   weekView,
 } = useSchedule();
 const {
   state: bykcChosenState,
-  hydrate: hydrateBykcChosen,
   refresh: refreshBykcChosen,
 } = useBykcChosen();
 const { highlightLeadMinutes } = useScheduleSettings();
@@ -31,8 +29,7 @@ const { now } = useClock(Math.max(5, highlightLeadMinutes.value) * 1000);
 const today = computed(() => now.value);
 const userNavigated = ref(false);
 
-hydrateSchedule();
-
+// meta 已由 useSchedule() 构造期读取缓存填充，下一行的初始周次依赖它。
 const selectedWeek = ref(meta.currentWeek ?? 1);
 const selectedView = computed(() => weekView(selectedWeek.value));
 
@@ -99,8 +96,6 @@ watch(
 );
 
 onMounted(() => {
-  hydrateSchedule();
-  hydrateBykcChosen();
   void refreshCurrent();
   void refreshBykcChosen();
 });

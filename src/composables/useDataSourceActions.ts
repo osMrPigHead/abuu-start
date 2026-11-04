@@ -1,4 +1,4 @@
-/** 跨数据源的统一 hydrate/refresh/clear 编排，避免页面各自维护数据源列表。 */
+/** 跨数据源的统一 refresh/clear 编排，避免页面各自维护数据源列表；缓存读取由各 composable 构造期完成。 */
 import { useBykcChosen } from "@/composables/useBykcChosen";
 import { useBykcDetail } from "@/composables/useBykcDetail";
 import { useBykc } from "@/composables/useBykcList";
@@ -17,15 +17,6 @@ export function useDataSourceActions() {
   const bykc = useBykc();
   const bykcChosen = useBykcChosen();
   const bykcDetail = useBykcDetail();
-
-  /** 只读缓存，不发请求。 */
-  function hydrateAll(): void {
-    schedule.hydrate();
-    exams.hydrate();
-    spoc.hydrate();
-    ygdk.hydrate();
-    bykcChosen.hydrate();
-  }
 
   /** 刷新全部业务数据源；博雅广场只刷新当前页。 */
   function refreshAll(): void {
@@ -62,7 +53,6 @@ export function useDataSourceActions() {
   }
 
   return {
-    hydrateAll,
     refreshAll,
     refreshVisible,
     clearBusinessCaches,

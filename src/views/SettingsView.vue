@@ -44,7 +44,6 @@ const { visibility: homeCardVisibility, setVisible: setHomeCardVisible } =
 const {
   state: backgroundState,
   builtinBackground,
-  hydrate: hydrateBackground,
   saveDirectory: saveBackgroundDirectory,
   clearDirectory: clearBackgroundDirectory,
   rescan: rescanBackground,
@@ -104,7 +103,6 @@ onMounted(() => {
     stopDerivationPolling = pollWhileDeriving();
   });
   refreshPomodoroNotificationPermission();
-  void hydrateBackground();
 });
 
 onUnmounted(() => {
