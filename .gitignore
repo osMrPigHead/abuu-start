@@ -1,6 +1,8 @@
 private
 _site
 *.tmp
+_site
+.eslintcache
 
 # Logs
 logs

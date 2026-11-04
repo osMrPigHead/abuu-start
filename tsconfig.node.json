@@ -13,6 +13,11 @@
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
     "noEmit": true,
+    "paths": {
+      "@shared/*": ["./shared/*"]
+    },
+    /* express 的类型声明是 export =，生产入口按默认导入使用 */
+    "esModuleInterop": true,
 
     /* Linting */
     "strict": true,
@@ -21,5 +26,5 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["vite.config.ts", "server/**/*.ts"]
+  "include": ["vite.config.ts", "vitest.config.ts", "server/**/*.ts"]
 }

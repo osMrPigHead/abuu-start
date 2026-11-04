@@ -1,79 +1,118 @@
 # 航启主页 / BUAA-Start TRD
 
-> 三阶段变更：统一登录、中继加密凭据、背景目录、主页显示开关与卡片开关以 [trd-phase3.md](trd-phase3.md) 为准。本文第 1 节“凭据随请求头发送”的机制自三阶段起不再适用。
+> 本文是当前唯一的技术设计文档，描述已实现的功能与实现口径。需求见 [prd.md](prd.md)，UI 布局见 [ui-lowfi.md](ui-lowfi.md)，北航上游接口见 [api.md](api.md)。目录分层与编码约束同时见仓库根目录 `AGENTS.md`。
 
-## 1. 技术路线
+## 1. 技术路线与范围
 
-- 前端：Vue 3 Composition API + `<script setup lang="ts">`，TypeScript strict，Vite，Tailwind CSS，Vue Router 4。
-- 状态：`reactive` / `ref` composable，不引入 Pinia；跨页面共享的数据用模块级单例 composable。
-- 中继：Node 22 LTS 的 TypeScript 模块，作为 Vite 插件同时挂到开发服务器与 `vite preview`，只监听 `127.0.0.1`。
-- 对外接口：资源型只读 `GET /api/*`；中继内部再调用上游的 GET/POST、AES、Token 头。前端不接触上游路径。
-- byxt 认证：用户在设置页粘贴浏览器 Cookie；中继通过 `X-Byxt-Cookie` 请求头接收，原样转发。
-- SPOC 认证：用户粘贴 `Token` 与 `RoleCode`；中继通过 `X-Spoc-Token`、`X-Spoc-Role` 请求头接收，原样转发。HAR 已确认 SPOC 业务请求不带 Cookie。
-- 数据源：byxt 仅使用 `currentUser`、`getTermWeeks`、`getMyScheduleDetail`、`exams`；SPOC 使用 `queryOne`（失败回退 `queryList`）、`queryKclb`、`queryListByPage`、`queryKczyInfoByid`、`queryXsSubmitKczyInfo`。详见 [api.md](docs/api.md)。
+### 1.1 技术栈与部署
+
+- 前端：Vue 3 Composition API + `<script setup lang="ts">`，TypeScript strict，Vite，Tailwind CSS，Vue Router 4；不引入 Pinia、React、SSR。
+- 状态：`reactive` / `ref` composable，模块级单例；跨页面共享的数据只通过 composable 暴露，不引入全局 store 库。
+- 中继：Node.js 22 LTS 的 TypeScript 模块，作为 Vite 插件同时挂到开发服务器与 `vite preview`；生产构建由 `npm start` 的本地 Express 服务同源提供 `dist` 与同一套 `/api`，只监听 `127.0.0.1`。
+- 对外接口：业务数据只读 `GET /api/*`；仅登录、登出、验证码预加载、单源重试与背景目录设置/重新扫描使用白名单 `POST`。中继内部再调用上游的 GET/POST、AES/RSA、Token 头；前端不接触上游路径。
+- HTTP：前端所有请求统一走 `src/api/client.ts`；`request` 负责 `GET`，`postJson` 只用于白名单 `POST`，网络失败与非 JSON 响应统一映射为 `RELAY_UNREACHABLE`。
 - 缓存：前端 localStorage，按数据源分键，缓存优先 + 后台刷新；不做定时轮询。
-- 本期不做：博雅、阳光打卡、多用户、移动端、SSR、Pinia、React、任何写操作。
+- 分层：`shared/` 放前后端共用类型、无副作用常量与纯校验函数；`src/domain/` 放无 Vue 依赖的领域规则；`src/cache/` 放 localStorage 读写与归一化；`src/composables/` 放模块级状态与流程；`views/` 不直接 `fetch`，`components/` 不读写 localStorage；`server/` 不引用前端代码。
+- 单用户、本机数据、桌面优先；不做移动端布局、账号切换与云端同步。
 
-### 1.1 已同步的实施口径
+### 1.2 功能范围
 
-- 本期仅支持本科 byxt；研究生 GSMIS 课表与考试不在范围。
-- SPOC 凭据为 Token + RoleCode（HAR 确认 SPOC 业务请求不带 Cookie）；PRD 3.8 已同步该措辞。
-- 日程详情按 [ui-lowfi.md](docs/ui-lowfi.md) 的“一行一天”实现，即周一至周日 7 行纵向周视图；PRD 3.5 已同步该表述。
-- 日程高亮沿用参考 A：课程开始前 N 分钟内暖色并以 1.1s 周期闪烁、进行中冷色；主页日程卡片首行提示在两者同时成立时显示“正在上课”但使用暖色，仅进行中时冷色，其余不高亮。N 默认 30，范围 0–180，0 表示关闭提前高亮。
-- 考试本期不接入数据：主页考试信息行与 `/exams` 保持占位，`/schedule` 不渲染考试标记；设置页 SPOC 凭据区保留但禁用。
-- 考试详情后续口径：未开始考试按月分组，已结束考试统一置底并标注；PRD 与 UI 文档均按此口径。
-- UI 文档已补齐状态行、成绩/附件、番茄钟阶段/轮次、增删改入口、详情/设置入口；专注卡片的“终止”已改为“重置”。
-- PRD、UI 文档、API 文档与本 TRD 已按上述口径对齐。
+- 主页：时钟与日期、Bing 搜索、随机背景（内置图 + 本机目录）、快捷入口。
+- 本地待办 + SPOC 作业聚合；番茄钟与桌面通知。
+- 统一登录：中继完成学校统一认证，派生 byxt、SPOC、博雅、阳光四类数据源凭据。
+- 教务聚合：byxt 课表与考试、博雅已选课程与课程广场、SPOC 作业、阳光打卡概览。
+- 主页卡片开关与“仅时钟与背景模式”。
+- 桌面端响应式布局；不做移动端布局；具体响应式规则以 [ui-lowfi.md](ui-lowfi.md) 为准。
+
+### 1.3 非目标
+
+- 多用户、账号体系、权限管理、账号切换、云端同步。
+- 移动端布局、SSR、Pinia、React。
+- 任何教务业务写操作：作业提交、阳光打卡、博雅选退课/签到、教务管理操作、附件下载。
+- 研究生 GSMIS 课表；仅支持本科 byxt。
+- 注册、找回密码、修改密码；验证码识别、自动填写或第三方打码。
+- WebVPN、校外加密接入、连接模式选择。
+- 快捷入口自定义图标/分组、卡片顺序拖拽。
+- 博雅广场筛选与搜索、已选课程独立页面；阳光详情页；番茄钟专注统计、待办关联、自定义通知文案。
+- 背景轮播、定时切换、模糊度等外观自定义；用户目录图片复制进仓库。
+- 番茄钟后端计时、跨刷新恢复、页面关闭后通知；Web Push 与 Service Worker。
+
+### 1.4 已确认口径
+
+- 保存学号与密码，用加密文件保存，用于 SSO 会话失效后的自动重登；密码不写 localStorage、不返回前端、不写日志。
+- 凭据加密使用 **AES-256-GCM + 独立密钥文件**；不使用 Windows DPAPI、keychain 或原生依赖。
+- 登录成功即整体成功；四源异步派生，设置页轮询状态，失败项可单独重试，单源失败不阻塞整体。
+- 本机背景目录路径由中继保存在本机配置文件中；取图接口只接受当前目录内的第一层图片文件名。
+- 遇到“密码过期 / 账号存在安全风险”页时中止登录并提示用户处理，不自动提交 `ignoreAndContinue`。
+- 主页卡片关闭后功能区固定 11 行；关闭的卡片不占位，同列后续卡片上移。
+- 番茄钟只在页面内运行；刷新或关闭页面重置运行态，不新增计时后端。
+- 所有教务数据只读；不执行提交、打卡、选退课、签到、附件下载。
 
 ## 2. 目录结构
 
 ```text
 server/
-  relayPlugin.ts      Vite 插件：挂载 /api 中间件
-  routes.ts           路由表与请求分发
-  byxt.ts             byxt 上游调用与归一化
-  spoc.ts             SPOC 上游调用与归一化
-  spocCrypto.ts       SPOC 固定 AES 参数
-  http.ts             fetch 超时、错误、JSON 响应
-  errors.ts           错误码与 HTTP 状态映射
-  types.ts            中继侧类型
+  index.ts / relayPlugin.ts   生产与 Vite 入口
+  app/                        routes.ts、relayHttp.ts：白名单路由与 /api 边界
+  auth/                       session.ts、state.ts、preload.ts、login.ts、relogin.ts、
+                              deriveRunner.ts、derive.ts、deriveHelpers.ts、cas.ts、
+                              http.ts、cookieJar.ts、store.ts、crypto.ts、types.ts
+  core/                       datetime.ts、errors.ts、guards.ts、htmlText.ts、json.ts
+  http/                       fetch.ts、upstream.ts：上游 fetch、信封读取与超时
+  local/                      background.ts、settingsStore.ts：本机背景与设置
+  sources/                    byxt.ts、byxtWeek.ts、spoc.ts、bykc.ts、ygdk.ts：业务归一化
+  upstreams/                  urls.ts、byxtApi.ts、spocApi.ts、spocCrypto.ts、
+                              bykcApi.ts、bykcCrypto.ts、ygdkApi.ts、types.ts：协议层
+
+shared/                       api.ts、auth.ts、errors.ts、guards.ts、schedule.ts、validation.ts
+
 src/
-  api/client.ts       fetch 封装、错误映射
-  api/byxt.ts         /api/byxt/*
-  api/spoc.ts         /api/spoc/*
-  composables/        useClock、useTodos、usePomodoro、useCredentials、useSchedule、useExams、useSpoc...
-  components/         卡片、状态行、弹窗、周导航、课程块...
-  views/              Home、Schedule、Exams、SpocList、Settings
-  router.ts           Vue Router 4
-  types.ts            前端类型
-  utils/              日期、重复任务、番茄钟、favicon、存储
-  App.vue
-  main.ts
-  style.css
-vite.config.ts
+  api/                        client.ts、auth.ts、background.ts、byxt.ts、spoc.ts、
+                              bykc.ts、ygdk.ts、relay.ts、errors.ts
+  cache/                      storage.ts、schedule.ts、exams.ts、spoc.ts、bykc.ts、ygdk.ts
+  composables/                模块级状态与流程；如 useAuth、useBackground、useHomeCards、
+                              useHomeDisplay、useHomeBoard、useSchedule、useExams、useSpoc、
+                              useBykcChosen、useBykcList、useBykcDetail、useYgdk、useTodos、
+                              usePomodoro、useShortcuts、useSourceState、useDataSourceActions
+  components/                 auth/、bykc/、common/、exams/、home/、schedule/、settings/、
+                              spoc/、todo/
+  domain/                     无 Vue 依赖的领域规则：schedule、week、exams、bykc、spoc、
+                              ygdk、todo、repeat、pomodoro、shortcut、homeLayout、sourceStatus
+  views/                      HomeView、ScheduleView、ExamsView、SpocListView、BykcView、SettingsView
+  utils/                      日期、favicon、id、guards、番茄钟音频/通知
+  assets/backgrounds/         仓库内置背景图与来源清单
+  router.ts、types.ts、App.vue、main.ts、style.css
+
+scripts/check-shared-usage.mjs
+vite.config.ts / vitest.config.ts
 ```
 
 ## 3. 中继 API
 
 ### 3.1 通用约定
 
-- 监听：`127.0.0.1:5173`（dev）/ `127.0.0.1:4173`（preview）；只接受 Host 为 `127.0.0.1`、`localhost` 或 `[::1]` 的请求。
-- 方法：只接受 `GET`；其他方法返回 `405 METHOD_NOT_ALLOWED`。
-- 路径：未列出的 `/api/*` 返回 `404 NOT_FOUND`，不回退到 SPA。
-- 请求头：
-  - `X-Byxt-Cookie`：byxt Cookie 原文
-  - `X-Spoc-Token`：SPOC Token，可带或不带 `Inco-` 前缀
-  - `X-Spoc-Role`：SPOC RoleCode，如 `01`
-- 凭据只出现在请求头；不写入 URL、查询串、请求体、日志。
-- 响应：`Content-Type: application/json; charset=utf-8`，`Cache-Control: no-store`。
+- 监听：`127.0.0.1:5173`（dev）/ `127.0.0.1:4173`（preview）/ `127.0.0.1:3000`（`npm start`，可用 `PORT` 覆盖）；只接受 Host 为 `127.0.0.1`、`localhost` 或 `[::1]` 的请求，非本机 Host 返回 `404 NOT_FOUND`。
+- 方法：
+  - 业务数据只接受 `GET`。
+  - 仅 `/api/auth/preload`、`/api/auth/login`、`/api/auth/logout`、`/api/auth/sources/:source/retry`、`/api/background/directory`、`/api/background/rescan` 接受 `POST`。
+  - 非 `GET` / `POST` 方法返回 `405 METHOD_NOT_ALLOWED`；未列出的路径或方法组合返回 `404 NOT_FOUND`，不回退到 SPA。
+- 路由表按 `method + path` 匹配；`/api/spoc/assignments/:assignmentId` 与 `/api/bykc/courses/:id` 按前缀匹配，方法仍为 `GET`。
+- `POST` 请求体：
+  - 有请求体时，`Content-Type` 必须是 `application/json`（可带 `charset=utf-8`）；其他类型返回 `415 UNSUPPORTED_MEDIA`。
+  - 无请求体的接口（重试、登出、重新扫描）允许空 body。
+  - 最大 16 KB；超过返回 `413 PAYLOAD_TOO_LARGE`。
+  - 有 body 时必须是 JSON 对象；解析失败返回 `400 INVALID_REQUEST`。
+- 跨站防护：中继不返回 CORS 头；`POST` 要求 `Origin` 为当前页面源（`http://127.0.0.1:<port>` 或 `http://localhost:<port>`），缺失或不匹配返回 `403 FORBIDDEN_ORIGIN`；拒绝 `Sec-Fetch-Site: cross-site`。
+- 响应：
+  - JSON 接口：`Content-Type: application/json; charset=utf-8`，`Cache-Control: no-store`。
+  - 图片接口：按扩展名返回 `image/*`，`Cache-Control: no-store`，`X-Content-Type-Options: nosniff`。
 - 错误响应：
 
 ```json
 {
   "error": {
     "code": "AUTH_EXPIRED",
-    "message": "登录状态已失效",
-    "upstreamStatus": 200
+    "message": "登录状态已失效，请重新登录"
   }
 }
 ```
@@ -82,262 +121,472 @@ vite.config.ts
 
 | code | HTTP | 含义 |
 | --- | --- | --- |
-| `NO_CREDENTIAL` | 401 | 缺少对应凭据 |
-| `AUTH_EXPIRED` | 401 | 上游判定登录失效 |
-| `INVALID_REQUEST` | 400 | 参数不合法 |
+| `NO_CREDENTIAL` | 401 | 旧“逐项凭据”模式遗留；当前不再产生 |
+| `AUTH_REQUIRED` | 401 | 尚未登录 |
+| `INVALID_CREDENTIALS` | 401 | 学号或密码错误 |
+| `CAPTCHA_REQUIRED` | 401 | 需要验证码 |
+| `CAPTCHA_INVALID` | 401 | 验证码错误或过期 |
+| `PASSWORD_EXPIRED` | 403 | 密码过期或账号存在安全风险 |
+| `AUTH_EXPIRED` | 401 | 会话失效且自动重登失败 |
+| `LOGIN_IN_PROGRESS` | 409 | 已有登录请求在处理 |
+| `SOURCE_UNKNOWN` | 400 | 数据源不是 byxt/spoc/bykc/ygdk |
+| `SOURCE_BUSY` | 409 | 该数据源正在派生 |
+| `INVALID_REQUEST` | 400 | 参数或请求体不合法 |
 | `INVALID_WEEK` | 400 | 周次越界或非整数 |
-| `NOT_FOUND` | 404 | 资源不存在（如 SPOC 作业） |
-| `METHOD_NOT_ALLOWED` | 405 | 非 GET |
+| `INVALID_PAGE` | 400 | 页码或每页数量不合法 |
+| `INVALID_PATH` | 400 | 背景路径或文件名不合法 |
+| `PATH_UNAVAILABLE` | 422 | 背景目录不存在、不是目录或无权限 |
+| `NOT_FOUND` | 404 | 资源不存在 |
+| `METHOD_NOT_ALLOWED` | 405 | 方法不允许 |
+| `FORBIDDEN_ORIGIN` | 403 | POST 来源不合法 |
+| `UNSUPPORTED_MEDIA` | 415 | POST 不是 JSON 或图片格式不支持 |
+| `PAYLOAD_TOO_LARGE` | 413 | 请求体过大 |
 | `UPSTREAM_TIMEOUT` | 504 | 上游超时 |
 | `UPSTREAM_ERROR` | 502 | 上游非 2xx、业务码非成功或响应异常 |
 | `BAD_RESPONSE` | 502 | 响应不是预期 JSON |
 | `INTERNAL` | 500 | 中继自身异常 |
 
-- 日志：只记录 `method`、`path`、`status`、`durationMs`；不记录请求头、Cookie、Token、响应体。
+- `SOURCE_DERIVATION_FAILED` 只作为 `sources[].error.code` 返回，不单独作为 HTTP 状态。
+- `UPSTREAM_ERROR`、`UPSTREAM_TIMEOUT`、`BAD_RESPONSE` 表示网络或上游异常，不表示登录失效；只有 `AUTH_EXPIRED` 需要重新登录。上游 408/429/5xx、连接失败、DNS 失败与超时均归入此类。
+- 日志只记录 `method`、`path`、`status`、`durationMs`；不记录请求头、请求体、密码、验证码、Cookie、Token、`ak/sk/ts`、响应体。
 
-### 3.2 接口
+### 3.2 认证接口
 
-#### `GET /api/health`
+#### `POST /api/auth/preload`
 
-返回 `{ "ok": true }`。用于前端判断中继是否启动。
-
-#### `GET /api/byxt/status`
-
-校验 byxt Cookie，返回：
+获取登录页状态、验证码与一次登录尝试的 `loginId`。请求体为 `{}`。
 
 ```json
 {
-  "user": { "id": "2418...", "name": "张三" },
-  "term": { "code": "2026-20271", "name": "2026秋季" }
-}
-```
-
-上游依次调用 `currentUser`。失败返回 401 或 502。
-
-#### `GET /api/byxt/schedule?week=<n>`
-
-`week` 可省略；省略时按当前教学周。返回：
-
-```json
-{
-  "term": { "code": "2026-20271", "name": "2026秋季" },
-  "weeks": [
-    {
-      "serialNumber": 1,
-      "name": "第1周",
-      "startDate": "2026-09-07",
-      "endDate": "2026-09-13",
-      "curWeek": false
-    }
-  ],
-  "currentWeek": 8,
-  "weekSource": "weeks",
-  "week": {
-    "number": 8,
-    "sectionTimes": [{ "section": 1, "start": "08:00", "end": "08:45" }],
-    "courses": [
-      {
-        "courseCode": "B090011036",
-        "courseName": "工科高等代数",
-        "beginSection": 1,
-        "endSection": 2,
-        "beginTime": "08:00",
-        "endTime": "09:35",
-        "placeName": "主M101",
-        "weeksAndTeachers": "1-16周 郎荣玲",
-        "dayOfWeek": 1
-      }
-    ]
+  "loginId": "01J8Z0...",
+  "captchaRequired": true,
+  "captcha": {
+    "image": "data:image/jpeg;base64,...",
+    "expiresAt": "2026-10-27T10:30:00+08:00"
   },
-  "warning": null
+  "alreadyLoggedIn": false
 }
 ```
 
-- 上游：`currentUser` → `getTermWeeks` → `getMyScheduleDetail`。
-- `currentWeek`：优先按周次表日期；否则用 `welcomeInfo.classWeek`；都没有时为 `null`，`weekSource="default"`，取第 1 周并返回 `warning`。
-- `week` 越界或非整数：`INVALID_WEEK`。
-- `sectionTimes` 缺失时用固定作息表兜底（见 [api.md](docs/api.md)）。
-- 课程按 `dayOfWeek`、`beginSection`、`courseName` 稳定排序。
+- `loginId` 是随机不可猜测字符串，只在本次登录尝试内有效，默认 10 分钟；中继在内存中保存该次尝试的 Cookie 罐、`execution`、`captchaId` 与创建时间，上限 5 个，超出淘汰最旧。
+- `captchaRequired:false` 时不返回 `captcha`。
+- SSO 已有会话时返回 `alreadyLoggedIn:true`；前端可只提交 `loginId`，由中继用现有 SSO 会话完成 UC 激活。由于没有本次输入的密码，不会更新密码；若此前也没有持久化密码，则 `persisted:false`，自动重登不可用。
+- 上游失败 `502 UPSTREAM_ERROR`；超时 `504 UPSTREAM_TIMEOUT`。
 
-#### `GET /api/byxt/exams`
-
-返回：
+#### `POST /api/auth/login`
 
 ```json
 {
-  "term": { "code": "2026-20271", "name": "2026秋季" },
-  "exams": [
-    {
-      "courseName": "工科高等代数",
-      "examDate": "2026-11-10",
-      "startTime": "08:00",
-      "endTime": "10:00",
-      "examPlace": "主M101",
-      "examSeatNo": "12",
-      "week": 10,
-      "examTimeDescription": "第10周 周二 08:00-10:00"
-    }
-  ]
+  "loginId": "01J8Z0...",
+  "username": "2418xxxx",
+  "password": "********",
+  "captcha": "ab12"
 }
 ```
 
-- 上游：`currentUser` → `exams.do?termCode=`。
-- 只返回已排定条目：`examDate` 或 `startTime` 至少有一个。
-- 原样返回时间字符串，由前端按多格式解析；缺时间时用 `examTimeDescription` 展示。
-
-#### `GET /api/spoc/status`
-
-返回：
-
-```json
-{ "term": { "code": "2026-20271", "name": "2026秋季" } }
-```
-
-- 上游：`queryOne`；`dqxq`/`mrxq` 缺失时回退 `queryList`，取 `sfdqxq === "1"` 的学期。
-- 失败返回 401/502。
-
-#### `GET /api/spoc/assignments`
-
-返回：
+- `loginId` 必须存在且未过期；否则 `400 INVALID_REQUEST`。
+- `username`、`password` 在 `alreadyLoggedIn:false` 时必填；`captcha` 在预加载要求验证码时必填。
+- 同一时间只允许一个登录请求；重复提交返回 `409 LOGIN_IN_PROGRESS`。
+- 流程：
+  1. 取出该 `loginId` 的 Cookie 会话。
+  2. `alreadyLoggedIn:false` 时提交 SSO 表单；`alreadyLoggedIn:true` 时跳过提交。
+  3. 手动跟随跳转，处理 HTTP → HTTPS 升级与相对 `Location`。
+  4. 激活 UC，并用 `GET https://uc.buaa.edu.cn/api/uc/status` 校验。
+  5. 成功后建立内存会话，异步启动四源派生。
+  6. 尽力加密落盘；失败不阻塞本次运行。
+- 成功响应：
 
 ```json
 {
-  "term": { "code": "2026-20271", "name": "2026秋季" },
-  "assignments": [
-    {
-      "assignmentId": "08a0...",
-      "courseId": "2026-2027-1-B090011036-081011",
-      "courseName": "工科高等代数",
-      "teacherName": "郎荣玲",
-      "title": "20261026作业",
-      "startTime": "2026-10-26 00:00:00",
-      "dueTime": "2026-11-01 00:00:00",
-      "submissionStatus": "unsubmitted",
-      "submissionStatusText": "未提交"
-    }
-  ]
-}
-```
-
-- 上游：`queryOne`（失败回退 `queryList`）→ `queryKclb` → `queryListByPage`（翻页）。
-- 返回全部作业（含已提交、已截止）；前端按 PRD 过滤“未提交且未截止”。
-- 按 `dueTime` 升序，无截止时间置后；再按课程名、标题。
-- `queryKclb` 失败时继续：课程名用列表里的 `kcmc`，教师为 `null`。
-
-#### `GET /api/spoc/assignments/:assignmentId`
-
-返回：
-
-```json
-{
-  "assignment": {
-    "assignmentId": "08a0...",
-    "courseId": "2026-2027-1-B090011036-081011",
-    "courseName": "工科高等代数",
-    "teacherName": "郎荣玲",
-    "title": "20261026作业",
-    "startTime": "2026-10-26 00:00:00",
-    "dueTime": "2026-11-01 00:00:00",
-    "submissionStatus": "unsubmitted",
-    "submissionStatusText": "未提交",
-    "score": null,
-    "totalScore": "5",
-    "contentText": "P139：2（4）、（7）；12，14，16",
-    "attachments": [{ "name": "作业要求.pdf" }],
-    "submittedAt": null
+  "authenticated": true,
+  "user": { "name": "张三", "schoolid": "2418xxxx" },
+  "authenticatedAt": "2026-10-27T10:15:00+08:00",
+  "persisted": true,
+  "sources": {
+    "byxt": { "status": "pending", "updatedAt": null, "error": null },
+    "spoc": { "status": "pending", "updatedAt": null, "error": null },
+    "bykc": { "status": "pending", "updatedAt": null, "error": null },
+    "ygdk": { "status": "pending", "updatedAt": null, "error": null }
   }
 }
 ```
 
-- 上游：作业列表 + `queryKczyInfoByid` + `queryXsSubmitKczyInfo`。
-- 作业 id 只允许 `[A-Za-z0-9_-]`，长度 1-128；格式不合法返回 `INVALID_REQUEST`。
-- 作业 id 不在列表中：`404 NOT_FOUND`。
-- `queryXsSubmitKczyInfo` 失败时保留列表里的提交状态，不阻塞详情。
-- 分页最多 20 页，防止上游异常导致死循环。
-- `score` 取 `pf`；`totalScore` 取 `zyfs`。
-- `attachments` 取 `zyfjInfo.wjysmc`；`zyfjid` 存在但名称为空时返回 `附件（名称未返回）`。
-- `contentText` 由 `zynr` 去标签、解码常见实体后得到，不返回 HTML。
-- 只读：不提供提交、下载、附件打开。
+- `persisted:false` 时附加 `warning:"无法保存登录状态，本次运行内仍可使用"`。
+- 账号或密码错误：`401 INVALID_CREDENTIALS`；验证码错误或过期：`401 CAPTCHA_INVALID`；需要验证码但未提供：`401 CAPTCHA_REQUIRED`；密码过期/安全风险：`403 PASSWORD_EXPIRED`；上游 5xx/HTML：`502 UPSTREAM_ERROR`；超时：`504 UPSTREAM_TIMEOUT`。
+- 登录失败不清除已有缓存、已有设置或已保存的旧会话；只有成功登录才替换会话。
 
-### 3.3 上游细节
+#### `GET /api/auth/status`
 
-- 超时：单次上游 15 秒；超时映射 `UPSTREAM_TIMEOUT`。
-- 上游 fetch 使用 `redirect: "manual"`；3xx 按认证失效处理，不跟随到 SSO 登录页。
+返回本地认证快照，不主动请求上游。
+
+```json
+{
+  "authenticated": true,
+  "user": { "name": "张三", "schoolid": "2418xxxx" },
+  "authenticatedAt": "2026-10-27T10:15:00+08:00",
+  "persisted": true,
+  "deriving": true,
+  "sources": {
+    "byxt": { "status": "ready", "updatedAt": "2026-10-27T10:15:03+08:00", "error": null },
+    "spoc": { "status": "pending", "updatedAt": null, "error": null },
+    "bykc": { "status": "failed", "updatedAt": "2026-10-27T10:15:08+08:00", "error": { "code": "SOURCE_DERIVATION_FAILED", "message": "博雅派生失败" } },
+    "ygdk": { "status": "unconfigured", "updatedAt": null, "error": null }
+  }
+}
+```
+
+- `status` 取值：`unconfigured`、`pending`、`ready`、`failed`、`expired`；前端分别显示“未派生 / 派生中 / 已派生 / 派生失败 / 已失效”。
+- `deriving` 为任一源 `pending`。
+- `?validate=1`：若已登录，额外调用一次 UC status 校验会话；设置页首次加载使用，轮询不带该参数。
+- `?validate=1` 的失败分两类：
+  - 认证失败（UC 返回未登录、非 JSON 或非 2xx）：先尝试一次自动重登；仍失败则保留 `authenticated:true` 与 `authenticatedAt`，把四个源标记为 `expired`，并附 `warning:"登录状态已失效，请重新登录"`。
+  - 网络或上游不可用（请求抛 `UPSTREAM_ERROR`/`UPSTREAM_TIMEOUT`，或 UC 返回 408/429/5xx）：不重登、不改四源状态，保留 `authenticated:true` 与原状态，附 `warning:"无法连接统一认证，登录状态未校验"`。
+- 凭据文件损坏/密钥缺失：返回未登录，并带 `warning:"登录状态无法读取，请重新登录"`；不白屏。
+
+#### `POST /api/auth/sources/:source/retry`
+
+- `source` 只能是 `byxt`、`spoc`、`bykc`、`ygdk`；否则 `400 SOURCE_UNKNOWN`。
+- 未登录：`401 AUTH_REQUIRED`；该源已在派生：`409 SOURCE_BUSY`。
+- 成功响应：
+
+```json
+{
+  "source": "bykc",
+  "status": "ready",
+  "updatedAt": "2026-10-27T10:18:00+08:00",
+  "error": null
+}
+```
+
+- 失败仍返回 200 的业务状态 `failed`，由前端展示错误与再次重试；只有会话整体失效才返回 `401 AUTH_EXPIRED`。
+- 派生失败不删除其他源凭据。
+
+#### `POST /api/auth/logout`
+
+- 先用当前 Cookie 尽力调用 `GET https://sso.buaa.edu.cn/logout`，超时 5 秒；失败不阻塞后续清理。
+- 清除内存会话、Cookie、派生凭据、密码与登录尝试。
+- 无论内存中是否还有会话，都尝试删除 `credentials.enc` 与 `credentials.key`；删除失败也返回成功，并带 `warning`。
+- 响应：
+
+```json
+{ "ok": true }
+```
+
+- 有删除失败时附加 `warning`，例如 `{ "ok": true, "warning": "部分凭据文件未能删除" }`。
+- 退出登录不清除本机背景目录设置、待办、快捷方式、番茄钟设置；业务数据缓存由前端在退出后清理。
+
+### 3.3 背景接口
+
+#### `GET /api/background`
+
+返回当前目录与第一层图片清单，不返回图片内容。
+
+```json
+{
+  "directory": "D:\\Pictures\\wallpapers",
+  "configured": true,
+  "images": [
+    { "name": "a.jpg", "size": 123456, "modifiedAt": "2026-10-20T21:00:00+08:00" }
+  ],
+  "warning": null
+}
+```
+
+- 未配置：`{ "directory": null, "configured": false, "images": [], "warning": null }`。
+- 目录被删除/无权限：HTTP 200，`configured:true`、`images:[]`、`warning:"背景目录不可用，已回退内置背景"`；保留已保存路径。
+- 目录可用但没有支持的图片：`warning:"目录中没有可用图片，已回退内置背景"`。
+- 不排序、不随机；由前端随机选择。`modifiedAt` 为 ISO 8601。
+
+#### `GET /api/background/image?name=<文件名>`
+
+- 只接受文件名，不接受路径。
+- 校验：非空、长度 ≤ 255；不含 `/`、`\`、`:`、NUL、`..`；`path.basename(name) === name`；解析后的绝对路径必须以当前目录 + 分隔符开头；必须是当前清单中的第一层普通文件，扩展名在白名单内。
+- 成功：返回图片字节，`Content-Type` 按扩展名，`Content-Length`，`Cache-Control: no-store`。
+- 失败：非法名 `400 INVALID_PATH`；不在清单/文件已删除 `404 NOT_FOUND`；扩展名不支持 `415 UNSUPPORTED_MEDIA`；读取失败 `500 INTERNAL`。
+- 前端单张失败时换下一张；连续失败 3 张或全部失败才回退内置背景。
+
+#### `POST /api/background/directory`
+
+```json
+{ "path": "D:\\Pictures\\wallpapers" }
+```
+
+- `path` 必须是本机绝对路径，长度 ≤ 1024。
+- 拒绝 UNC 路径（`\\server\share`）与设备路径（`\\?\`），只接受本地盘符/根路径。
+- 中继校验：存在、是目录、可读；用 `fs.realpath` 规范化后保存。
+- 保存成功后立即扫描第一层并返回与 `GET /api/background` 相同的结构。
+- `path` 为空字符串或 `null`：清除已保存目录，返回 `{ configured:false, directory:null, images:[], warning:null }`。
+- 目录不存在/不是目录/无权限：`422 PATH_UNAVAILABLE`，不覆盖旧设置；不是绝对路径：`400 INVALID_PATH`；配置文件写入失败：`500 INTERNAL`。
+
+#### `POST /api/background/rescan`
+
+- 无请求体；重新扫描已保存目录并返回清单。
+- 未配置目录：返回 `configured:false`；目录不可用：返回 200 + `warning`，不清除路径。
+
+### 3.4 背景扫描规则
+
+- 只扫描所选目录第一层；子目录、符号链接、其他文件忽略。
+- 扩展名白名单：`jpg`、`jpeg`、`png`、`webp`、`gif`、`bmp`、`avif`。
+- 文件大小 1 字节至 20 MB；超过 20 MB 跳过。
+- 用文件头 magic bytes 判断格式，至少识别 JPEG、PNG、GIF、WebP、BMP、AVIF；文件头与扩展名不符、无法读取或损坏的图片跳过，不阻塞其他图片。
+- 图片内容不复制进仓库、不写入 localStorage、不写入凭据文件。
+- `settings.json` 位于 `%LOCALAPPDATA%\buaa-start\settings.json`，明文保存背景目录路径；路径不是凭据。
+- `settings.json` 形如：
+
+```json
+{
+  "version": 1,
+  "backgroundDirectory": "D:\\Pictures\\wallpapers"
+}
+```
+
+- 原子写；损坏时忽略并视为未配置，不阻塞应用。
+
+### 3.5 业务接口与凭据注入
+
+| 方法 | 路径 | 页面/功能 | 上游调用 |
+| --- | --- | --- | --- |
+| `GET` | `/api/health` | 连接状态 | 无（中继自身），返回 `{ "ok": true }` |
+| `GET` | `/api/byxt/status` | `/settings` 认证状态 | `currentUser.do` |
+| `GET` | `/api/byxt/schedule?week=<n>` | 主页日程卡片、`/schedule` | `currentUser.do` → `getTermWeeks.do` → `getMyScheduleDetail.do` |
+| `GET` | `/api/byxt/exams` | 主页日程卡片、`/exams` | `currentUser.do` → `exams.do` |
+| `GET` | `/api/spoc/status` | `/settings` 认证状态 | `queryOne`（失败回退 `queryList`） |
+| `GET` | `/api/spoc/assignments` | 主页待办卡片、`/spoc` | `queryOne`（失败回退 `queryList`）→ `queryKclb` → `queryListByPage`（翻页） |
+| `GET` | `/api/spoc/assignments/:assignmentId` | `/spoc`、`/spoc/:assignmentId` 详情 | 作业列表 + `queryKczyInfoByid` + `queryXsSubmitKczyInfo` |
+| `GET` | `/api/bykc/status` | `/settings` 认证状态 | `getUserProfile` |
+| `GET` | `/api/bykc/chosen` | 主页日程卡片、`/schedule` | `getAllConfig` → `queryChosenCourse` |
+| `GET` | `/api/bykc/courses?page=&pageSize=` | 主页博雅卡片、`/bykc` | `queryStudentSemesterCourseByPage` |
+| `GET` | `/api/bykc/courses/:id` | `/bykc` 详情 | `queryCourseById` |
+| `GET` | `/api/ygdk/overview` | 主页阳光卡片、`/settings` 认证校验 | `Classify/getList` → `Clockin/getCount` → `Term/get`（可选） |
+
+- 认证路由 `/api/auth/*` 由 `/settings` 统一登录区使用，`retry` 也由失败源卡片触发；背景路由 `/api/background*` 由背景层与 `/settings` 背景区使用。两者都不是北航上游接口，细节见 3.2、3.3。
+- 凭据由中继从当前内存会话注入，前端不发送任何 `X-*` 凭据请求头：
+  - byxt：按 `byxt.buaa.edu.cn` 匹配的 Cookie。
+  - SPOC：`Token: Inco-<token>`、`RoleCode`。
+  - 博雅：`auth_token` 与 `authtoken`。
+  - 阳光：表单追加 `uid`、`token`。
+- 未登录：`401 AUTH_REQUIRED`。
+- 上游认证失效（3xx/401/403、HTML 登录页、业务码表明未登录）：
+  1. 尝试自动重登一次，重登前不预先标记 `expired`。
+  2. 重登成功则重新派生该源并重试原请求一次；仍失败返回 `401 AUTH_EXPIRED` 并标记该源 `expired`。
+  3. 重登因网络/上游 5xx 失败时返回 `502 UPSTREAM_ERROR` 或 `504 UPSTREAM_TIMEOUT`，不改数据源状态、不要求重新登录。
+  4. 上游 408/429/5xx 不视为认证失效，直接返回 `UPSTREAM_ERROR`。
+- 业务接口路径、参数与响应结构以 [api.md](api.md) 和 `shared/api.ts` 为准；前端字段见第 5 节。
+- `/api/byxt/schedule`：
+  - `week` 可省略；省略时按当前教学周。
+  - `currentWeek` 优先按周次表日期；否则用 `welcomeInfo.classWeek`；都没有时为 `null`、`weekSource="default"`，取第 1 周并返回 `warning`。
+  - `week` 越界或非整数返回 `INVALID_WEEK`。
+  - `sectionTimes` 缺失时用固定作息表兜底；课程按 `dayOfWeek`、`beginSection`、`courseName` 稳定排序。
+- `/api/byxt/exams`：只返回已排定条目（`examDate` 或 `startTime` 至少有一个）；时间字符串原样返回，由前端按多格式解析；缺时间时用 `examTimeDescription` 展示。
+- `/api/spoc/assignments`：返回全部作业（含已提交、已截止）；前端按“未提交且未截止”过滤。按 `dueTime` 升序，无截止时间置后，再按课程名、标题。`queryKclb` 失败时继续，课程名用列表里的 `kcmc`，教师为 `null`。
+- `/api/spoc/assignments/:assignmentId`：作业 id 只允许 `[A-Za-z0-9_-]`，长度 1–128；不在列表中返回 `404 NOT_FOUND`；分页最多 20 页。`score` 取 `pf`，`totalScore` 取 `zyfs`，附件取 `zyfjInfo.wjysmc`，说明由 `zynr` 去标签后返回纯文本。只读，不提供提交、下载或附件打开。
+- `/api/bykc/courses`：`page` 默认 1；`pageSize` 默认 12，范围 1–50；非法返回 `INVALID_PAGE`；保持上游顺序，不按状态过滤，状态由中继计算。
+- `/api/bykc/courses/:id`：`id` 只允许十进制整数且不超过安全整数范围；`courseDesc` 转纯文本后返回 `descriptionText`；无该课程返回 `404 NOT_FOUND`。
+- `/api/ygdk/overview`：`termCount` 依次取 `term_good_count_show ?? term_good_count ?? term_count_show ?? term_count ?? 0`；`termTarget` 取 `term_num ?? classify.term_num ?? 0`；`weekCount` 取 `week_count ?? 0`；`weekTarget` 仅作系统参考。`Term/get` 失败不阻塞。
+- 不提供任何业务写接口。
+
+### 3.6 上游调用细节
+
+- 单次上游请求超时 15 秒；派生阶段每个源单独超时 12 秒；超时映射 `UPSTREAM_TIMEOUT`。
+- 上游 fetch 使用 `redirect: "manual"`；3xx 按认证失效处理（阳光按上游错误处理），不跟随到 SSO 登录页。
 - byxt 请求头：`Accept`、`X-Requested-With: XMLHttpRequest`、`Referer`、`fetch-api: true`、`Cookie`。
-- byxt 认证失败判定：非 2xx、`Content-Type` 非 JSON、响应体以 `<` 开头、JSON 解析失败。返回 401 `AUTH_EXPIRED`，不把登录页当业务数据。
-- byxt 业务码：`code !== "0"` 时，若 `msg` 含“登录 / 认证 / 会话”返回 401 `AUTH_EXPIRED`，否则 502 `UPSTREAM_ERROR`。
+- byxt 认证失败判定：408/429/5xx 映射 `UPSTREAM_ERROR`；其他非 2xx、`Content-Type` 非 JSON、响应体以 `<` 开头、JSON 解析失败映射 `AUTH_EXPIRED`。业务码 `code !== "0"` 且 `msg` 含“登录 / 认证 / 会话 / token”时映射 `AUTH_EXPIRED`，否则 `UPSTREAM_ERROR`。
 - SPOC 请求头：`Token`（已带 `Inco-` 则不重复添加）、`RoleCode`、`X-Requested-With`、`Content-Type: application/json`（POST）、`Origin`/`Referer`。
-- SPOC 认证失败判定：3xx、非 JSON、HTML 登录页，或 `code !== 200` 且 message 含“登录 / token / 未认证 / 未登录 / 权限”；否则 502。
+- SPOC 认证失败判定：3xx、非 JSON、HTML 登录页，或 `code !== 200` 且 message 含“登录 / token / 未认证 / 未登录 / 权限”；否则 `UPSTREAM_ERROR`。
 - SPOC AES：AES-128-CBC/NoPadding，key `inco12345678ocni`，IV `ocni12345678inco`，零填充，Base64。
-- SPOC 固定值：`queryOne` 的 `param`、`queryList` 的回退 `param`、`queryListByPage` 的 `sqlid` 按 [api.md](docs/api.md) 的常量。
+- 博雅：基址 `https://bykc.buaa.edu.cn/sscv/`；`auth_token` 与 `authtoken` 取同一值；请求头含 `Accept`、`Content-Type: application/json;charset=UTF-8`、`Origin`、`Referer`、`ak`、`sk`、`ts`；每次请求生成新的 AES key，`ak` 用固定 RSA 公钥加密，`sk` 为请求 JSON 的 SHA-1 小写十六进制再 RSA 加密，请求体用 AES-128-ECB/PKCS5Padding 加密，响应按同一 key 解密；固定公钥、算法与 `apiName` 以 [api.md](api.md) 与 `server/upstreams/bykcCrypto.ts` 为准。
+- 阳光：基址 `https://ygdk.buaa.edu.cn/api`；全部 `POST application/x-www-form-urlencoded; charset=UTF-8`；表单固定追加 `uid`、`token`；请求头 `X-Requested-With: XMLHttpRequest`；响应 `{ "code": 1, "result": ... }`，`code === -98` 为认证失效。
 - 时间：列表 ISO 8601 带偏移 → `Asia/Shanghai` 的 `YYYY-MM-DD HH:mm:ss`；不带偏移的 `YYYY-MM-DD HH:mm:ss` 原样保留；日期取 `YYYY-MM-DD`。
 
-## 4. 数据类型
+## 4. 凭据存储与加密
+
+### 4.1 位置
+
+- 目录：`%LOCALAPPDATA%\buaa-start\`。
+- 文件：`credentials.enc`（密文凭据）、`credentials.key`（32 字节随机密钥）、`settings.json`（背景目录等非敏感设置）。
+- 目录创建为 `0o700`；文件写入后 `chmod 0o600`。
+- Windows 上 `%LOCALAPPDATA%` 本身按用户隔离，继承当前用户 ACL；不额外调用 `icacls`，不引入原生依赖。
+- 非 Windows 开发环境回退到 `~/.local/state/buaa-start/`。
+
+### 4.2 密文格式
+
+`credentials.enc` 是 JSON 文本，不是裸二进制：
+
+```json
+{
+  "version": 1,
+  "alg": "AES-256-GCM",
+  "iv": "base64",
+  "tag": "base64",
+  "data": "base64"
+}
+```
+
+- `iv`：12 字节随机数；`tag`：16 字节 GCM 认证标签；`data`：密文；AAD：`buaa-start/credentials/v1`。
+- 明文 JSON：
+
+```json
+{
+  "version": 1,
+  "username": "2418xxxx",
+  "password": "********",
+  "user": { "name": "张三", "schoolid": "2418xxxx" },
+  "authenticatedAt": "2026-10-27T10:15:00+08:00",
+  "cookies": [
+    {
+      "name": "JSESSIONID",
+      "value": "...",
+      "domain": "byxt.buaa.edu.cn",
+      "path": "/",
+      "expiresAt": 1760000000000,
+      "secure": true,
+      "httpOnly": true,
+      "hostOnly": true
+    }
+  ],
+  "spoc": { "token": "...", "roleCode": "01" },
+  "bykc": { "token": "..." },
+  "ygdk": { "uid": 123, "token": "..." },
+  "sources": {
+    "byxt": { "status": "ready", "updatedAt": "2026-10-27T10:15:03+08:00" },
+    "spoc": { "status": "ready", "updatedAt": "2026-10-27T10:15:05+08:00" },
+    "bykc": { "status": "ready", "updatedAt": "2026-10-27T10:15:07+08:00" },
+    "ygdk": { "status": "ready", "updatedAt": "2026-10-27T10:15:09+08:00" }
+  }
+}
+```
+
+- 不保存 `execution`、验证码、登录尝试 Cookie、CSRF token。
+- 明文中的 `password` 只在用户成功登录后写入；`alreadyLoggedIn` 且未输入密码时不写。
+- `cookies` 保存 SSO、UC、byxt、SPOC、博雅、阳光实际用到的 Cookie；加载时过滤已过期项。
+- `sources` 只保存状态与时间，不保存错误详情中的上游响应体。
+- 加载时若某源为 `pending`，说明上次派生被中断：改为 `failed`，错误文案“上次派生未完成，请重试”，不自动重跑四源。
+
+### 4.3 密钥
+
+- 首次保存时生成 `crypto.randomBytes(32)`，写入 `credentials.key`。
+- 密钥文件只含 32 字节原始值，不 base64、不换行。
+- 密钥不返回前端、不写日志、不进入 `settings.json`。
+- 密钥缺失但密文存在：视为损坏，不尝试猜测；标记未登录，提示重新登录。
+- 退出登录删除密钥；下次登录重新生成。
+
+### 4.4 写入、损坏与清理
+
+- 写入顺序：生成临时文件 → 写入 → `fsync` → `rename` 覆盖；密钥首次创建同样原子写。
+- 写入串行化，避免并发派生互相覆盖。
+- 解密失败、GCM 校验失败、JSON 解析失败、版本不支持：不把密文当明文使用；将 `credentials.enc` 重命名为 `credentials.enc.corrupt-<timestamp>`，保留现场；清空内存会话，返回未登录与提示；不白屏。
+- 凭据目录不可写：保留内存会话，`persisted:false`，设置页提示“无法保存登录状态，本次运行内仍可使用”。
+- 退出登录：先尽力 SSO logout，再清内存，最后删 `credentials.enc`、`credentials.key`；删除失败只记录日志，不把密码或路径写进错误响应。
+- 业务数据缓存与凭据分离；清除缓存不影响登录状态。
+
+### 4.5 旧凭据迁移
+
+- 启动时删除旧键 `buaa-start.credentials.v1`，不尝试迁移明文。
+- 旧 `X-*` 凭据请求头不再被中继读取；前端也不再发送。
+- 升级后首次使用必须重新登录一次；旧业务缓存保留，登录后按缓存优先刷新。
+
+## 5. 数据类型
+
+### 5.1 共享契约
+
+`shared/api.ts` 定义业务响应：`Term`、`Week`、`SectionTime`、`Course`、`Exam`、`SpocAssignment`、`SpocAssignmentDetail`、`BykcCourse`、`BykcCourseDetail`、`BykcCoursePage`、`BykcChosenCourse`、`BykcChosenResponse`、`YgdkOverview`、`BackgroundImage`、`BackgroundManifest` 与各响应包装类型。字段映射见 [api.md](api.md)。
+
+`shared/auth.ts` 定义认证契约：
 
 ```ts
-type Week = {
-  serialNumber: number;
-  name: string;
-  startDate: string; // YYYY-MM-DD
-  endDate: string;   // YYYY-MM-DD
-  curWeek: boolean;
+type AuthSourceId = "byxt" | "spoc" | "bykc" | "ygdk";
+type AuthSourceStatus = "unconfigured" | "pending" | "ready" | "failed" | "expired";
+
+type AuthSourceError = { code: string; message: string };
+type AuthSourceState = {
+  status: AuthSourceStatus;
+  updatedAt: string | null;
+  error: AuthSourceError | null;
+};
+type AuthSources = Record<AuthSourceId, AuthSourceState>;
+type AuthUser = { name: string; schoolid: string };
+
+type AuthStatusResponse = {
+  authenticated: boolean;
+  user: AuthUser | null;
+  authenticatedAt: string | null;
+  persisted: boolean;
+  deriving: boolean;
+  sources: AuthSources;
+  warning?: string;
 };
 
-type SectionTime = { section: number; start: string; end: string };
-
-type Course = {
-  courseCode: string;
-  courseName: string;
-  beginSection: number | null;
-  endSection: number | null;
-  beginTime: string | null;  // HH:mm
-  endTime: string | null;    // HH:mm
-  placeName: string | null;
-  weeksAndTeachers: string | null;
-  dayOfWeek: number | null;  // 1-7
+type AuthPreloadResponse = {
+  loginId: string;
+  captchaRequired: boolean;
+  captcha?: { image: string; expiresAt: string };
+  alreadyLoggedIn: boolean;
 };
 
-type Exam = {
-  courseName: string;
-  courseNo?: string;
-  examDate?: string;
-  startTime?: string;
-  endTime?: string;
-  examPlace?: string;
-  examSeatNo?: string;
-  week?: number;
-  examTimeDescription?: string;
+type AuthLoginResponse = {
+  authenticated: true;
+  user: AuthUser;
+  authenticatedAt: string;
+  persisted: boolean;
+  sources: AuthSources;
+  warning?: string;
 };
 
-type SpocAssignment = {
-  assignmentId: string;
-  courseId: string;
-  courseName: string;
-  teacherName: string | null;
-  title: string;
-  startTime: string | null;
-  dueTime: string | null;
-  submissionStatus: 'submitted' | 'unsubmitted' | 'unknown';
-  submissionStatusText: string;
+type AuthSourceRetryResponse = {
+  source: AuthSourceId;
+  status: AuthSourceStatus;
+  updatedAt: string | null;
+  error: AuthSourceError | null;
 };
 
-type SpocAssignmentDetail = SpocAssignment & {
-  score: string | null;
-  totalScore: string | null;
-  contentText: string | null;
-  attachments: { name: string }[];
-  submittedAt: string | null;
+type AuthLogoutResponse = { ok: true; warning?: string };
+```
+
+`shared/errors.ts` 定义统一错误码 `RelayErrorCode` 与 `ErrorEnvelope`；`shared/validation.ts` 定义博雅分页默认值、SPOC 作业 id 与阳光 UID 校验；`shared/schedule.ts` 定义共享作息与排课常量。
+
+### 5.2 前端状态
+
+```ts
+type AuthState = {
+  authenticated: boolean;
+  user: AuthUser | null;
+  authenticatedAt: string | null;
+  persisted: boolean;
+  deriving: boolean;
+  checking: boolean;
+  checkFailed: boolean;
+  loading: boolean;
+  error: string;
+  warning: string;
+  lastErrorCode: string;
+  captchaRequired: boolean;
+  captchaImage: string | null;
+  alreadyLoggedIn: boolean;
+  sources: AuthSources;
 };
 
-type Shortcut = { id: string; title: string; url: string; row: number }; // row: 0-9
+type HomeCardId = "schedule" | "bykc" | "todo" | "focus" | "ygdk";
+type HomeCardVisibility = Record<HomeCardId, boolean>;
+
+type SourceStatus = "idle" | "loading" | "ok" | "cached" | "error" | "no-credential" | "auth-expired";
+type ApiErrorCode = RelayErrorCode | "RELAY_UNREACHABLE";
+```
+
+- 前端的 `SourceStatus` 表示单个数据源的展示状态，中继的 `AuthSourceStatus` 表示认证派生状态；两者语义不同，不要混用。
+- 课表合并模型在 `src/types.ts` 的 `Course` 上增加可选 `source: "byxt" | "bykc"`，用于来源标记。
+
+### 5.3 本地数据
+
+```ts
+type Shortcut = { id: string; title: string; url: string; row: number };
 
 type Todo = {
   id: string;
   title: string;
-  dueAt: string | null; // YYYY-MM-DDTHH:mm，本地时间
+  dueAt: string | null;
   note: string;
-  priority: 'high' | 'medium' | 'low';
-  repeat: 'none' | 'daily' | 'weekly';
+  priority: "high" | "medium" | "low";
+  repeat: "none" | "daily" | "weekly";
   done: boolean;
   completedAt: string | null;
   createdAt: string;
@@ -349,177 +598,434 @@ type PomodoroSettings = {
   longBreakMinutes: number;
   roundsPerLongBreak: number;
 };
+
+type PomodoroRuntime = {
+  phase: "focus" | "short-break" | "long-break";
+  endsAt: number | null;
+  remainingSeconds: number;
+  running: boolean;
+  paused: boolean;
+  completedRounds: number;
+  phaseDurationSeconds: number;
+  oneMinuteNotified: boolean;
+};
+
+type YgdkSettings = { termTarget: number; weekTarget: number };
 ```
 
-## 5. 本地存储
+## 6. 认证流程
 
-| key | 内容 |
-| --- | --- |
-| `buaa-start.credentials.v1` | `{ byxtCookie, spocToken, spocRoleCode }` |
-| `buaa-start.cache.byxt.schedule.v1` | `{ savedAt, term, weeks, currentWeek, weekSource, lastWeek, byWeek: { [week]: { savedAt, sectionTimes, courses } } }` |
-| `buaa-start.cache.byxt.exams.v1` | `{ savedAt, term, exams }` |
-| `buaa-start.cache.spoc.assignments.v1` | `{ savedAt, term, assignments }` |
-| `buaa-start.cache.spoc.detail.v1.<id>` | `{ savedAt, assignment }` |
-| `buaa-start.todos.v1` | `Todo[]` |
-| `buaa-start.shortcuts.v1` | `Shortcut[]` |
-| `buaa-start.pomodoro.settings.v1` | `PomodoroSettings` |
-| `buaa-start.schedule.highlightLeadMinutes.v1` | `number`（0–180，默认 30；不属于缓存，清缓存不删除） |
+### 6.1 预加载
 
-- 二阶段新增 `buaa-start.pomodoro.notifications.v1`（番茄钟通知开关偏好，未明确关闭时默认开启），见 [trd-phase2.md](docs/trd-phase2.md) 5。
-- 读写统一包在安全存储工具里：`JSON.parse` 失败、配额不足、隐私模式不可用时返回 `null` / 降级为内存状态，并给出一次页面提示。
-- 清除缓存只删 `buaa-start.cache.*`；清除凭据只删 `buaa-start.credentials.v1`；两者互不影响。
-- 凭据不写入 URL、日志、缓存；缓存数据不含 Cookie/Token。
+1. 设置页点击“登录”或首次进入时调用 `POST /api/auth/preload`。
+2. 中继为该次尝试创建独立 Cookie 罐；若已有持久化会话，则复制其未过期 Cookie 作为初始值，用于识别“SSO 已登录”。
+3. `GET https://sso.buaa.edu.cn/login`；若返回 302，标记 `alreadyLoggedIn:true`。
+4. 解析 `execution` 与 `config.captcha`。
+5. 需要验证码时，用同一 Cookie 罐请求验证码图片，返回 data URL。
+6. 返回 `loginId`；前端只在内存保存，不写 localStorage。
+7. 用户点击“刷新验证码”时重新预加载，旧 `loginId` 作废。
 
-## 6. 页面与组件
+### 6.2 登录
+
+1. 前端提交 `loginId`、学号、密码、验证码。
+2. 中继校验 `loginId`，锁定单飞。
+3. 构建表单：复制登录页 `form#fm1` 的 hidden 字段；覆盖 `username`、`password`、`execution`、`_eventId=submit`、`submit=登录`、`type=username_password`；有验证码时补 `captcha`、`captchaResponse`。
+4. `POST https://sso.buaa.edu.cn/login`，手动跟随跳转。
+5. 错误判定：
+   - 页面含“验证码”错误 → `CAPTCHA_INVALID`。
+   - 页面含账号/密码错误，或提交后又回到含 `execution` 的登录页 → `INVALID_CREDENTIALS`。
+   - 页面含 `continueForm`、`ignoreAndContinue`、`账号存在安全风险`、`密码过期` → `PASSWORD_EXPIRED`，不自动跳过。
+   - URL 含 `exception.message=` → 取参数作为提示，映射为 `UPSTREAM_ERROR`。
+   - 其他 HTML/非 JSON → `UPSTREAM_ERROR`。
+6. 成功后 `GET https://uc.buaa.edu.cn/api/login?target=...`，跟随跳转。
+7. `GET https://uc.buaa.edu.cn/api/uc/status`，`code === 0` 且 `data` 非空才算成功。
+8. 建立会话：保存 Cookie、用户、登录时间、密码、四个源 `pending`；尽力加密落盘；返回 200，并异步启动派生。
+9. 删除本次登录尝试；失败也删除，前端重新预加载。
+
+### 6.3 异步派生
+
+- 顺序执行 `byxt → spoc → bykc → ygdk`，避免共享 Cookie 罐并发写 `Set-Cookie`。
+- 每个源单独超时 12 秒；失败只更新该源，不抛出到整体。
+- 每完成一个源：更新 `sources[source]` 为 `ready` 或 `failed`，写 `updatedAt` 与 `error`；串行写一次凭据文件，写失败不改变内存状态。
+- 全部结束后 `deriving=false`。
+- 派生使用统一认证后的共享 Cookie 罐：
+  - byxt：`currentUser.do` 跟随跳转，最终 JSON `code === "0"`。
+  - SPOC：`/spocnewht/cas` 跳转取 token，`casLogin` 取 RoleCode，`queryKclb` 校验。
+  - 博雅：`/sscv/cas/login` 跳转取 `token`，`getUserProfile` 校验。
+  - 阳光：oauth 跳转取 `code`，`campusAppLogin` 取 `uid`/`token`，`Classify/getList` + `Clockin/getCount` 校验。
+- 派生期间用户退出登录：用会话代际号丢弃迟到结果，不写回已清除的会话。
+- 业务请求遇到该源正在派生时，先等待该源结束，避免直接返回 `409`。
+
+### 6.4 自动重登
+
+- 触发条件：业务请求收到上游 401、SPOC `-98`、博雅会话失效、byxt 登录页 HTML、阳光 `code === -98`。
+- 同一时间只允许一次自动重登。
+- 流程：
+  1. 有会话且有保存的密码，否则直接 `AUTH_EXPIRED`。
+  2. 冷却：认证类失败（账号被拒、验证码、无密码）5 分钟内不重复；网络或上游 5xx 的瞬时失败 30 秒内不重复。
+  3. 新建 Cookie 罐，不重用已失效 Cookie。
+  4. `GET sso/login`；若要求验证码，标记需要手动登录，返回失败。
+  5. 用保存的学号密码提交，激活 UC，校验 UC status。
+  6. 成功：替换会话 Cookie、`authenticatedAt`；同步重新派生失败源（其他源后台刷新）；写盘。
+  7. 失败按原因区分：
+     - 认证失败（账号被拒、验证码、UC 未登录）：标记会话 `AUTH_EXPIRED`，保留密码与缓存；不自动重试。
+     - 网络或上游不可用：返回 `upstream` 原因，由调用方映射为 `UPSTREAM_ERROR`/`UPSTREAM_TIMEOUT`，不改数据源状态、不要求重新登录。
+- 自动重登成功后，原业务请求只重试一次；仍失败按认证失败返回 `AUTH_EXPIRED`。
+- 不因自动重登失败而删除密码；用户手动登录成功后覆盖。
+
+### 6.5 退出
+
+1. 前端 `POST /api/auth/logout`。
+2. 中继先尽力 SSO logout，再清内存、删密文与密钥。
+3. 前端清 `useAuth` 的会话状态与本次登录尝试。
+4. 前端清所有业务数据缓存（`buaa-start.cache.*`），但保留待办、快捷方式、番茄钟、背景目录与主页偏好。
+5. 设置页回到未登录；主页各卡片显示“未登录，前往设置”引导，不显示成“无数据”。
+
+## 7. 前端
+
+### 7.1 useAuth 与启动
+
+`useAuth` 是模块级单例，暴露：
+
+```ts
+{
+  state: AuthState,
+  hydrate(): Promise<void>,
+  refreshStatus(validate?: boolean): Promise<boolean>,
+  preload(): Promise<AuthPreloadResponse | null>,
+  login(input: { username: string; password: string; captcha?: string }): Promise<boolean>,
+  retrySource(source: AuthSourceId): Promise<void>,
+  logout(): Promise<boolean>,
+  isAuthBlocked(): boolean,
+  pollWhileDeriving(): () => void,
+}
+```
+
+- `hydrate()` 只在首次调用时请求 `GET /api/auth/status?validate=1`；调用方不等待，首次调用后复用同一 Promise。
+- 认证校验期间 `checking=true`；成功后 `checking=false`、`checkFailed=false`；失败后 `checking=false`、`checkFailed=true`，仅写 `warning`。
+- `isAuthBlocked()` 仅在 `checking=false`、`checkFailed=false` 且 `authenticated=false` 时为真；为真时各数据源直接显示“未登录”，否则照常取数。
+- 登录成功或退出登录后丢弃迟到的校验结果；后续 `refreshStatus()` 成功会清除 `checkFailed`。
+- `preload()` 把 `loginId` 保存在模块级内存；验证码图片由设置页展示。
+- `login()` 复用当前 `loginId`；没有时才调用 `preload()`。密码只保存在函数局部变量与请求体，不写 localStorage；成功后清空密码、验证码与 `loginId`；验证码错误时保留学号与密码并刷新验证码；账号密码错误时清空密码，保留学号。
+- 轮询：设置页挂载时若 `state.deriving`，每 1.5 秒调用 `refreshStatus()`，直到 `deriving=false` 或 60 秒；轮询不带 `validate=1`。
+- 启动顺序：
+  1. `bootstrap()` 删除旧凭据键后立即 `mount`，不等待认证校验。
+  2. 挂载后调用 `void hydrate()`；主页与子页面同时读缓存并按开关刷新。
+  3. 认证校验与业务取数并行；认证未决或校验失败时，缓存标为 `cached`，不得标为 `no-credential`。
+  4. 校验失败只记录 `warning`，不拦截取数；卡片按各数据源响应显示“加载失败 / 缓存于… + 重试”。
+
+### 7.2 设置页
+
+设置页包含以下区块，顺序与视觉以 [ui-lowfi.md](ui-lowfi.md) 为准：
+
+- 统一登录区：
+  - 未登录：学号、密码、验证码（按需）、登录、刷新验证码。
+  - 已登录：姓名、学号、登录时间、退出登录。
+  - 四源状态：byxt、SPOC、博雅、阳光；状态为“未派生 / 派生中 / 已派生 / 派生失败 / 已失效”，失败项提供“重试”。
+  - 登录中禁用按钮；错误按 `INVALID_CREDENTIALS`、`CAPTCHA_INVALID`、`CAPTCHA_REQUIRED`、`PASSWORD_EXPIRED`、`UPSTREAM_ERROR` 分类显示。
+  - 不出现任何 Cookie、Token、RoleCode、UID 输入框，也不提供逐项清除入口。
+- 阳光打卡目标：学期目标 1–100、周限制 1–14（默认 4）；非法值不保存并提示；保存后主页立即更新。
+- 日程高亮：提前高亮分钟数，默认 30，范围 0–180，0 表示不提前高亮；保存后立即生效并写 localStorage。
+- 主页卡片：五个开关（日程、博雅课程广场、待办、专注、阳光打卡），默认全开；切换立即生效并持久化；无保存按钮。
+- 背景区：绝对路径输入框、保存、重新扫描、清除；显示当前目录、图片数量与 `warning`。
+- 下方操作区：番茄钟桌面通知开关、权限状态、“测试通知”、清除缓存。
+- 连接状态：显示本地中继是否可用。
+- 清除缓存只删 `buaa-start.cache.*`；退出登录清业务缓存，但保留待办、快捷方式、番茄钟设置、背景目录、主页卡片与仅时钟模式等偏好。
+
+### 7.3 路由与页面
 
 | 路由 | 页面 | 主要内容 |
 | --- | --- | --- |
-| `/` | HomeView | 时钟/日期、Bing 搜索、随机背景、日程卡片、待办卡片、专注卡片、快捷方式卡片 |
-| `/schedule` | ScheduleView | 页首与页尾的周次切换、7 行周视图、课程高亮、缓存与刷新 |
-| `/exams` | ExamsView | 本期占位页；后续为未开始考试分组、倒计时、空状态 |
+| `/` | HomeView | 时钟/日期、Bing 搜索、随机背景、日程卡片、待办卡片、专注卡片、快捷方式；支持仅时钟与背景模式 |
+| `/schedule` | ScheduleView | 页首与页尾周次切换、7 行纵向周视图、课程高亮、缓存与刷新；不显示考试标记 |
+| `/exams` | ExamsView | 本学期已排定考试、按月分组、倒计时、已结束置底 |
 | `/spoc` | SpocListView | 未提交且未截止作业、状态、开始/截止时间、点击打开详情 modal |
 | `/spoc/:assignmentId` | SpocListView + SpocDetailDialog | 列表页上打开只读详情 modal（直达时自动打开） |
-| `/settings` | SettingsView | byxt Cookie、SPOC 占位、日程高亮边界、状态、校验、清除凭据/缓存 |
+| `/bykc` | BykcView | 博雅课程广场分页、详情 modal |
+| `/settings` | SettingsView | 统一登录、阳光目标、日程高亮、主页卡片、背景、通知与缓存、连接状态 |
 
-- 未知路由重定向 `/`；history 模式；Vite dev/preview 自带 SPA fallback。
+- 未知路由重定向 `/`；history 模式；dev/preview 与 `npm start` 均提供 SPA fallback。
+- 不设登录页；登录只在 `/settings` 的统一登录区。
+- 仅时钟与背景模式只在 `/` 生效；其他页面正常显示。
 - 主页时钟：日期 `YYYYMMDD DDD`（如 `20261026 Mon`），时间 `HH:mm:ss`，每秒更新。
-- 搜索：固定 Bing，回车在当前标签页跳转，空输入不跳转。
-- 背景：从仓库内置图片随机一张，加载失败回退渐变；不做上传/外链。
-- 快捷方式：预置 PRD 3.2 的 6 个入口；新增/编辑/删除，字段只有标题 + URL；只允许 `http:`/`https:`；favicon 取站点自身 `/favicon.ico`，失败显示首字母；可拖到 10 行中的任意一行，每行数量不限，超出后横向滚动。
-- 日程卡片：首行下一节课摘要、今日/明日课程、考试信息占位行；不显示博雅课程。
-- 待办卡片：本地待办在前，SPOC 在后；不显示阳光打卡行。本地待办支持新增/编辑/删除/勾选；SPOC 段只读，点击打开详情 modal。
-- 主页入口：日程卡片点击进 `/schedule`；考试区点击进 `/exams`；SPOC 区点击进 `/spoc`；时钟行右侧设置、新建、编辑按钮分别进入 `/settings`、新建快捷方式弹窗、切换快捷方式编辑状态。
-- 子页面返回：`/schedule`、`/exams`、`/spoc`、`/bykc`、`/settings` 标题行右侧统一使用 `BackHomeLink` 返回 `/`；`/spoc/:assignmentId` 关闭 modal 后仍在 `/spoc` 列表。
-- 课程块：节次/时间、课程名、地点；教师有则附在地点行末尾（`地点 · 教师/周次描述`），数据用 `weeksAndTeachers` 的周次/教师合并描述。
-- 课程高亮：`courseHighlightState` 将课程日期与节次/时间换算为绝对起止时间；开始前 N 分钟内暖色并以 1.1s 周期闪烁、进行中冷色，其余不高亮。`CourseBlock` 通过 `highlight` 控制状态，`useScheduleSettings` 保存提前分钟数，主页与详情共用。
-- 专注卡片：设置态显示居中排列的时长与轮次配置；专注态显示当前阶段（专注/短休/长休）、剩余时间、预计完成（仅运行中且未暂停时显示）、已完成轮次，按钮为开始/暂停/继续/重置。
-- 视觉样式以 [ui-lowfi.md](docs/ui-lowfi.md) 为准；本节结构与 UI 文档已对齐，不新增视觉体系。
-- 桌面优先，最小支持宽度约 1024px；不做移动端布局。
+- 搜索固定 Bing；回车在当前标签页跳转，空输入不跳转。
+- 背景与视觉样式以 [ui-lowfi.md](ui-lowfi.md) 为准。
 
-### 6.1 主页行式瀑布流
+### 7.4 主页布局与卡片开关
 
-- 主页功能区采用“固定行 + 行内绝对定位”，不使用 CSS Grid，也不使用按列填充的 flex 瀑布；固定 10 行，快捷方式不做按宽度自动换行。
-- 单行高度 `3rem`，行间距 `0.75rem`；跨 `n` 行的卡片高度为 `n × 3rem + (n − 1) × 0.75rem`，纵向位置为 `row × (3rem + 0.75rem)`；快捷方式固定只占 1 行（高 `3rem`）。
-- 大卡使用固定锚点：日程 `38rem × 5 行` 位于左上，待办 `34rem × 5 行` 位于左下（从第 5 行开始），专注 `22.4rem × 5 行`（原 28rem 的 4/5）与待办同一行、位于待办右侧（`left = 34.75rem`）。
-- 每个快捷方式显式保存 `row`（0–9）；同一行从该行大卡右缘加 `0.75rem` 开始顺序排列，行内位置由顺序推算：`x = 行起点 + 前面快捷方式宽度之和 + 间隔`。第 1–5 行仅日程，起点为 `38 + 0.75 = 38.75rem`；第 6–10 行在专注右侧，起点为 `34.75 + 22.4 + 0.75 = 57.9rem`。
-- 快捷方式宽度按图标与标题内容取 `7.5–10.5rem`；编辑态为右侧编辑按钮额外预留 `2.5rem`，仍受 `10.5rem` 上限。每行数量不限，不设旧版的 `104rem` 行宽上限。
-- 行宽取该行最右端；画布宽度取所有行宽的最大值，且不小于“最大行起点 + 一张快捷方式最小宽度”（当前 `57.9 + 7.5 = 65.4rem`），保证空行也能接收拖拽。画布高度固定为 `10 × 3rem + 9 × 0.75rem = 36.75rem`；外层 `overflow-x: auto`，纵向溢出隐藏。
-- 拖拽在整块功能区上处理：纵向位置换算行号，横向位置换算该行的插入序号（排除被拖卡片），空行、行末空白均可放置；编辑态显示 10 行放置区、高亮目标行，并用竖线显示插入位置。
-- 行号与顺序写入 `buaa-start.shortcuts.v1` 的 `Shortcut.row` 和数组顺序；旧数据缺少 `row` 时按每行 4 个迁移。新建快捷方式默认追加到第 1 行末尾，并横向滚动到新卡片。6 个预置入口默认第 1 行 4 个、第 2 行 2 个，画布宽度随行内容增长。
-- 常量在 `HomeView`，行号/宽度工具在 `src/utils/shortcut.ts`，持久化在 `useShortcuts`；相关样式在 `src/style.css` 的 `.waterfall-scroll` 与 `.waterfall-board`。
+#### 布局规则
 
-## 7. 关键流程
+- 功能区固定 11 行；行号从 0 起，覆盖全部 11 行。
+- 卡片顺序固定：日程 → 博雅课程广场 → 待办 → 专注 → 阳光打卡；左列只放日程、待办，右列只放博雅、专注、阳光。
+- 每列自第 1 行起连续堆叠；关闭的卡片不占位，同列后续卡片整体上移，卡片之间不留空行。
+- 右列卡片紧贴起始行不晚于它的最后一张左列大卡的右缘，间距按 UI 文档；左列没有可见卡片时从最左侧开始。
+- 功能区行数恒为 11，关闭卡片不改变行数，也不改变快捷方式可用行数与已保存行号。
+- 每行快捷方式从该行所有大卡的最大右缘之后开始排列；该行没有大卡时从最左侧开始。
+- 快捷方式显式保存 `row`（0–10），同一行按数组顺序排列；每行数量不限，超出视口后横向滚动，不自动换行。
+- 画布宽度取所有行内容与快捷方式右缘的最大值，并保证空行也能放下第一张快捷方式；纵向溢出隐藏，横向可滚动。
+- 行高、行距、卡片宽度、快捷方式宽度与画布尺寸不在本文重复；以 [ui-lowfi.md](ui-lowfi.md) 与 `src/domain/homeLayout.ts`、`src/domain/shortcut.ts` 为准。
 
-### 7.1 认证与设置
+#### 交互
 
-- 保存 byxt Cookie 前做规范化：去掉 `Cookie:` 前缀，多行合并为 `; `，要求至少一个 `name=value`。
-- 保存 SPOC Token/RoleCode 前做 trim；Token 已带 `Inco-` 则不重复添加。
-- 保存 byxt Cookie 后调 `/api/byxt/status`；成功 `已配置`，401 `已失效`，中继不可达显示连接错误。
-- 保存 SPOC Token + RoleCode 后调 `/api/spoc/status`；两者都必填。
-- 状态分：`未配置` / `已配置` / `已失效` / `校验中`；状态不持久化，刷新后按“有凭据 → 已配置”显示，首次请求失败再改“已失效”。
-- 已保存的凭据只显示掩码，可替换或清除；设置页给出获取 Token/RoleCode 的简短说明（开发者工具 → Network → 任一 SPOC 请求 → Request Headers）。
-- 清除单个凭据、清除全部凭据、清除缓存三个动作分开；清除凭据不清缓存。
-- 本期设置页仅启用 byxt Cookie；SPOC 凭据区保留字段与按钮但禁用，标注“待接入”。
-- 设置页同时提供“日程高亮”偏好：提前高亮分钟数，默认 30，范围 0–180，0 表示不提前高亮；保存后立即生效并写 localStorage。
+- 拖拽在整块功能区处理：纵向位置换算行号，横向位置换算该行的插入序号（排除被拖卡片）；空行、行末空白均可放置。
+- 编辑态显示 11 行放置区，高亮目标行，并用竖线显示插入位置；每个快捷方式右侧显示编辑按钮，点击打开编辑弹窗（含删除）。
+- 新建快捷方式默认追加到首行末尾，并横向滚动到新卡片；预置入口只在首次使用写入，之后以 localStorage 为准。
+- 预置入口、旧数据缺少 `row` 时的迁移、`favicon` 回退等规则在 `src/composables/useShortcuts.ts` 与 `src/utils/favicon.ts` 中实现。
 
-### 7.2 课表与考试
+#### 卡片开关
+
+- `useHomeCards` 为模块级 reactive 单例，五个开关默认开启，localStorage 键 `buaa-start.home.cards.v1`。
+- 存储值形如 `{ "schedule": true, "bykc": false, "todo": true, "focus": true, "ygdk": true }`；缺失、不是对象或字段不严格等于 `false` 时一律按开启处理。
+- 设置页切换立即写 localStorage 并生效，无保存按钮；写入失败提示“已保存到本次会话，但本地存储不可用”。
+- 五张卡片全部关闭时功能区只渲染快捷方式，仍为 11 行，编辑与拖拽仍可用。
+
+#### 取数与缓存
+
+- 首次挂载先读缓存（`hydrate*` 只读 localStorage，不发请求），再按开关决定是否刷新；认证校验与刷新并行，不等待校验结果。
+
+| 卡片 | 关闭时不请求 |
+| --- | --- |
+| 日程 | `/api/byxt/schedule`（当前周与明日预加载）、`/api/byxt/exams`、`/api/bykc/chosen` |
+| 博雅课程广场 | `/api/bykc/courses?page=1` |
+| 待办 | `/api/spoc/assignments` |
+| 专注 | 无数据源 |
+| 阳光打卡 | `/api/ygdk/overview` |
+
+- 认证未决或校验失败时，缓存按 `cached` 展示；只有 `isAuthBlocked()` 为真才置 `no-credential`。
+- 未登录时业务请求可能先行返回 `AUTH_REQUIRED`，卡片随即显示“未登录”；这是数据源的明确结果，不属于提前误判。
+- 认证校验失败（中继不可达或超时）不拦截取数；卡片按自身请求结果显示“加载失败 / 缓存于… + 重试”，不显示成“未登录”。
+- 考试区随日程卡片、SPOC 段随待办卡片一起隐藏，没有独立开关。
+- 重新开启后再次进入主页，按“缓存优先 + 后台刷新”执行。
+- 子页面（`/schedule`、`/exams`、`/spoc`、`/bykc`）不受开关影响，仍按各自流程取数。
+
+#### 仅时钟与背景模式
+
+- `useHomeDisplay` 维护 `minimalMode`，键 `buaa-start.home.display.v1`，默认 `false`；非法或缺省值按默认值处理。
+- `minimalMode` 只在 `/` 生效；离开 `/` 时隐藏仅时钟视觉，但保留持久化状态。
+- 进入后隐藏搜索框、时钟行按钮与整个功能区，只显示时钟与背景；不显示切换按钮。
+- 点击视口任意位置退出；键盘可 Tab 聚焦后按 Enter 退出。
+- 仅时钟模式下不调用日程、博雅、待办/SPOC、专注、阳光的加载函数；恢复显示时先读缓存，再后台刷新。
+- 背景遮罩的交叉淡变与时钟动画按 [ui-lowfi.md](ui-lowfi.md) 执行。
+
+### 7.5 背景
+
+`useBackground` 为模块级单例，状态包含目录、清单、选中文件名、`warning`、`busy`、`fallback` 与 `hydrated`。
+
+- `hydrate()` 在应用启动时调用一次 `GET /api/background`，记忆化后不再重跑；页面不得重复调用，否则会重新随机选图。
+- 从 `images` 随机选一张作为 `selectedName`；同一 SPA 会话内所有页面共用。
+- 浏览器刷新后重新随机；子页面不重新选图。
+- 图片地址：`/api/background/image?name=<encodeURIComponent(name)>`。
+- 选中文件名后不预加载；由 `App.vue` 的 `<img>` 加载成功调用 `markLoaded(name)`，失败调用 `markFailed(name)`。
+- 单张加载失败：从未失败的图片中再随机选一张；连续失败 3 张或全部失败，设 `fallback=true`。
+- 自定义图加载期间不渲染内置图；加载成功后渐入；`fallback=true` 时渲染内置图。
+- `saveDirectory(path)` 调用 `POST /api/background/directory`；成功后重新选图。`clearDirectory()` 提交空路径；`rescan()` 调用 `POST /api/background/rescan`，若当前图不在新清单则重新选。
+- 图片不写入 localStorage、不复制进仓库；仅浏览器 HTTP 缓存，且响应 `no-store`。
+
+### 7.6 背景层
+
+- `App.vue` 顶层渲染单个固定 `<img>` 背景层，`HomeView`、`ScheduleView` 等子页面共用。
+- 图片层固定铺满视口，`object-fit: cover`，`object-position: center`；不使用 `background-image` 与 `background-attachment`，避免页面滚动或触摸板滑动时背景位移。
+- 初始透明，加载成功后按 UI 文档渐入；`:key="src"` 保证换图时移除旧图。
+- 背景层 `pointer-events: none`、`draggable="false"`、`decoding="async"`、空 `alt`，不拦截点击、不可拖拽。
+- `src` 取值：自定义图可用时为自定义图；`hydrated && (!configured || fallback)` 时为内置图；其余为空。为空或自定义图加载中时不渲染内置图，只保留深色底。
+- 现有暗角/遮罩层保持不变，位于背景层之上、内容之下；完全功能模式与仅时钟模式使用不同遮罩层，切换时按 UI 文档交叉淡变。
+- 根元素建立层叠上下文，使遮罩位于背景图之上、内容之下。
+
+### 7.7 本地存储与缓存
+
+| key | 内容 |
+| --- | --- |
+| `buaa-start.cache.byxt.schedule.v1` | `{ savedAt, term, weeks, currentWeek, weekSource, lastWeek, byWeek }` |
+| `buaa-start.cache.byxt.exams.v1` | `{ savedAt, term, exams }` |
+| `buaa-start.cache.spoc.assignments.v1` | `{ savedAt, term, assignments }` |
+| `buaa-start.cache.spoc.detail.v1.<id>` | `{ savedAt, assignment }` |
+| `buaa-start.cache.bykc.chosen.v1` | `{ savedAt, term, courses }` |
+| `buaa-start.cache.bykc.courses.v1.<page>.<pageSize>` | `{ savedAt, page, pageSize, total, totalPages, courses }` |
+| `buaa-start.cache.bykc.course.v1.<id>` | `{ savedAt, course }` |
+| `buaa-start.cache.ygdk.overview.v1` | `{ savedAt, overview }` |
+| `buaa-start.ygdk.settings.v1` | `YgdkSettings` |
+| `buaa-start.todos.v1` | `Todo[]` |
+| `buaa-start.shortcuts.v1` | `Shortcut[]` |
+| `buaa-start.pomodoro.settings.v1` | `PomodoroSettings` |
+| `buaa-start.pomodoro.notifications.v1` | `boolean`；未明确关闭时默认 `true` |
+| `buaa-start.schedule.highlightLeadMinutes.v1` | `number`（0–180，默认 30） |
+| `buaa-start.home.cards.v1` | `HomeCardVisibility` |
+| `buaa-start.home.display.v1` | `{ minimalMode }` |
+- 旧明文凭据键 `buaa-start.credentials.v1` 只在启动时删除，不再读写；localStorage 中不保存任何 Cookie、Token、RoleCode、UID 或密码。
+- 读写统一包在 `src/cache/storage.ts`：`JSON.parse` 失败、配额不足、隐私模式不可用时返回 `null` / 降级为内存状态，并给出一次页面提示。
+- 清除缓存只删 `buaa-start.cache.*`；清除凭据由“退出登录”完成；两者互不影响。
+- 退出登录清业务缓存，但保留待办、快捷方式、番茄钟设置、背景目录、主页卡片与仅时钟模式。
+- 缓存数据不含 Cookie/Token；缓存优先 + 后台刷新，不做定时轮询。
+- 每个数据源独立 `SourceState`，状态为 `idle | loading | ok | cached | error | no-credential | auth-expired`。
+- 主页标题标签由 `src/domain/sourceStatus.ts` 统一生成：已失效 > 未登录 > 加载失败 > 同步中 > 缓存于 `YYYY-MM-DD HH:mm` > 已同步 > 待接入；`loading` 为真时（含后台刷新）显示“同步中”。日程按课表、博雅已选课程、考试三个源聚合，缓存时间取三者最早的 `savedAt`。
+- 有缓存先渲染并保留数据；后台请求成功后更新为“已同步”及时间；普通请求失败保留缓存并标注缓存时间；认证失效或未登录时标签显示“已失效/未登录”，缓存内容仍展示。
+- 无缓存且失败：显示错误与重试，不显示空数据；首次未登录且无缓存：显示引导到 `/settings` 的空状态。
+- 已登录但单源派生失败：该源显示“派生失败”与重试，其余源正常；会话过期且自动重登失败：对应数据源显示“已失效”，保留缓存并标注时间。
+
+### 7.8 本地功能与偏好
+
+- 本地待办、快捷方式、番茄钟、日程高亮、阳光目标、主页卡片开关与仅时钟模式不依赖登录，未登录仍可用。
+- 背景目录保存在中继 `settings.json`，不属于 localStorage；退出登录不清除。
+- 番茄钟运行态不写入 localStorage；配置与通知开关持久化。
+- 清除缓存与退出登录分开；清除缓存不影响登录状态。
+
+## 8. 业务规则
+
+### 8.1 课表与考试
 
 - 课表按“缓存优先”：先读 `byWeek[lastWeek]` 或当前周缓存渲染，再请求；成功后写缓存。
-- 主页需要今日/明日：取当前周；若明日跨周（周日），再请求下一周并合并。
+- 主页需要今日/明日：取当前周；若明日跨周（周日），再请求下一周并合并；博雅已选课程按日期并入。
 - 今日/明日课程按开始时间排序；无课显示“无课”，取数失败显示错误，不显示成“无课”。
-- 下一节课摘要：显示在日程卡片首行；在今天+明天课程中找进行中课程，显示剩余分钟；否则找下一节，显示时间与地点；都没有显示“暂无后续课程”。
-- 课程高亮：开始时间在提前边界内的课程暖色高亮并以 1.1s 周期闪烁，进行中的课程冷色高亮；提前边界默认 30 分钟，可在设置页调整。
+- 下一节课摘要：显示在日程卡片首行；在“今天 + 明天”的 byxt 与博雅课程中找进行中课程，显示剩余分钟；否则找下一节，显示时间与地点；都没有显示“暂无后续课程”。
+- 课程高亮：开始时间在提前边界内的课程暖色高亮并闪烁，进行中的课程冷色高亮；提前边界默认 30 分钟，可在设置页调整；闪烁节奏与样式以 [ui-lowfi.md](ui-lowfi.md) 为准。
 - 首行提示高亮：仅进行中时冷色；即将开始落在边界内时暖色；二者同时成立时文案仍显示“正在上课”，但使用暖色；两者都不成立不高亮。
 - 当前周：`currentWeek` 来自周次表或 `classWeek`；都无则第 1 周并显示提示。
 - `weeks` 为空时，7 行日期按当前日期所在自然周（周一至周日）推算，并保留“无法确定教学周，默认第 1 周”的提示。
-- 首周/末周禁用上一周/下一周；周次选择只允许 `1..weeks.length`。
-- 考试本期不接入数据：主页考试区与 `/exams` 保持占位；`/schedule` 不渲染考试标记，以下考试排序/倒计时条目保留为后续口径。
-- 考试网格标记：考试日期落在当前周日期范围内时，在对应日行显示标记；考试失败不阻塞课表，单独显示考试错误。
-- 考试排序：未开始按考试时间升序，并按月分组；已结束统一放最后，组内按时间倒序并标注“已结束”。
-- 主页取全部未开始考试中时间最早的 3 场；没有未开始考试时显示空状态。
-- 倒计时：未开始显示剩余天数；当天显示“今天 HH:mm”；结束显示“已结束”。日期计算按浏览器本地时区，跨天由时钟驱动更新。
+- 首周/末周禁用上一周/下一周；周次选择只允许 `1..weeks.length`；页首与页尾均提供上一周、跳转周、下一周。
+- 课程块：节次/时间、课程名、地点；教师有则附在地点行末尾（`地点 · 教师/周次描述`），数据用 `weeksAndTeachers` 的周次/教师合并描述。
+- 博雅课程带“博雅”来源标记；与 byxt 课程按开始时间合并排序；时间冲突时两者都显示。
+- `/schedule` 不渲染考试标记；考试只在主页与 `/exams` 使用。
+- 考试解析兼容 `YYYY-MM-DD`、`YYYY-MM-DD HH:mm`、ISO 8601 与中文/斜杠日期；`examDate` 常带 `00:00:00`，具体时分以 `startTime` 为准；缺时间时回退 `examTimeDescription`。
+- 考试状态：`upcoming` / `ongoing` / `ended` / `unknown`；未结束考试（含进行中）按月分组、组内按开始时间升序在前；已结束考试统一置底并标注，组内按时间倒序；“时间待定”置后。
+- 主页取全部未结束考试中开始时间最早的 3 场；没有未结束考试时显示空状态。
+- 倒计时：未结束显示剩余天数；当天显示“今天”或“今天 HH:mm”；已结束显示“已结束”；日期计算按浏览器本地时区，跨天由时钟驱动更新。
+- 缓存与错误：课表、考试、博雅已选课程各自独立状态；单源失败不阻塞其他源；断网仍可看缓存并显示缓存时间。
 
-### 7.3 SPOC
+### 8.2 博雅课程
 
-- 列表只显示 `submissionStatus === 'unsubmitted'` 且（`dueTime` 为空或晚于当前时间）的作业。
-- 无截止时间显示“无截止时间”并置后；已截止、已提交不显示。
-- 列表字段：课程·教师、标题、开始时间、截止时间、状态；点击打开详情 modal。
-- 详情 modal 只读：标题、课程、教师、开始/截止、提交状态、成绩、作业说明、附件名称；无成绩显示“暂无成绩”；无附件不显示附件区。
+- 已选课程：`getAllConfig` 解析当前学期起止日期，再调用 `queryChosenCourse`；`semester[]` 按当前时间匹配，无匹配取结束日期最晚的一项；`courseInfo` 为空的记录跳过；同一 `courseId + startTime` 去重；服务端不按时间过滤，前端按日期筛选。
+- 主页今日/明日：取 `startTime` 的日期部分与今天/明天比较，与 byxt 课程合并排序；博雅课程显示来源标记。
+- `/schedule`：由 byxt 周次表得到周一至周日日期，博雅课程日期落在该周范围才显示；同一天按开始时间合并排序。
+- 下一节课：在“今天 + 明天”的 byxt 与博雅课程中找进行中；否则找开始时间最近的一节；都没有显示“暂无后续课程”。
+- 博雅失败不影响 byxt；博雅区域显示“未登录 / 加载失败 / 缓存于…”与重试，不显示成“无课”。
+- 课程广场：`/bykc?page=n`；`page` 非法或小于 1 回退 1，大于 `totalPages` 回退末页或 1；每页 12 条；上一页/下一页，首末页禁用；字段为课程名、时间、地点、教师（有则显示）；按上游顺序，不做本地排序。
+- 状态标签按顺序计算：`courseStartDate` 已过 → `expired`；`selected === true` → `selected`；`courseSelectEndDate` 已过 → `ended`；人数已满 → `full`；`courseSelectStartDate` 未到 → `preview`；否则 `available`。文案为“已过期 / 已选 / 选课结束 / 人数已满 / 预告 / 可选”。
+- 详情 modal：列表四项 + 课程简介纯文本 + 状态；无写操作按钮；简介不渲染 HTML；失败保留列表已有字段并显示错误与重试；无效 id 显示“未找到”并可关闭。
+- 缓存：每页独立缓存；进入页面先读缓存再刷新；失败保留缓存并标注时间；无缓存显示错误与重试。
+- 主页广场卡片：使用第 1 页缓存/请求，随机取 3 门；不足 3 门显示实际数量；“换一批”在当前第 1 页课程中重新随机，尽量不与当前 3 门重复，无法避免时允许重复；点击课程卡片打开详情 modal，点击“查看全部”进入 `/bykc`。
+
+### 8.3 SPOC
+
+- 列表只显示 `submissionStatus === 'unsubmitted'` 且（`dueTime` 为空或晚于当前时间）的作业；已截止、已提交不显示。
+- 无截止时间显示“无截止时间”并置后；按截止时间升序，无截止时间置后。
+- 列表字段：课程·教师、标题、开始时间、截止时间、提交状态；点击打开详情 modal。
+- 详情 modal 只读：标题、课程、教师、开始/截止、提交状态、成绩、作业说明、附件名称；无成绩显示“暂无成绩”；无附件不显示附件区；说明按纯文本展示，不使用 `v-html`。
 - 打开 modal 时先展示列表现有字段，详情加载后补齐成绩、说明与附件；关闭后回到列表。
-- 无效 id 显示“未找到”，可关闭 modal 回到 `/spoc`。
-- 失败时保留缓存并显示缓存时间；无缓存时显示错误与重试。
+- 无效 id 显示“未找到”，可关闭 modal 回到 `/spoc`；失败时保留缓存并显示缓存时间；无缓存时显示错误与重试。
+- 不提供提交、附件下载或任何写操作。
 
-### 7.4 待办
+### 8.4 阳光打卡
+
+- 保存登录状态后由中继派生凭据；主页卡片展示学期次数、学期目标、学期进度、当周次数、周限制、周进度。
+- 学期目标：`systemTermTarget > 0` 时使用系统值，否则使用用户 `termTarget`；用户值非法时回退默认值。
+- 周限制始终使用用户 `weekTarget`（默认 4），不使用系统 `weekTarget`。
+- 进度：学期进度 = `termCount / termTarget`；周进度 = `weekCount / weekTarget`；超过限制进度条封顶 100%，文字显示实际次数。
+- 设置页修改目标/周限制后立即写入 `buaa-start.ygdk.settings.v1`，主页响应式更新。
+- 失败：保留缓存并标注时间；无缓存显示错误与重试；不显示成“0 次”。
+- 不设详情路由；不提供打卡、补卡、上传。
+
+### 8.5 待办
 
 - 本地待办字段：标题、截止时间、备注、优先级（默认中）、重复（无/每天/每周）、完成状态。
 - 重复任务必须有截止时间；完成时保留原条目为已完成，并按周期生成新条目。
 - 顺延：新截止时间 = 原截止时间 + 周期；若仍不晚于当前时间，继续加周期直到未来最近一次。
 - 排序：未完成在前；截止时间升序；无截止时间置后；已完成置后；同截止时间按创建时间。优先级只改变展示，不参与排序。
-- SPOC 段只读，不显示勾选框；点击打开详情 modal。本地段在前，SPOC 段在后。
+- 待办卡片左右两栏：左栏本地待办，右栏 SPOC 作业；两栏各自滚动；SPOC 段只读，不显示勾选框，点击打开详情 modal。
 - 数据写 `buaa-start.todos.v1`；刷新保留。
 
-### 7.5 番茄钟
-
-> 二阶段起阶段结束自动开始下一阶段，并增加桌面通知与通知开关；本节保留一阶段口径，当前实现见 [trd-phase2.md](docs/trd-phase2.md) 7.5。
+### 8.6 番茄钟
 
 - 默认 25/5/15 分钟，每 4 个专注轮次进入长休；配置写 `buaa-start.pomodoro.settings.v1`。
-- 配置校验：专注 1-180 分钟，短休/长休 1-60 分钟，轮次 1-12；非法值不保存并提示。
-- 运行态：阶段、剩余秒数、运行中、已完成专注轮次、结束时间戳；刷新页面重置。
+- 配置校验：专注 1–180 分钟，短休/长休 1–60 分钟，轮次 1–12；非法值不保存并提示。
+- 运行态只在内存：阶段、剩余秒数、运行中、暂停、已完成专注轮次、结束时间戳、阶段总时长、是否已发 1 分钟通知；刷新页面重置运行态，不写 localStorage，不新增后端接口。
 - 计时用 `endsAt` 时间戳 + 250ms 定时器校正，不用累加秒数，避免后台节流漂移。
-- 阶段结束：播放提示音；专注结束则轮次 +1；按轮次决定下一阶段（长休/短休/专注）；停在下一阶段起点，等待手动开始。
-- 开始/暂停/继续/重置：暂停保留剩余；继续从剩余时间开始；重置回到当前阶段完整时长并停止。
+- 首次开始仍由用户点击；开始后专注阶段自动计时。
+- 阶段自然结束：播放提示音；专注结束则轮次 +1；按轮次决定长休/短休/专注；立即进入下一阶段并自动开始，`endsAt = 原结束时间 + 下一阶段时长`；发送“阶段结束”通知（若开启）；重置 1 分钟通知标记。
+- 后台/休眠跨过多个阶段：从旧 `endsAt` 开始循环推进，直到 `endsAt > now`；循环中照常累计专注轮次，但不补发历史提示音与通知；只跨过一个阶段时按正常结束处理；循环上限 10000 次。
+- 页面恢复可见时立即执行一次 `tick`，不等待下一个 250ms 定时器。
+- 开始/暂停/继续/重置：暂停保留剩余；继续从剩余时间开始；重置回到当前阶段完整时长并停止，已完成轮次保持不变。
+- 通知：开关未明确关闭时默认开启；首次开启或首次开始/继续（用户手势）时若权限为 `default`，请求一次权限；用户主动关闭后不再自动请求；`Notification` 不存在或权限被拒绝时开关回到关闭并提示；设置页显示权限状态并提供“测试通知”。
+- 结束前 1 分钟通知：仅当阶段时长 > 60 秒；在 `endsAt - 60_000` 后首次 `tick` 发送一次；暂停时若已跨过该边界，标记为已通知；恢复后不补发暂停期间的通知。
+- 阶段结束通知文案含刚结束阶段与下一阶段；与 1 分钟通知使用不同 `tag`，创建时使用 `renotify: true`；点击通知 `window.focus()` 并关闭通知。
+- 通知不可用/权限被拒绝：提示音与自动流转仍正常；不自定义通知文案；不注册 Service Worker；页面关闭后不发通知。
 - 提示音用 Web Audio 生成；播放失败不影响计时。
 
-### 7.6 缓存、刷新与错误状态
+## 9. 安全与边界
 
-- 每个数据源独立 `SourceState`：
+- 中继只监听本机；Host 校验；不设置 CORS。
+- 对外只暴露只读业务 `GET`；仅登录、登出、验证码预加载、单源重试与背景目录设置/重新扫描使用白名单 `POST`；中继内部只调用白名单上游接口，不接受任意 URL/路径。
+- 凭据只出现在：登录请求体（仅 loopback，`no-store`）、中继内存会话、AES-256-GCM 密文文件。
+- 凭据不出现于：localStorage、URL、查询串、日志、错误响应、前端状态、Git 仓库。
+- 密码只用于 SSO 登录与自动重登；不参与派生；不返回前端。
+- 文件权限：目录 `0700`、文件 `0600`；密钥与密文分开。
+- 背景接口防路径穿越：文件名白名单校验 + `realpath` 前缀校验 + 只读清单；不接受绝对路径、`..`、分隔符；只返回白名单图片且只第一层，不提供目录浏览接口。
+- `POST` 同源校验 + JSON Content-Type；不启用 CORS；Host 校验保持。
+- 登录单飞；自动重登节流（认证失败 5 分钟内不重复，瞬时失败 30 秒内不重复）；密码错误不自动重试。
+- 上游错误只返回固定中文文案；不回显 HTML、Token、Cookie；`server/http/upstream.ts` 的异常包装不得把请求体、Cookie 或上游 HTML 拼进错误消息。
+- 博雅课程简介、SPOC 作业说明只按纯文本展示，不使用 `v-html`；快捷方式 URL 只允许 `http:`/`https:`。
+- 背景图片、字体等资源本地打包；favicon 取站点自身 `/favicon.ico`，失败显示首字母。
+- 不执行任何提交、打卡、选退课、签到、附件下载；不实现 WebVPN；不把凭据发往第三方。
+- 单用户、本机数据；不做云端同步。
 
-```ts
-type SourceStatus =
-  | 'idle'
-  | 'loading'
-  | 'ok'
-  | 'cached'
-  | 'error'
-  | 'no-credential'
-  | 'auth-expired';
-```
-
-- 主页标题标签由 `src/utils/sourceStatus.ts` 统一生成：已失效 > 未登录 > 加载失败 > 同步中 > 缓存于 YYYY-MM-DD HH:mm > 已同步 > 待接入；`loading` 为真时（含后台刷新）显示“同步中”。日程按三源聚合，缓存时间取三者最早的 `savedAt`。
-- 有缓存先渲染并保留数据；后台请求成功后更新为“已同步”及时间；普通请求失败保留缓存并标注缓存时间，认证失效或未登录时标签显示“已失效/未登录”，缓存内容仍展示。
-- 无缓存且失败：显示错误与重试，不显示空数据。
-- 首次无凭据：显示引导到 `/settings` 的空状态。
-- 手动刷新按模块提供；不做定时轮询。
-- 前端把 fetch 失败或非 JSON 响应映射为 `RELAY_UNREACHABLE`，显示连接错误与 `npm run dev` 提示；本地待办、时钟、番茄钟、快捷方式仍可用。
-
-## 8. 启动与脚本
+## 10. 启动与脚本
 
 ```bash
 npm install
 npm run dev       # Vite + 中继，127.0.0.1:5173
-npm run build     # vue-tsc + vite build
+npm run build     # vue-tsc -b + vite build
 npm run preview   # Vite preview + 中继，127.0.0.1:4173
+npm start         # Express 同源提供 dist 与 /api，127.0.0.1:3000
+npm test          # Vitest
+npm run type-check
+npm run lint
+npm run check     # lint + type-check + test 并行
 ```
 
 - `vite.config.ts` 的 `server.host` / `preview.host` 固定 `127.0.0.1`；端口被占用时由 Vite 自动顺延，以终端输出为准。
 - 中继以插件形式挂载，不需要单独启动第二个进程；`preview` 同源提供页面与 `/api`。
-- 生产构建后直接 `npm run preview` 即可本机自用；不引入 Express、SSR 或其他后端。
+- 生产构建后用 `npm start` 由 Express 同源提供页面与 `/api`，不引入 SSR；`npm run preview` 仍可用于快速预览。
+- `server/index.ts` 复用 `server/relayPlugin.ts` 的同一份 `/api` 中间件，路径、方法、错误码与请求头约定不变；监听地址仍为 `127.0.0.1`，可用 `PORT` 改端口。
+- 不新增依赖；博雅与凭据加密使用 Node 内置 `node:crypto`。
 
-## 9. 安全与边界
+## 11. 验收
 
-- 中继只监听本机；不设置 CORS 响应头；校验 Host。
-- 对外只暴露只读 GET；中继内部只调用白名单上游接口，不接受任意 URL/路径。
-- Cookie/Token/RoleCode 只走请求头；不写 URL、日志、缓存；前端 fetch 封装不打日志。
-- SPOC 作业说明只按纯文本展示，不使用 `v-html`；快捷方式 URL 只允许 `http:`/`https:`。
-- 不执行任何提交、打卡、选退课、签到、附件下载。
-- 背景图片、字体等资源本地打包；favicon 直接取站点自身 `/favicon.ico`，失败显示首字母。
-- 单用户、本机数据；不做云端同步。
+- 类型检查：`npm run build`（含 `vue-tsc`）与 `npm run type-check` 通过；`npm test` 通过；`npm run lint` 通过。
+- 中继检查：
+  - 非白名单方法返回 405；未列路径 404；未登录业务接口 401 `AUTH_REQUIRED`；Host 非本机拒绝；日志无凭据。
+  - 登录单飞、验证码刷新、密码错误/验证码错误/密码过期分类、四源异步派生与单源重试。
+  - 凭据文件损坏/密钥缺失不白屏；目录不可写时本次运行仍可用；退出登录后凭据文件不存在。
+  - 背景接口路径穿越被拒绝；超过 20 MB 的图片跳过；非本机 Host 拒绝。
+- 认证验收：
+  - 无验证码与有验证码登录均可完成；验证码可刷新；错误提示可区分。
+  - 登录成功显示姓名、学号、登录时间；四源状态可轮询；失败项可单独重试。
+  - 重启中继/浏览器后已保存会话免登录；会话失效自动重登一次；失败显示“已失效”并保留缓存。
+  - 登录状态校验失败（中继不可达/超时）不拦截取数，不误显示“未登录”。
+- 主页验收：
+  - 时钟、搜索、背景、快捷方式增删改与拖拽；快捷方式可放任意行，刷新后保留。
+  - 五张卡片开关独立、持久化、关闭期间无请求、重新开启后缓存优先、全部关闭只剩快捷方式。
+  - 仅时钟与背景模式可进可退，刷新保持，隐藏期间无功能区请求；子页面不受影响。
+  - 背景保存/清除/重新扫描、第一层扫描、格式过滤、随机展示、失败回退、单张换图、加载期间不露内置图、背景不随滚动位移。
+- 教务验收：
+  - 课表今日/明日、周切换、首末周禁用、无周次提示、课程高亮与提前边界、下一节课摘要。
+  - 考试主页最近 3 场、`/exams` 分组与倒计时、已结束置底、失败保留缓存；`/schedule` 无考试标记。
+  - 博雅已选课程进入主页与周视图、来源标记、合并排序、冲突显示；广场分页、边界禁用、详情 modal、状态标签、简介纯文本；主页随机 3 门与“换一批”。
+  - SPOC 列表过滤与排序、无截止时间标注、详情 modal、无效 id、失败保留缓存。
+  - 阳光学期/周次数、目标、进度、封顶、设置持久化。
+  - 本地待办增删改与重复顺延；番茄钟自动流转、阶段显示、轮次、暂停/继续/重置、通知权限与测试、1 分钟通知、结束通知、点击聚焦。
+- 缓存与错误：
+  - 各源独立缓存与状态；失败保留缓存并标注时间；无缓存显示错误与重试；空数据与失败文案分开。
+  - 刷新与关闭页面后番茄钟运行态重置，不残留；localStorage 不可用或损坏时降级为内存并提示。
+- 文档状态：PRD、UI 文档、API 文档与本文为当前四份文档；后续变更需同时更新相关文档。
 
-## 10. 验收与文档
+## 12. 风险与待验证
 
-- 类型检查：`npm run build` 通过（含 `vue-tsc`）。
-- 中继检查：非 GET 返回 405；未列路径 404；无凭据 401；Host 非本机拒绝；日志无凭据。
-- 无凭据验收：各模块显示引导/空状态；缓存与错误文案区分；中继未启动不白屏。
-- 有凭据验收：课表今日/明日、周切换、考试占位、课程高亮与提前边界、SPOC 过滤/排序/详情、设置页状态与清除。
-- 本地功能验收：待办增删改与重复顺延、番茄钟阶段与重置、快捷方式增删改与 URL 校验、任意行拖拽与行内数量不限、时钟/搜索/背景。
-- 文档状态：PRD、UI 文档、API 文档与本 TRD 已按确认口径同步；后续变更需同时更新这四份文档。
+- 登录流程没有原始 HAR；SSO 页面结构、验证码配置、错误文案可能随学校更新变化，需真实联调与后续 HAR。
+- byxt Cookie 依赖 `byxt → SSO → byxt` 票据链；参考 B 不访问 byxt 首页，若真实环境拿不到 Cookie，需要补一次首页访问。
+- 博雅仅 `auth_token` 的可用性尚未被 HAR 最终证明；若返回会话失效，需评估是否补充可选 Cookie 字段。
+- 阳光没有 HAR；`campusAppLogin` 的响应结构与 `uid`/`token` 字段需真实联调验证。
+- 博雅响应是加密的；HAR 无法离线解密响应体，课程字段与状态判定来自参考 B 与测试，真实响应需联调验证。
+- 博雅 `Referer` 在 HAR 中随页面变化，实现按固定值；若上游拒绝再调整。
+- 考试接口日期/时间的实际字符串格式未固定，代码按多格式兼容。
+- Windows 文件 ACL 依赖 `%LOCALAPPDATA%` 的用户隔离；如需更强保证，再评估 `icacls` 或 DPAPI（本期不做）。
+- 异步派生顺序执行，最坏情况约 48 秒（4 × 12 秒）；设置页需显示“派生中”，避免用户误以为失败。
+- 验证码只处理图片类型；上游改成滑块、点选或第三方验证码时本期不实现。

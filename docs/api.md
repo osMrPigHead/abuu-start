@@ -12,6 +12,7 @@
 - 登录流程没有原始 HAR；页面结构、表单字段与错误判定来自参考 B 与登录审计文档，见第 2 节。
 - HAR 已确认的结论直接写入本文；仍无法确定的内容会在条目中注明。
 - 本项目只做只读查询，不调用任何提交、打卡、选退课、签到接口；三阶段的登录、登出、验证码、会话状态是唯一写方法例外。
+- 本项目实际调用的中继路由、页面归属与上游调用链见 [trd.md](trd.md) 3.5。
 
 
 ## 1. 本研教育管理系统（byxt）
@@ -308,14 +309,6 @@ HAR 未导出 Cookie；若真实请求在只带 `auth_token` 时返回会话失�
 验证码错误与账号密码错误要分开提示：验证码错误时保留学号，刷新验证码后可直接重试，不要求重新输入密码。
 
 网络或上游不可用时不标记登录失效：`?validate=1` 保留已登录状态与四源状态，仅附 `warning:"无法连接统一认证，登录状态未校验"`；业务请求返回 `UPSTREAM_ERROR`/`UPSTREAM_TIMEOUT`，由用户重试。
-
-### 2.5 三阶段不做的认证能力
-
-- WebVPN 与校外加密接入；不提供连接模式选择。
-- 注册、找回密码、修改密码。
-- 验证码识别、自动填写或第三方打码。
-- 多用户、账号切换、云端同步。
-- 除登录、登出、验证码、会话状态外的认证类写操作。
 
 ## 3. SPOC
 
@@ -716,64 +709,3 @@ MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDlHMQ3B5GsWnCe7Nlo1YiG/YmHdlOiKOST5aRm4iaq
 - 周限制使用用户设置，默认 4；范围 1–14。
 - 阳光不调用 `Item/getList`、`Clockin/getList`、`Upload/File/post`、`Clockin/clockin`。
 
-## 6. 本项目实际调用
-
-| 页面/功能 | 中继接口 | 上游调用 |
-| --- | --- | --- |
-| 课表（主页、`/schedule`） | `GET /api/byxt/schedule?week=` | `currentUser` → `getTermWeeks` → `getMyScheduleDetail` |
-| 考试（主页、`/exams`） | `GET /api/byxt/exams` | `currentUser` → `exams.do` |
-| SPOC 列表（主页、`/spoc`） | `GET /api/spoc/assignments` | `queryOne`（失败回退 `queryList`）→ `queryKclb` → `queryListByPage`（翻页） |
-| SPOC 详情（`/spoc/:id`） | `GET /api/spoc/assignments/:id` | 作业列表 + `queryKczyInfoByid` + `queryXsSubmitKczyInfo` |
-| 博雅已选（主页、`/schedule`） | `GET /api/bykc/chosen` | `getAllConfig` → `queryChosenCourse` |
-| 博雅广场（`/bykc`） | `GET /api/bykc/courses?page=&pageSize=12` | `queryStudentSemesterCourseByPage` |
-| 博雅详情（`/bykc` modal） | `GET /api/bykc/courses/:id` | `queryCourseById` |
-| 阳光概览（主页） | `GET /api/ygdk/overview` | `Classify/getList` → `Clockin/getCount` → `Term/get`（可选） |
-| 统一登录预加载（`/settings`） | `POST /api/auth/preload` | `sso/login`（含验证码配置）→ `sso/captcha`（按需） |
-| 统一登录提交（`/settings`） | `POST /api/auth/login` | `sso/login` 提交 → UC 激活 → UC status；四源派生在后台继续 |
-| 登录状态（`/settings`） | `GET /api/auth/status` | `uc/status`（仅 `?validate=1`） |
-| 退出登录（`/settings`） | `POST /api/auth/logout` | `sso/logout` → 清除本地凭据 |
-| 单源重试（`/settings`、卡片） | `POST /api/auth/sources/:source/retry` | 对应源派生链 |
-| 认证状态（`/settings`） | `GET /api/byxt/status`、`GET /api/spoc/status`、`GET /api/bykc/status` | `currentUser`、`queryOne`（失败回退 `queryList`）、`getUserProfile` |
-| 阳光认证校验（`/settings`） | `GET /api/ygdk/overview` | `Classify/getList` → `Clockin/getCount` |
-
-- 统一登录相关路由的方法与请求/响应以 `docs/trd-phase3.md` 为准；业务数据路由仍只读 `GET`。
-- SPOC 请求头由中继注入 `Token` 与 `RoleCode`，不发送 Cookie。
-- 博雅请求头由中继注入 `auth_token`（同时发送 `auth_token` 与 `authtoken`），不发送额外 Cookie。
-- 阳光请求头只带 `X-Requested-With`；`uid`、`token` 由中继放入表单，不放入 URL。
-- 前端不再发送任何凭据请求头；凭据由中继按当前登录会话注入。
-- 背景目录的 `GET /api/background`、`GET /api/background/image`、`POST /api/background/directory`、`POST /api/background/rescan` 属于本机文件系统能力，不是北航上游接口；设计见 `docs/trd-phase3.md` 3.3，不列入本表上游调用。
-
-### 6.1 本机中继扩展
-
-以下路径由本项目本地中继提供，不是北航上游接口；请求/响应细节以 `docs/trd-phase3.md` 为准。
-
-| 路径 | 方法 | 用途 |
-| --- | --- | --- |
-| `/api/auth/preload` | `POST` | 获取登录页验证码与本次登录尝试 |
-| `/api/auth/login` | `POST` | 提交学号、密码、验证码，完成 SSO 与 UC 登录 |
-| `/api/auth/status` | `GET` | 读取登录状态与四源派生状态 |
-| `/api/auth/sources/:source/retry` | `POST` | 重试单个数据源派生 |
-| `/api/auth/logout` | `POST` | 退出登录并清除中继凭据 |
-| `/api/background` | `GET` | 读取背景目录与图片清单 |
-| `/api/background/image` | `GET` | 读取指定图片字节 |
-| `/api/background/directory` | `POST` | 保存或清除背景目录 |
-| `/api/background/rescan` | `POST` | 重新扫描背景目录 |
-
-- 除上述 `POST` 外，业务数据接口仍只接受 `GET`；未列路径返回 `404`。
-- 所有路径只监听 `127.0.0.1`，并校验 Host；前端不接触上游地址。
-
-## 7. 未确定与不在本期范围
-
-- 统一认证没有原始登录 HAR；SSO 登录页结构、验证码配置与错误文案来自参考 B 与登录审计文档。若学校更新页面，需重新提供登录 HAR。
-- 验证码只处理图片类型；若上游改成滑块、点选或第三方验证码，三阶段不实现。
-- 参考 B 会在一处密码过期/安全风险页面提交 `_eventId=ignoreAndContinue` 跳过；三阶段已确认中止并提示用户处理，不自动跳过。
-- byxt Cookie 依赖跟随 `byxt → SSO → byxt` 的票据链；参考 B 不额外访问 byxt 首页，真实联调若拿不到 Cookie，需补一次首页访问。
-- 博雅“仅 `auth_token` 可用”尚未被 HAR 最终证明：`private/har/sscv` 的 `cookies` 为空且无 `cookie` 头，但 Cookie 未导出；若真实请求返回认证失效，需重新评估是否增加可选 Cookie 字段。
-- 博雅响应是加密的；HAR 无法离线解密响应体，课程字段与状态判定来自参考 B 的模型、业务代码与测试，真实响应需联调验证。
-- 博雅 `Referer` 在 HAR 中随页面变化（`/system/home`、`/system/course-mine`），参考 B 固定为 `/system/course-select`；实现按固定值，若上游拒绝再调整。
-- 阳光没有 HAR；路径、表单字段与响应结构来自参考 B，真实联调需验证。
-- 阳光 `weekTarget` 系统值仅作参考；本项目按 PRD 使用用户设置。
-- 考试接口日期/时间的实际字符串格式（参考 B 未固定，代码按多格式兼容）。
-- 研究生 GSMIS 课表不在本期范围。
-- 博雅选课/退课/签到、阳光打卡/上传、SPOC 提交/附件下载均不在本期范围。
-- WebVPN、注册/找回密码/修改密码、验证码识别不在本期范围。
