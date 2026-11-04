@@ -1,6 +1,6 @@
 import { mount } from "@vue/test-utils";
 import { afterEach, describe, expect, it } from "vitest";
-import AppDialog from "@/components/AppDialog.vue";
+import AppDialog from "@/components/common/AppDialog.vue";
 
 function mountDialog() {
   return mount(AppDialog, {

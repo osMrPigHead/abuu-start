@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { RouterLink } from "vue-router";
-import BykcCourseCard from "@/components/BykcCourseCard.vue";
-import CardStatusActions from "@/components/CardStatusActions.vue";
-import HomeCard from "@/components/HomeCard.vue";
+import BykcCourseCard from "@/components/bykc/BykcCourseCard.vue";
+import CardStatusActions from "@/components/home/CardStatusActions.vue";
+import HomeCard from "@/components/home/HomeCard.vue";
 import type { BykcCourse } from "@shared/api";
 import type { SourceStatus } from "@/types";
 import {

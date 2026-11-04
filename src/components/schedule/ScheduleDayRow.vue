@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import CourseBlock from "@/components/CourseBlock.vue";
+import CourseBlock from "@/components/schedule/CourseBlock.vue";
 import { useHorizontalWheelScroll } from "@/composables/useHorizontalWheelScroll";
 import type { SectionTime } from "@shared/api";
 import type { Course } from "@/types";

@@ -1,20 +1,20 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import BykcCourseModal from "@/components/BykcCourseModal.vue";
-import BykcSquareCard from "@/components/BykcSquareCard.vue";
-import FocusCard from "@/components/FocusCard.vue";
+import BykcCourseModal from "@/components/bykc/BykcCourseModal.vue";
+import BykcSquareCard from "@/components/home/BykcSquareCard.vue";
+import FocusCard from "@/components/home/FocusCard.vue";
 import HomeBoard from "@/components/home/HomeBoard.vue";
 import HomeTopBar from "@/components/home/HomeTopBar.vue";
 import MinimalClockLayer from "@/components/home/MinimalClockLayer.vue";
 import ScheduleOverviewCard from "@/components/home/ScheduleOverviewCard.vue";
-import ShortcutCard from "@/components/ShortcutCard.vue";
-import ShortcutDialog from "@/components/ShortcutDialog.vue";
-import SpocDetailDialog from "@/components/SpocDetailDialog.vue";
-import TodoCard from "@/components/TodoCard.vue";
-import YgdkCard from "@/components/YgdkCard.vue";
+import ShortcutCard from "@/components/home/ShortcutCard.vue";
+import ShortcutDialog from "@/components/home/ShortcutDialog.vue";
+import SpocDetailDialog from "@/components/spoc/SpocDetailDialog.vue";
+import TodoCard from "@/components/home/TodoCard.vue";
+import YgdkCard from "@/components/home/YgdkCard.vue";
 import { useBykcDetail } from "@/composables/useBykcDetail";
-import { useBykc } from "@/composables/useBykcList";
+import { useBykcList } from "@/composables/useBykcList";
 import { useClock } from "@/composables/useClock";
 import { useDataSourceActions } from "@/composables/useDataSourceActions";
 import {
@@ -94,7 +94,7 @@ const { preloadTomorrow } = useHomePreload({
 const { state: ygdkState, refresh: refreshYgdk } = useYgdk();
 const { termTarget: ygdkUserTermTarget, weekTarget: ygdkUserWeekTarget } =
   useYgdkSettings();
-const { state: bykcState, refresh: refreshBykc } = useBykc();
+const { state: bykcState, refresh: refreshBykc } = useBykcList();
 const {
   state: bykcDetailState,
   open: openBykcDetail,

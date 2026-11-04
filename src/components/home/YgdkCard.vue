@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import CardStatusActions from "@/components/CardStatusActions.vue";
-import HomeCard from "@/components/HomeCard.vue";
+import CardStatusActions from "@/components/home/CardStatusActions.vue";
+import HomeCard from "@/components/home/HomeCard.vue";
 import type { YgdkOverview } from "@shared/api";
 import type { SourceStatus } from "@/types";
 import {

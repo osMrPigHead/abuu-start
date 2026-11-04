@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import PageHeader from "@/components/PageHeader.vue";
-import PageStateNotice from "@/components/PageStateNotice.vue";
-import SourceStatusLine from "@/components/SourceStatusLine.vue";
-import SpocAssignmentCard from "@/components/SpocAssignmentCard.vue";
-import SpocDetailDialog from "@/components/SpocDetailDialog.vue";
+import PageHeader from "@/components/common/PageHeader.vue";
+import PageStateNotice from "@/components/common/PageStateNotice.vue";
+import SourceStatusLine from "@/components/common/SourceStatusLine.vue";
+import SpocAssignmentCard from "@/components/spoc/SpocAssignmentCard.vue";
+import SpocDetailDialog from "@/components/spoc/SpocDetailDialog.vue";
 import { useClock } from "@/composables/useClock";
 import { useSpoc, useSpocDetail } from "@/composables/useSpoc";
 import type { SpocAssignment } from "@shared/api";

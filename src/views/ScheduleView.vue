@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import PageHeader from "@/components/PageHeader.vue";
-import ScheduleDayRow from "@/components/ScheduleDayRow.vue";
-import SourceStatusLine from "@/components/SourceStatusLine.vue";
-import WeekSwitcher from "@/components/WeekSwitcher.vue";
+import PageHeader from "@/components/common/PageHeader.vue";
+import ScheduleDayRow from "@/components/schedule/ScheduleDayRow.vue";
+import SourceStatusLine from "@/components/common/SourceStatusLine.vue";
+import WeekSwitcher from "@/components/schedule/WeekSwitcher.vue";
 import { useClock } from "@/composables/useClock";
 import { useBykcChosen } from "@/composables/useBykcChosen";
 import { useSchedule, type WeekEntry } from "@/composables/useSchedule";

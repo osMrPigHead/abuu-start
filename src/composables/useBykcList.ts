@@ -56,7 +56,7 @@ const source = createCachedSource({
  * 分页数据源：缓存入口是 `loadPage(page)`，而不是无参 `hydrate`。
  * `loadPage` 会先按新页码 reset 再 hydrate，避免把上一页缓存当成本页数据。
  */
-export function useBykc() {
+export function useBykcList() {
   return {
     state,
     loadPage,

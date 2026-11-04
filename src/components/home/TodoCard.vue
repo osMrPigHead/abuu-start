@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { RouterLink } from "vue-router";
-import CardStatusActions from "@/components/CardStatusActions.vue";
-import HomeCard from "@/components/HomeCard.vue";
-import SpocTodoItem from "@/components/SpocTodoItem.vue";
-import TodoDialog from "@/components/TodoDialog.vue";
-import TodoItem from "@/components/TodoItem.vue";
+import CardStatusActions from "@/components/home/CardStatusActions.vue";
+import HomeCard from "@/components/home/HomeCard.vue";
+import SpocTodoItem from "@/components/spoc/SpocTodoItem.vue";
+import TodoDialog from "@/components/todo/TodoDialog.vue";
+import TodoItem from "@/components/todo/TodoItem.vue";
 import type { SpocAssignment } from "@shared/api";
 import type { SourceStatus, Todo } from "@/types";
 import {

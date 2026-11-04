@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from "vue";
-import AppDialog from "@/components/AppDialog.vue";
+import AppDialog from "@/components/common/AppDialog.vue";
 import type { Todo } from "@/types";
 import {
   TODO_PRIORITIES,

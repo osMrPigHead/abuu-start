@@ -1,19 +1,19 @@
 <script setup lang="ts">
 import { computed, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import BykcCourseCard from "@/components/BykcCourseCard.vue";
-import BykcCourseModal from "@/components/BykcCourseModal.vue";
-import PageHeader from "@/components/PageHeader.vue";
-import PageStateNotice from "@/components/PageStateNotice.vue";
-import SourceStatusLine from "@/components/SourceStatusLine.vue";
+import BykcCourseCard from "@/components/bykc/BykcCourseCard.vue";
+import BykcCourseModal from "@/components/bykc/BykcCourseModal.vue";
+import PageHeader from "@/components/common/PageHeader.vue";
+import PageStateNotice from "@/components/common/PageStateNotice.vue";
+import SourceStatusLine from "@/components/common/SourceStatusLine.vue";
 import { useBykcDetail } from "@/composables/useBykcDetail";
-import { useBykc } from "@/composables/useBykcList";
+import { useBykcList } from "@/composables/useBykcList";
 import type { BykcCourse } from "@shared/api";
 
 const route = useRoute();
 const router = useRouter();
 
-const { state, loadPage, refresh } = useBykc();
+const { state, loadPage, refresh } = useBykcList();
 const {
   state: detailState,
   open: openDetail,

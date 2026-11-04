@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
-import LoginSection from "@/components/LoginSection.vue";
-import PageHeader from "@/components/PageHeader.vue";
+import LoginSection from "@/components/auth/LoginSection.vue";
+import PageHeader from "@/components/common/PageHeader.vue";
 import BackgroundSection from "@/components/settings/BackgroundSection.vue";
 import HighlightSection from "@/components/settings/HighlightSection.vue";
 import HomeCardsSection from "@/components/settings/HomeCardsSection.vue";
 import OperationsSection from "@/components/settings/OperationsSection.vue";
 import RelaySection from "@/components/settings/RelaySection.vue";
 import YgdkTargetsSection from "@/components/settings/YgdkTargetsSection.vue";
-import SourceStateList from "@/components/SourceStateList.vue";
+import SourceStateList from "@/components/auth/SourceStateList.vue";
 import { useAuth } from "@/composables/useAuth";
 import { useBackground } from "@/composables/useBackground";
 import { useDataSourceActions } from "@/composables/useDataSourceActions";

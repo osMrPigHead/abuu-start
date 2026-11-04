@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from "vue";
-import HomeCard from "@/components/HomeCard.vue";
+import HomeCard from "@/components/home/HomeCard.vue";
 import type { PomodoroSettings } from "@/types";
 import {
   formatPomodoroClock,

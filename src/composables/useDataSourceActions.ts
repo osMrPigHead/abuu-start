@@ -1,7 +1,7 @@
 /** 跨数据源的统一 refresh/clear 编排，避免页面各自维护数据源列表；缓存读取由各 composable 构造期完成。 */
 import { useBykcChosen } from "@/composables/useBykcChosen";
 import { useBykcDetail } from "@/composables/useBykcDetail";
-import { useBykc } from "@/composables/useBykcList";
+import { useBykcList } from "@/composables/useBykcList";
 import { useExams } from "@/composables/useExams";
 import { useSchedule } from "@/composables/useSchedule";
 import { useSpoc } from "@/composables/useSpoc";
@@ -14,7 +14,7 @@ export function useDataSourceActions() {
   const exams = useExams();
   const spoc = useSpoc();
   const ygdk = useYgdk();
-  const bykc = useBykc();
+  const bykc = useBykcList();
   const bykcChosen = useBykcChosen();
   const bykcDetail = useBykcDetail();
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mount } from "@vue/test-utils";
-import CourseBlock from "@/components/CourseBlock.vue";
+import CourseBlock from "@/components/schedule/CourseBlock.vue";
 import type { Course } from "@/types";
 import { DEFAULT_SECTION_TIMES } from "@/utils/schedule";
 

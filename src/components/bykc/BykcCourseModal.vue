@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { RouterLink } from "vue-router";
-import AppDialog from "@/components/AppDialog.vue";
+import AppDialog from "@/components/common/AppDialog.vue";
 import type { BykcCourse, BykcCourseDetail } from "@shared/api";
 import type { SourceStatus } from "@/types";
 import {

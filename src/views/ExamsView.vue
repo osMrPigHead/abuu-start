@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
-import ExamCard from "@/components/ExamCard.vue";
-import PageHeader from "@/components/PageHeader.vue";
-import PageStateNotice from "@/components/PageStateNotice.vue";
-import SourceStatusLine from "@/components/SourceStatusLine.vue";
+import ExamCard from "@/components/exams/ExamCard.vue";
+import PageHeader from "@/components/common/PageHeader.vue";
+import PageStateNotice from "@/components/common/PageStateNotice.vue";
+import SourceStatusLine from "@/components/common/SourceStatusLine.vue";
 import { useClock } from "@/composables/useClock";
 import { useExams } from "@/composables/useExams";
 import { groupExams } from "@/utils/exams";

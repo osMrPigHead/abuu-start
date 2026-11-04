@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mount } from "@vue/test-utils";
-import WeekSwitcher from "@/components/WeekSwitcher.vue";
+import WeekSwitcher from "@/components/schedule/WeekSwitcher.vue";
 import type { Week } from "@shared/api";
 
 const weeks: Week[] = [

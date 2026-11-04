@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import CardStatusActions from "@/components/CardStatusActions.vue";
-import ExamCard from "@/components/ExamCard.vue";
-import HomeCard from "@/components/HomeCard.vue";
-import ScheduleDayRow from "@/components/ScheduleDayRow.vue";
+import CardStatusActions from "@/components/home/CardStatusActions.vue";
+import ExamCard from "@/components/exams/ExamCard.vue";
+import HomeCard from "@/components/home/HomeCard.vue";
+import ScheduleDayRow from "@/components/schedule/ScheduleDayRow.vue";
 import type { SectionTime } from "@shared/api";
 import type { Course, SourceStatus } from "@/types";
 import type { ExamEntry } from "@/utils/exams";
