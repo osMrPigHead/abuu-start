@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Request, Response } from "express";
 import type { Plugin } from "vite";
-import { createApiRouter } from "./routes.ts";
+import { createApiRouter } from "./app/routes.ts";
 
 type NextFunction = (error?: unknown) => void;
 

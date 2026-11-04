@@ -48,12 +48,14 @@
 
 ```text
 server/
-  bykc.ts              博雅上游调用、加密、状态计算、归一化
-  bykcCrypto.ts        博雅 RSA/AES/SHA1 固定协议
-  ygdk.ts              阳光上游调用与概览归一化
-  routes.ts            增加 /api/bykc/*、/api/ygdk/*
-  types.ts             增加博雅/阳光中继类型
-  errors.ts            增加认证/分页/解密错误映射
+  sources/bykc.ts              博雅归一化
+  sources/ygdk.ts              阳光归一化
+  upstreams/bykcCrypto.ts      博雅 RSA/AES/SHA1 固定协议
+  upstreams/bykcApi.ts         博雅加密请求与解密信封
+  upstreams/ygdkApi.ts         阳光表单请求与信封
+  app/routes.ts                增加 /api/bykc/*、/api/ygdk/*
+  upstreams/types.ts           博雅/阳光中继类型
+  core/errors.ts               认证/分页/解密错误映射
 
 src/
   api/bykc.ts          /api/bykc/*

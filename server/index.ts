@@ -7,8 +7,8 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
-import { createApiRouter } from "./routes.ts";
-import { isAllowedHost } from "./relayHttp.ts";
+import { createApiRouter } from "./app/routes.ts";
+import { isAllowedHost } from "./app/relayHttp.ts";
 
 const HOST = "127.0.0.1";
 const DEFAULT_PORT = 3000;

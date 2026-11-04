@@ -29,16 +29,16 @@
 
 ```text
 server/
-  relayPlugin.ts      Vite 插件：dev/preview 挂载同一份 express.Router
-  index.ts            生产入口：Express 同源提供 dist 与同一份 Router
-  relayHttp.ts        中继 HTTP 边界：Host / Origin 校验、body、响应、日志、错误映射
-  routes.ts           express.Router 路由注册与请求分发
-  byxt.ts             byxt 上游调用与归一化
-  spoc.ts             SPOC 上游调用与归一化
-  spocCrypto.ts       SPOC 固定 AES 参数
-  http.ts             fetch 超时、错误、JSON 响应
-  errors.ts           错误码与 HTTP 状态映射
-  types.ts            中继侧类型
+  index.ts / relayPlugin.ts   生产与 Vite 入口
+  app/                        routes.ts、relayHttp.ts：白名单路由与 /api 边界
+  core/                       errors.ts、guards.ts、htmlText.ts、datetime.ts：共享基础件
+  http/                       upstream.ts、fetch.ts：上游 fetch、信封读取与超时
+  local/                      background.ts、settingsStore.ts：本机背景与设置
+  sources/                    byxt.ts、byxtWeek.ts、spoc.ts、bykc.ts、ygdk.ts：业务归一化
+  upstreams/                  urls.ts、*Api.ts、spocCrypto.ts、bykcCrypto.ts、types.ts：协议层
+  auth/                       session.ts、state.ts、preload.ts、login.ts、relogin.ts、deriveRunner.ts、
+                              derive.ts、deriveHelpers.ts、cas.ts、http.ts、cookieJar.ts、store.ts、
+                              crypto.ts、types.ts：认证会话、登录、重登、派生与凭据
 src/
   api/client.ts       fetch 封装、错误映射
   api/byxt.ts         /api/byxt/*
@@ -61,7 +61,7 @@ vite.config.ts
 
 - 监听：`127.0.0.1:5173`（dev）/ `127.0.0.1:4173`（preview）/ `127.0.0.1:3000`（`npm start`，可用 `PORT` 覆盖）；只接受 Host 为 `127.0.0.1`、`localhost` 或 `[::1]` 的请求。
 - 方法：只接受 `GET`；其他方法返回 `405 METHOD_NOT_ALLOWED`。
-- 实现：`server/routes.ts` 用 `express.Router` 注册；dev/preview 由 Vite 插件、生产由 Express 入口挂载同一份 Router，对外路径、方法与错误码不变。
+- 实现：`server/app/routes.ts` 用 `express.Router` 注册；dev/preview 由 Vite 插件、生产由 Express 入口挂载同一份 Router，对外路径、方法与错误码不变。
 - 路径：未列出的 `/api/*` 返回 `404 NOT_FOUND`，不回退到 SPA。
 - 请求头：
   - `X-Byxt-Cookie`：byxt Cookie 原文
