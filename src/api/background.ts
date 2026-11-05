@@ -1,4 +1,5 @@
 import type { BackgroundManifest } from "@shared/api";
+import { relayUrl } from "./base";
 import { postJson, request } from "./client";
 
 /** 背景接口映射，见 docs/trd.md 3.3。 */
@@ -17,5 +18,5 @@ export function rescanBackgroundDirectory(): Promise<BackgroundManifest> {
 }
 
 export function backgroundImageUrl(name: string): string {
-  return `/api/background/image?name=${encodeURIComponent(name)}`;
+  return relayUrl(`/api/background/image?name=${encodeURIComponent(name)}`);
 }

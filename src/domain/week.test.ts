@@ -33,12 +33,12 @@ describe("week utils", () => {
   });
 
   it("weekRowState 区分加载、就绪与不可用", () => {
-    expect(
-      weekRowState({ ...createEmptyWeekEntry(), status: "loading" }),
-    ).toBe("loading");
-    expect(
-      weekRowState({ ...createEmptyWeekEntry(), status: "error" }),
-    ).toBe("unavailable");
+    expect(weekRowState({ ...createEmptyWeekEntry(), status: "loading" })).toBe(
+      "loading",
+    );
+    expect(weekRowState({ ...createEmptyWeekEntry(), status: "error" })).toBe(
+      "unavailable",
+    );
     expect(
       weekRowState({ ...createEmptyWeekEntry(), status: "no-credential" }),
     ).toBe("unavailable");
@@ -46,7 +46,11 @@ describe("week utils", () => {
       weekRowState({ ...createEmptyWeekEntry(), status: "auth-expired" }),
     ).toBe("unavailable");
     expect(
-      weekRowState({ ...createEmptyWeekEntry(), status: "error", loaded: true }),
+      weekRowState({
+        ...createEmptyWeekEntry(),
+        status: "error",
+        loaded: true,
+      }),
     ).toBe("ready");
   });
 });

@@ -1,6 +1,7 @@
 import { isRelayErrorCode } from "@shared/errors";
 import type { ErrorEnvelope } from "@shared/errors";
 import type { ApiErrorCode } from "@/types";
+import { relayUrl } from "./base";
 
 type RequestOptions = {
   headers?: HeadersInit;
@@ -73,14 +74,14 @@ async function send<T>(
 ): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(path, init);
+    response = await fetch(relayUrl(path), init);
   } catch {
     if (signal?.aborted) {
       throw new ApiError("RELAY_UNREACHABLE", "请求已取消", 0);
     }
     throw new ApiError(
       "RELAY_UNREACHABLE",
-      "无法连接本地中继，请确认 npm run dev 已启动",
+      "无法连接本地中继，请确认中继已启动",
       0,
     );
   }

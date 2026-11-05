@@ -1,6 +1,6 @@
 /**
- * 生产用 Express 入口：同源提供 dist 构建产物与 /api 中继。
- * dev / preview 仍由 vite.config.ts 的 relayPlugin 挂同一份 Router，接口不变。
+ * 生产用 Express 入口：提供 /api 中继；若存在旧 dist 仍会静态提供。
+ * WXT 构建的扩展直接请求本服务的 /api，不再依赖 Vite。
  * 只监听 127.0.0.1；启动方式见 docs/trd.md 10。
  */
 import { existsSync } from "node:fs";
@@ -58,7 +58,7 @@ app.use((req, res, next) => {
     res
       .status(503)
       .type("text/plain; charset=utf-8")
-      .send("尚未构建前端，请先运行 npm run build");
+      .send("扩展由 WXT 构建，本服务仅提供 /api");
     return;
   }
 
@@ -79,7 +79,7 @@ const port = readPort(process.env.PORT);
 const server = app.listen(port, HOST, () => {
   console.info(`[relay] Express 已启动：http://${HOST}:${port}`);
   if (!existsSync(INDEX_FILE)) {
-    console.info("[relay] 未找到 dist，先运行 npm run build；当前仅提供 /api");
+    console.info("[relay] 未找到 dist；扩展由 WXT 构建，当前仅提供 /api");
   }
 });
 

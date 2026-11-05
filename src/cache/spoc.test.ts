@@ -55,10 +55,7 @@ describe("spoc cache", () => {
     );
     expect(readSpocAssignmentsCache()?.assignments).toEqual([assignment]);
 
-    window.localStorage.setItem(
-      STORAGE_KEYS.spocAssignmentsCache,
-      "{not-json",
-    );
+    window.localStorage.setItem(STORAGE_KEYS.spocAssignmentsCache, "{not-json");
     expect(readSpocAssignmentsCache()).toBeNull();
   });
 

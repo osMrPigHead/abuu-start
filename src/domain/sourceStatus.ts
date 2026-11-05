@@ -198,11 +198,7 @@ type SourceEmptyInput = {
 export function shouldShowSourceEmpty(input: SourceEmptyInput): boolean {
   if (input.loading || input.hasContent) return false;
 
-  if (
-    input.settledOnly &&
-    input.status !== "ok" &&
-    input.status !== "cached"
-  ) {
+  if (input.settledOnly && input.status !== "ok" && input.status !== "cached") {
     return false;
   }
 

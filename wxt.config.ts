@@ -14,7 +14,7 @@ export default defineConfig({
   imports: false,
   modules: ["@wxt-dev/module-vue"],
   alias: {
-    "@shared": resolve("../shared"),
+    "@shared": resolve("shared"),
   },
   manifest: {
     name: "航启",
@@ -32,10 +32,5 @@ export default defineConfig({
   },
   vite: () => ({
     plugins: [tailwindcss()],
-    server: {
-      fs: {
-        allow: [resolve("."), resolve("../shared")],
-      },
-    },
   }),
 });

@@ -4,10 +4,7 @@ import { fetchYgdkOverview } from "@/api/ygdk";
 import { createCachedSource } from "@/composables/useSourceState";
 import type { YgdkOverview } from "@shared/api";
 import type { SourceStatus } from "@/types";
-import {
-  readYgdkOverviewCache,
-  writeYgdkOverviewCache,
-} from "@/cache/ygdk";
+import { readYgdkOverviewCache, writeYgdkOverviewCache } from "@/cache/ygdk";
 import { clearYgdkCaches } from "@/cache/storage";
 
 type YgdkState = {

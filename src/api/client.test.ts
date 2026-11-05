@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { relayUrl } from "@/api/base";
 import { ApiError, postJson, request } from "@/api/client";
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -22,7 +23,7 @@ describe("api client request", () => {
     });
 
     const [path, init] = fetchMock.mock.calls[0] ?? [];
-    expect(path).toBe("/api/health");
+    expect(path).toBe(relayUrl("/api/health"));
     expect(init).toMatchObject({ method: "GET", cache: "no-store" });
   });
 
@@ -104,7 +105,7 @@ describe("api client request", () => {
     });
     await expect(request("/api/x")).rejects.toMatchObject({
       code: "RELAY_UNREACHABLE",
-      message: "无法连接本地中继，请确认 npm run dev 已启动",
+      message: "无法连接本地中继，请确认中继已启动",
     });
   });
 

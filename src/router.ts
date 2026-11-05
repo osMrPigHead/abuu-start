@@ -1,7 +1,8 @@
-import { createRouter, createWebHistory } from "vue-router";
+import { createRouter, createWebHashHistory } from "vue-router";
 
 const router = createRouter({
-  history: createWebHistory(),
+  // 扩展页面是静态 HTML，路径不能由服务器回退，因此使用 hash 模式。
+  history: createWebHashHistory(),
   routes: [
     {
       path: "/",

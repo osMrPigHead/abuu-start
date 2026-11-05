@@ -1,19 +1,14 @@
-import { fileURLToPath, URL } from "node:url";
 import vue from "@vitejs/plugin-vue";
 import { defineConfig } from "vitest/config";
+import { WxtVitest } from "wxt/testing/vitest-plugin";
 
 /**
- * 测试配置独立于 vite.config.ts：生产构建不依赖 Vitest，
- * 测试也只加载 Vue 插件与 @ 别名，不挂载本地中继。
+ * 测试配置复用 WXT 的别名、Vue/Tailwind 插件与扩展 API 模拟。
+ * 覆盖迁移后的 src 与仍由根项目承载的 server。
  */
 export default defineConfig({
-  plugins: [vue()],
-  resolve: {
-    alias: {
-      "@shared": fileURLToPath(new URL("./shared", import.meta.url)),
-      "@": fileURLToPath(new URL("./src", import.meta.url)),
-    },
-  },
+  // WxtVitest 不会替测试环境加载 module-vue，组件测试需要显式挂 Vue 插件。
+  plugins: [vue(), WxtVitest()],
   test: {
     environment: "happy-dom",
     include: ["src/**/*.test.ts", "server/**/*.test.ts"],
