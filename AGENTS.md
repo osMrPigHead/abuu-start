@@ -3,19 +3,22 @@
 - 项目名：航启
 - 开源项目
 - **单用户**浏览器主页，有**只读**聚合北京航空航天大学教务信息、快捷入口、待办、番茄钟功能
-- 前端 SPA，无 SSR，通过本地后端作为中继访问北京航空航天大学教务系统
+- 前端以 WXT 浏览器扩展接管新标签页，Vue 3 SPA，无 SSR；通过本地中继访问北京航空航天大学教务系统
+- 扩展只提供 newtab 入口，不提供 popup、options、background、content script
 - 教务聚合功能是**只读聚合**，仅作查询展示，不进行包括写入、提交、打卡在内的各类自动化操作
 - 适当对桌面端进行响应式设计，不做移动端适配
 
 ## 技术栈
 
 - 框架：Vue 3（Composition API + `<script setup lang="ts">`），禁止引入 React
-- 构建：Vite（npm create vite@latest . -- --template vue-ts）
+- 构建：WXT（Chrome/Edge MV3 与 Firefox MV2）
 - 语言：TypeScript strict
 - 样式：Tailwind CSS
-- 路由：Vue Router 4
+- 路由：Vue Router 4，hash 模式
 - 状态：课设阶段使用简单的 reactive composable，不引入 Pinia
-- HTTP：fetch，统一封装在 src/api/client.ts
+- HTTP：fetch，统一封装在 src/api/client.ts；中继地址在 src/api/base.ts，可用 WXT_RELAY_ORIGIN 覆盖
+- 后端：Node.js + Express 本地中继，仅提供 `/api`；托盘状态使用 tray-hook，`TRAY=0` 可关闭
+- 测试：Vitest
 - 包管理器：npm
 
 ## 原则
@@ -40,11 +43,17 @@
 - `docs/trd.md`：按最简方式列出的技术设计方式
 - `docs/api.md`：北京航空航天大学网络系统 API，来源可以是参考源码或用户提供的 HAR
 - `private/har`：存放用户提供的 HAR
-- `src/`：源码目录，细则见下表
-- `shared/`：前端与 `server/` 共用的类型契约、无副作用常量与纯校验函数（业务响应、认证、错误码、固定作息与参数规则），不放入状态、网络、缓存或 Vue/Node 依赖
+- `wxt.config.ts`：WXT 入口、manifest、开发服务器与 `@shared` 别名
+- `src/`：扩展源码目录；入口为 `src/entrypoints/newtab/`，业务分层见下表
+- `shared/`：前端与 `server/` 共用的类型契约、无副作用常量与纯校验函数（业务响应、认证、错误码、固定作息与参数规则），不放入状态、网络、缓存或 Vue/Node 依赖；前端通过 `@shared` 别名引用，不复制
+- `public/icon/`：扩展图标
+- `server/`：本地中继（仅 `/api`）与托盘状态
+- `.output/`：`npm run build` / `npm run build:firefox` 构建产物，不提交
+- 本地运行：`npm start` 启动中继，`npm run dev` 或 `npm run dev:firefox` 启动 WXT；构建产物在 `.output/chrome-mv3`（Chrome/Edge）与 `.output/firefox-mv2`（Firefox）
 
 |目录|只放什么|不放什么|
 |---|---|---|
+|`entrypoints/`|WXT 入口（`newtab/index.html`、`newtab/main.ts`）|业务逻辑、通用组件、网络请求|
 |`views/`|路由页面、页面级组合|通用组件、纯工具函数、直接 `fetch`|
 |`components/`|可复用展示组件，props 输入、emits 输出|页面级路由逻辑、`fetch`、localStorage|
 |`composables/`|模块级单例状态、业务流程；共享缓存模块位于 `cache/`|UI 模板、直接 `fetch`、全局单例外的状态|
@@ -52,7 +61,7 @@
 |`cache/`|localStorage 键与读写、降级处理、领域缓存归一化|Vue、网络请求、UI、模块级状态|
 |`domain/`|无 Vue 依赖的领域规则与展示规则|组件、路由、网络请求、缓存读写、模块级状态|
 |`utils/`|通用纯函数与浏览器适配（日期、守卫、id、favicon、番茄钟音频/通知）|领域规则、缓存、API 错误转换、组件、路由、网络请求|
-|`server/`|上游调用、归一化、白名单路由|前端代码、任意 URL 转发、写操作|
+|`server/`|上游调用、归一化、白名单路由、本地中继启动与托盘状态|前端代码、任意 URL 转发、写操作|
 |`assets/`|仓库内置静态资源|外链背景、远程字体|
 
 ## 参考源码

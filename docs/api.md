@@ -7,10 +7,10 @@
 - SPOC：参考 B 的 `SpocClient.kt`、`SpocSupport.kt`，以及 `private/har/spoc_query1`、`private/har/spoc_query2`。
 - 博雅：参考 B 的 `BykcClient.kt`、`BykcCrypto.kt`、`BykcService.kt`、`BykcModels.kt`，以及 `private/har/sscv`。
 - 阳光：参考 B 的 `YgdkClient.kt`、`LocalYgdkApi.kt`、`YgdkService.kt`。
-- `private/har/sscv` 捕获了博雅 `getUserProfile`、`getAllConfig`、`queryChosenCourse`、`queryStudentSemesterCourseByPage` 等请求；HAR 未导出 Cookie，因此博雅“仅 `auth_token` 是否足够”仍需真实联调确认。
-- 阳光没有 HAR；路径、表单字段与响应结构来自参考 B 源码，真实联调需验证。
-- 登录流程没有原始 HAR；页面结构、表单字段与错误判定来自参考 B 与登录审计文档，见第 2 节。
-- HAR 已确认的结论直接写入本文；仍无法确定的内容会在条目中注明。
+- `private/har/sscv` 捕获了博雅 `getUserProfile`、`getAllConfig`、`queryChosenCourse`、`queryStudentSemesterCourseByPage` 等请求；HAR 未导出 Cookie，开发版实机已验证仅 `auth_token` 可用。
+- 阳光没有 HAR；路径、表单字段与响应结构来自参考 B 源码，开发版实机已验证。
+- 登录流程没有原始 HAR；页面结构、表单字段与错误判定来自参考 B 与登录审计文档，见第 2 节；开发版实机已验证登录、验证码与错误分类。
+- HAR 已确认的结论与开发版实机验证结果直接写入本文；仍未验证的内容会在条目中注明。
 - 本项目只做只读查询，不调用任何提交、打卡、选退课、签到接口；三阶段的登录、登出、验证码、会话状态是唯一写方法例外。
 - 本项目实际调用的中继路由、页面归属与上游调用链见 [trd.md](trd.md) 3.5。
 
@@ -114,7 +114,7 @@
 
 本期状态：考试接口已接入；`/schedule` 不渲染考试标记，考试只在主页与 `/exams` 使用。以下字段保留为展示与排序口径。
 
-“已排定”按 `examDate` 与 `startTime` 是否存在判断；缺失的条目不在本期展示。日期/时间的实际字符串格式参考 B 未固定，解析时同时兼容 `YYYY-MM-DD`、ISO 8601 与 `YYYY-MM-DD HH:mm`。
+“已排定”按 `examDate` 与 `startTime` 是否存在判断；缺失的条目不在本期展示。开发版实机验证中，考试时间由 `examDate` 与 `startTime` 组合展示；`examDate` 可能带 `00:00:00`，具体时分以 `startTime` 为准。解析仍兼容 `YYYY-MM-DD`、ISO 8601、`YYYY-MM-DD HH:mm` 与中文/斜杠日期。
 
 ### 1.3 本期不使用的接口
 
@@ -134,7 +134,7 @@
 
 - 参考 B 的 `LocalConnectionAuth.kt`、`LocalCasParser`、`LocalSpocApi.kt`、`LocalBykcApi.kt`、`LocalYgdkApi.kt`。
 - 参考 B 的登录链审计文档 `docs/_audit/2026-10-21-login-har.md`，基于用户的 `uc.buaa.edu.cn.har`（131 个请求）与 `byxt.buaa.edu.cn.har`（90 个请求）。
-- 本项目尚未收到登录流程的原始 HAR；以下页面结构、表单字段与错误判定来自上述源码与审计文档。若学校更新登录页，需重新提供 HAR。
+- 登录流程没有原始 HAR；以下页面结构、表单字段与错误判定来自上述源码与审计文档；当前实现已通过开发版实机验证登录、验证码与错误分类。若学校更新登录页，需重新提供 HAR。
 - 仅支持直连（校内网络或用户自行连接的 VPN）；不支持 WebVPN。所有请求共用一个按域隔离的 Cookie 罐。
 
 ### 2.2 登录流程
@@ -243,7 +243,7 @@
    - 若尚未建立 byxt 会话，该请求会 302 到 SSO，再由 SSO 带 ticket 跳回 byxt；跟随过程中 byxt 域会写入 Cookie。
 2. 最终响应为 JSON 且 `code === "0"`，说明 byxt Cookie 可用；取 `datas.userId`、`datas.userName` 与 `welcomeInfo`。
 3. 最终 URL 仍含 `sso.buaa.edu.cn`，或响应是含 `input name="execution"` 的 HTML，视为派生失败。
-4. 参考 B 不额外访问 byxt 首页；若真实联调中 `currentUser` 不触发票据交换，可先 `GET https://byxt.buaa.edu.cn` 一次，再重试 `currentUser`。
+4. 参考 B 不额外访问 byxt 首页；开发版实机已验证 `currentUser` 会触发票据交换。若后续环境不触发，可先 `GET https://byxt.buaa.edu.cn` 一次，再重试 `currentUser`。
 
 Cookie 范围：保存 `byxt.buaa.edu.cn` 与其父域 `.buaa.edu.cn` 下匹配的 Cookie；不把其他业务系统的 Cookie 发给 byxt。
 
@@ -279,7 +279,7 @@ https://bykc.buaa.edu.cn/cas-login?token=<auth_token>
 4. 用 `POST /sscv/getUserProfile` 校验；请求头同时发送 `auth_token` 与 `authtoken`，见 4.1。
 5. 参考 B 在拿不到 token 时会再 `GET https://bykc.buaa.edu.cn/cas-login?token=` 一次，但忽略结果；该请求不是必需步骤，可作为最后的兜底尝试。
 
-HAR 未导出 Cookie；若真实请求在只带 `auth_token` 时返回会话失效，需要重新评估是否补充 Cookie。
+HAR 未导出 Cookie；开发版实机验证仅 `auth_token` 可用，当前不额外发送 Cookie。
 
 #### 2.3.4 阳光 uid + token
 
@@ -481,7 +481,7 @@ HAR 中所有 SPOC 业务请求都带以下两个请求头，且 **没有 Cookie
   - `authtoken: <token>`（与 `auth_token` 同值）
   - `ak`、`sk`、`ts`
 - 参考 B 固定使用 `/system/course-select` 作为 `Referer`；HAR 中不同页面分别为 `/system/home`、`/system/course-mine`，说明该值不严格。
-- 本项目只发送 `auth_token`，不发送额外 Cookie。HAR 的 `cookies` 为空且没有 `cookie` 请求头，但 HAR 未导出 Cookie，因此“仅 `auth_token` 可用”仍需真实联调确认。
+- 本项目只发送 `auth_token`，不发送额外 Cookie。HAR 的 `cookies` 为空且没有 `cookie` 请求头；开发版实机验证仅 `auth_token` 可用。
 
 请求加密：
 

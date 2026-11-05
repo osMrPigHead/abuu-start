@@ -6,13 +6,16 @@
 
 ### 1.1 技术栈与部署
 
-- 前端：Vue 3 Composition API + `<script setup lang="ts">`，TypeScript strict，Vite，Tailwind CSS，Vue Router 4；不引入 Pinia、React、SSR。
+- 前端：WXT 浏览器扩展 + Vue 3 Composition API + `<script setup lang="ts">`，TypeScript strict，Vite 构建，Tailwind CSS，Vue Router 4（hash 模式）；不引入 Pinia、React、SSR。
+- 目标浏览器：Chrome/Edge MV3 与 Firefox MV2；两者都通过本机未打包扩展验收。
+- 扩展形态：只接管新标签页，manifest 声明 `chrome_url_overrides.newtab`、`notifications` 与 loopback 主机权限；Chrome/Edge MV3 写入 `host_permissions`，Firefox MV2 将主机权限并入 `permissions`；不生成 popup、options、background、content script。
 - 状态：`reactive` / `ref` composable，模块级单例；跨页面共享的数据只通过 composable 暴露，不引入全局 store 库。
-- 中继：Node.js 22 LTS 的 TypeScript 模块，作为 Vite 插件同时挂到开发服务器与 `vite preview`；生产构建由 `npm start` 的本地 Express 服务同源提供 `dist` 与同一套 `/api`，只监听 `127.0.0.1`。
+- 中继：Node.js 22 LTS 的 TypeScript 模块，独立进程由 `npm start` 启动，只提供 `/api`，不托管页面或静态资源；只监听 `127.0.0.1:3000`（`PORT` 可覆盖）。托盘由 `tray-hook` 实现，显示运行中/启动失败并提供退出入口。
+- 扩展访问中继：扩展页面与中继不同源，所有 `/api` 请求使用绝对地址；默认 `http://127.0.0.1:3000`，构建时可用 `WXT_RELAY_ORIGIN` 覆盖。
 - 对外接口：业务数据只读 `GET /api/*`；仅登录、登出、验证码预加载、单源重试与背景目录设置/重新扫描使用白名单 `POST`。中继内部再调用上游的 GET/POST、AES/RSA、Token 头；前端不接触上游路径。
-- HTTP：前端所有请求统一走 `src/api/client.ts`；`request` 负责 `GET`，`postJson` 只用于白名单 `POST`，网络失败与非 JSON 响应统一映射为 `RELAY_UNREACHABLE`。
+- HTTP：前端所有请求统一走 `src/api/client.ts`，基址由 `src/api/base.ts` 的 `relayUrl()` 生成；`request` 负责 `GET`，`postJson` 只用于白名单 `POST`，网络失败与非 JSON 响应统一映射为 `RELAY_UNREACHABLE`。
 - 缓存：前端 localStorage，按数据源分键，缓存优先 + 后台刷新；不做定时轮询。
-- 分层：`shared/` 放前后端共用类型、无副作用常量与纯校验函数；`src/domain/` 放无 Vue 依赖的领域规则；`src/cache/` 放 localStorage 读写与归一化；`src/composables/` 放模块级状态与流程；`views/` 不直接 `fetch`，`components/` 不读写 localStorage；`server/` 不引用前端代码。
+- 分层：`shared/` 保持在仓库根，放前后端共用类型、无副作用常量与纯校验函数，前端通过 `@shared` 别名引用，不复制；`src/domain/` 放无 Vue 依赖的领域规则；`src/cache/` 放 localStorage 读写与归一化；`src/composables/` 放模块级状态与流程；`views/` 不直接 `fetch`，`components/` 不读写 localStorage；`server/` 不引用前端代码。
 - 单用户、本机数据、桌面优先；不做移动端布局、账号切换与云端同步。
 
 ### 1.2 功能范围
@@ -22,12 +25,17 @@
 - 统一登录：中继完成学校统一认证，派生 byxt、SPOC、博雅、阳光四类数据源凭据。
 - 教务聚合：byxt 课表与考试、博雅已选课程与课程广场、SPOC 作业、阳光打卡概览。
 - 主页卡片开关与“仅时钟与背景模式”。
+- 浏览器扩展在 Chrome/Edge 与 Firefox 中接管新标签页；本地中继托盘显示运行状态并提供退出入口。
 - 桌面端响应式布局；不做移动端布局；具体响应式规则以 [ui-lowfi.md](ui-lowfi.md) 为准。
 
 ### 1.3 非目标
 
 - 多用户、账号体系、权限管理、账号切换、云端同步。
 - 移动端布局、SSR、Pinia、React。
+- 扩展的 popup、options、background、content script、侧边栏、快捷键、右键菜单。
+- 应用商店发布、自动更新与签名；只验证本机加载的未打包扩展。
+- 中继托管前端页面或静态资源。
+- 托盘点击行为、开机自启与 HTTP 退出接口。
 - 任何教务业务写操作：作业提交、阳光打卡、博雅选退课/签到、教务管理操作、附件下载。
 - 研究生 GSMIS 课表；仅支持本科 byxt。
 - 注册、找回密码、修改密码；验证码识别、自动填写或第三方打码。
@@ -47,27 +55,23 @@
 - 主页卡片关闭后功能区固定 11 行；关闭的卡片不占位，同列后续卡片上移。
 - 番茄钟只在页面内运行；刷新或关闭页面重置运行态，不新增计时后端。
 - 所有教务数据只读；不执行提交、打卡、选退课、签到、附件下载。
+- 前端改为 WXT 扩展，只接管新标签页；`shared/` 不复制，通过 `@shared` 别名引用仓库根。
+- Chrome/Edge 与 Firefox 均为验收目标：Chrome/Edge 构建 MV3，Firefox 构建 MV2。
+- 中继与扩展不同源：扩展用绝对地址访问中继，默认 `http://127.0.0.1:3000`；地址可用 `WXT_RELAY_ORIGIN` 覆盖。
+- 中继只提供 `/api`，非 `/api` 请求返回 404；不再使用 Vite 插件，也不再提供 SPA fallback。
+- `POST` 来源校验：Host 必须是 loopback；普通网页仍要求同源且非 `cross-site`；额外放行 `chrome-extension://` 与 `moz-extension://`。
+- 托盘只显示运行中/启动失败两态；菜单“退出”与 SIGINT/SIGTERM 都优雅关闭；`TRAY=0` 时不创建托盘。
+- 路由使用 hash 模式，扩展页刷新不丢路由。
 
 ## 2. 目录结构
 
 ```text
-server/
-  index.ts / relayPlugin.ts   生产与 Vite 入口
-  app/                        routes.ts、relayHttp.ts：白名单路由与 /api 边界
-  auth/                       session.ts、state.ts、preload.ts、login.ts、relogin.ts、
-                              deriveRunner.ts、derive.ts、deriveHelpers.ts、cas.ts、
-                              http.ts、cookieJar.ts、store.ts、crypto.ts、types.ts
-  core/                       datetime.ts、errors.ts、guards.ts、htmlText.ts、json.ts
-  http/                       fetch.ts、upstream.ts：上游 fetch、信封读取与超时
-  local/                      background.ts、settingsStore.ts：本机背景与设置
-  sources/                    byxt.ts、byxtWeek.ts、spoc.ts、bykc.ts、ygdk.ts：业务归一化
-  upstreams/                  urls.ts、byxtApi.ts、spocApi.ts、spocCrypto.ts、
-                              bykcApi.ts、bykcCrypto.ts、ygdkApi.ts、types.ts：协议层
-
-shared/                       api.ts、auth.ts、errors.ts、guards.ts、schedule.ts、validation.ts
+wxt.config.ts                 WXT 配置：srcDir、newtab、manifest、dev 4000、@shared 别名
+tsconfig.json / vitest.config.ts
 
 src/
-  api/                        client.ts、auth.ts、background.ts、byxt.ts、spoc.ts、
+  entrypoints/newtab/          index.html、main.ts：扩展唯一入口
+  api/                        base.ts、client.ts、auth.ts、background.ts、byxt.ts、spoc.ts、
                               bykc.ts、ygdk.ts、relay.ts、errors.ts
   cache/                      storage.ts、schedule.ts、exams.ts、spoc.ts、bykc.ts、ygdk.ts
   composables/                模块级状态与流程；如 useAuth、useBackground、useHomeCards、
@@ -81,28 +85,46 @@ src/
   views/                      HomeView、ScheduleView、ExamsView、SpocListView、BykcView、SettingsView
   utils/                      日期、favicon、id、guards、番茄钟音频/通知
   assets/backgrounds/         仓库内置背景图与来源清单
-  router.ts、types.ts、App.vue、main.ts、style.css
+  router.ts、types.ts、App.vue、main.ts、style.css、vite-env.d.ts
+
+public/icon/                  扩展图标 16/32/48/96/128
+
+shared/                       api.ts、auth.ts、errors.ts、guards.ts、schedule.ts、validation.ts
+
+server/
+  index.ts                    启动、信号、托盘编排与优雅退出
+  app/                        config.ts、createApp.ts、routes.ts、relayHttp.ts：/api 边界
+  tray/                       controller.ts、status.ts、assets/{running,error}.png：托盘状态
+  auth/                       session.ts、state.ts、preload.ts、login.ts、relogin.ts、
+                              deriveRunner.ts、derive.ts、deriveHelpers.ts、cas.ts、
+                              http.ts、cookieJar.ts、store.ts、crypto.ts、types.ts
+  core/                       datetime.ts、errors.ts、guards.ts、htmlText.ts、json.ts
+  http/                       fetch.ts、upstream.ts：上游 fetch、信封读取与超时
+  local/                      background.ts、settingsStore.ts：本机背景与设置
+  sources/                    byxt.ts、byxtWeek.ts、spoc.ts、bykc.ts、ygdk.ts：业务归一化
+  upstreams/                  urls.ts、byxtApi.ts、spocApi.ts、spocCrypto.ts、
+                              bykcApi.ts、bykcCrypto.ts、ygdkApi.ts、types.ts：协议层
 
 scripts/check-shared-usage.mjs
-vite.config.ts / vitest.config.ts
+.output/                      构建产物：chrome-mv3 / firefox-mv2，不提交
 ```
 
 ## 3. 中继 API
 
 ### 3.1 通用约定
 
-- 监听：`127.0.0.1:5173`（dev）/ `127.0.0.1:4173`（preview）/ `127.0.0.1:3000`（`npm start`，可用 `PORT` 覆盖）；只接受 Host 为 `127.0.0.1`、`localhost` 或 `[::1]` 的请求，非本机 Host 返回 `404 NOT_FOUND`。
+- 监听：`127.0.0.1:3000`（`npm start`，可用 `PORT` 覆盖）；只接受 Host 为 `127.0.0.1`、`localhost` 或 `[::1]` 的请求，非本机 Host 返回 `404 NOT_FOUND`。中继不再挂到 Vite 开发服务器或 preview。
 - 方法：
   - 业务数据只接受 `GET`。
   - 仅 `/api/auth/preload`、`/api/auth/login`、`/api/auth/logout`、`/api/auth/sources/:source/retry`、`/api/background/directory`、`/api/background/rescan` 接受 `POST`。
-  - 非 `GET` / `POST` 方法返回 `405 METHOD_NOT_ALLOWED`；未列出的路径或方法组合返回 `404 NOT_FOUND`，不回退到 SPA。
+  - 非 `GET` / `POST` 方法返回 `405 METHOD_NOT_ALLOWED`；未列出的 `/api/*` 路径或方法组合返回 JSON `404 NOT_FOUND`；非 `/api` 请求返回文本 404，不回退到页面或静态资源。
 - 路由表按 `method + path` 匹配；`/api/spoc/assignments/:assignmentId` 与 `/api/bykc/courses/:id` 按前缀匹配，方法仍为 `GET`。
 - `POST` 请求体：
   - 有请求体时，`Content-Type` 必须是 `application/json`（可带 `charset=utf-8`）；其他类型返回 `415 UNSUPPORTED_MEDIA`。
   - 无请求体的接口（重试、登出、重新扫描）允许空 body。
   - 最大 16 KB；超过返回 `413 PAYLOAD_TOO_LARGE`。
   - 有 body 时必须是 JSON 对象；解析失败返回 `400 INVALID_REQUEST`。
-- 跨站防护：中继不返回 CORS 头；`POST` 要求 `Origin` 为当前页面源（`http://127.0.0.1:<port>` 或 `http://localhost:<port>`），缺失或不匹配返回 `403 FORBIDDEN_ORIGIN`；拒绝 `Sec-Fetch-Site: cross-site`。
+- 跨站防护：中继不返回 CORS 头。`POST` 先要求 Host 为 loopback 且 `Origin` 存在；`chrome-extension://` 或 `moz-extension://` 来源直接放行（网页无法伪造扩展来源），不要求与 Host 同源；其他来源仍必须是 `http://127.0.0.1:<port>` 或 `http://localhost:<port>`，且与 Host 完全一致，并拒绝 `Sec-Fetch-Site: cross-site`。缺失或不合法返回 `403 FORBIDDEN_ORIGIN`。
 - 响应：
   - JSON 接口：`Content-Type: application/json; charset=utf-8`，`Cache-Control: no-store`。
   - 图片接口：按扩展名返回 `image/*`，`Cache-Control: no-store`，`X-Content-Type-Options: nosniff`。
@@ -397,6 +419,15 @@ vite.config.ts / vitest.config.ts
 - 博雅：基址 `https://bykc.buaa.edu.cn/sscv/`；`auth_token` 与 `authtoken` 取同一值；请求头含 `Accept`、`Content-Type: application/json;charset=UTF-8`、`Origin`、`Referer`、`ak`、`sk`、`ts`；每次请求生成新的 AES key，`ak` 用固定 RSA 公钥加密，`sk` 为请求 JSON 的 SHA-1 小写十六进制再 RSA 加密，请求体用 AES-128-ECB/PKCS5Padding 加密，响应按同一 key 解密；固定公钥、算法与 `apiName` 以 [api.md](api.md) 与 `server/upstreams/bykcCrypto.ts` 为准。
 - 阳光：基址 `https://ygdk.buaa.edu.cn/api`；全部 `POST application/x-www-form-urlencoded; charset=UTF-8`；表单固定追加 `uid`、`token`；请求头 `X-Requested-With: XMLHttpRequest`；响应 `{ "code": 1, "result": ... }`，`code === -98` 为认证失效。
 - 时间：列表 ISO 8601 带偏移 → `Asia/Shanghai` 的 `YYYY-MM-DD HH:mm:ss`；不带偏移的 `YYYY-MM-DD HH:mm:ss` 原样保留；日期取 `YYYY-MM-DD`。
+
+### 3.7 中继进程与托盘
+
+- `server/index.ts` 只做启动编排：读取端口与 `TRAY`、监听 HTTP、注册 SIGINT/SIGTERM、建立托盘；`server/app/createApp.ts` 生成只含 `/api` 的 Express 应用。
+- 托盘使用 `tray-hook`，状态只有 `running` 与 `error`：
+  - `running`：图标为绿色角标，tooltip 显示运行中与 `127.0.0.1:<PORT>`，菜单状态行显示 `http://127.0.0.1:<PORT>`，菜单提供“退出”。
+  - `error`：图标为红色角标，显示端口占用等启动失败原因；进程保持存活，直到用户从托盘退出，退出码为 1。
+- `TRAY=0` 时不创建托盘；`tray-hook` 二进制缺失、无桌面环境或初始化失败时只记录警告，API 继续提供。
+- 菜单“退出”、SIGINT 与 SIGTERM 统一走优雅关闭：停止接收新请求，最多等待 2 秒让在途请求结束，再关闭托盘并让事件循环自然退出；不在信号处理器中直接 `process.exit()`。
 
 ## 4. 凭据存储与加密
 
@@ -744,7 +775,8 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 | `/bykc` | BykcView | 博雅课程广场分页、详情 modal |
 | `/settings` | SettingsView | 统一登录、阳光目标、日程高亮、主页卡片、背景、通知与缓存、连接状态 |
 
-- 未知路由重定向 `/`；history 模式；dev/preview 与 `npm start` 均提供 SPA fallback。
+- 本文路由均为逻辑路径；扩展页使用 hash 模式，实际地址形如 `chrome-extension://<id>/newtab.html#/schedule` 或 `moz-extension://<uuid>/newtab.html#/schedule`，刷新或重开扩展页保持当前路由。
+- 未知路由重定向 `/`；不依赖服务器回退，不使用 history 模式。
 - 不设登录页；登录只在 `/settings` 的统一登录区。
 - 仅时钟与背景模式只在 `/` 生效；其他页面正常显示。
 - 主页时钟：日期 `YYYYMMDD DDD`（如 `20261026 Mon`），时间 `HH:mm:ss`，每秒更新。
@@ -811,10 +843,10 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 
 `useBackground` 为模块级单例，状态包含目录、清单、选中文件名、`warning`、`busy`、`fallback` 与 `hydrated`。
 
-- `hydrate()` 在应用启动时调用一次 `GET /api/background`，记忆化后不再重跑；页面不得重复调用，否则会重新随机选图。
+- `hydrate()` 在应用启动时调用一次 `GET /api/background`（绝对地址），记忆化后不再重跑；页面不得重复调用，否则会重新随机选图。
 - 从 `images` 随机选一张作为 `selectedName`；同一 SPA 会话内所有页面共用。
 - 浏览器刷新后重新随机；子页面不重新选图。
-- 图片地址：`/api/background/image?name=<encodeURIComponent(name)>`。
+- 图片地址由 `relayUrl("/api/background/image?name=...")` 生成，默认 `http://127.0.0.1:3000/api/background/image?name=<encodeURIComponent(name)>`。
 - 选中文件名后不预加载；由 `App.vue` 的 `<img>` 加载成功调用 `markLoaded(name)`，失败调用 `markFailed(name)`。
 - 单张加载失败：从未失败的图片中再随机选一张；连续失败 3 张或全部失败，设 `fallback=true`。
 - 自定义图加载期间不渲染内置图；加载成功后渐入；`fallback=true` 时渲染内置图。
@@ -959,7 +991,8 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 - 密码只用于 SSO 登录与自动重登；不参与派生；不返回前端。
 - 文件权限：目录 `0700`、文件 `0600`；密钥与密文分开。
 - 背景接口防路径穿越：文件名白名单校验 + `realpath` 前缀校验 + 只读清单；不接受绝对路径、`..`、分隔符；只返回白名单图片且只第一层，不提供目录浏览接口。
-- `POST` 同源校验 + JSON Content-Type；不启用 CORS；Host 校验保持。
+- `POST` 来源校验 + JSON Content-Type；不启用 CORS；Host 校验保持。扩展来源（`chrome-extension://` / `moz-extension://`）在 loopback Host 下放行；普通网页仍要求同源。
+- 中继当前接受任意扩展 ID 的 `POST`；RC 发布前需为 Chrome 配置固定 key、Firefox 配置 gecko ID，并在中继维护扩展 ID 白名单，见 [TODO.md](../TODO.md)。
 - 登录单飞；自动重登节流（认证失败 5 分钟内不重复，瞬时失败 30 秒内不重复）；密码错误不自动重试。
 - 上游错误只返回固定中文文案；不回显 HTML、Token、Cookie；`server/http/upstream.ts` 的异常包装不得把请求体、Cookie 或上游 HTML 拼进错误消息。
 - 博雅课程简介、SPOC 作业说明只按纯文本展示，不使用 `v-html`；快捷方式 URL 只允许 `http:`/`https:`。
@@ -971,30 +1004,46 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 
 ```bash
 npm install
-npm run dev       # Vite + 中继，127.0.0.1:5173
-npm run build     # vue-tsc -b + vite build
-npm run preview   # Vite preview + 中继，127.0.0.1:4173
-npm start         # Express 同源提供 dist 与 /api，127.0.0.1:3000
-npm test          # Vitest
+npm start             # 本地中继 + 托盘，127.0.0.1:3000
+npm run dev           # WXT 开发服务器（Chrome/Edge），localhost:4000
+npm run dev:firefox   # WXT 开发服务器（Firefox）
+npm run build         # Chrome/Edge MV3 -> .output/chrome-mv3
+npm run build:firefox # Firefox MV2 -> .output/firefox-mv2
+npm run zip           # 打包 Chrome/Edge 扩展
+npm run zip:firefox   # 打包 Firefox 扩展
+npm test              # Vitest
 npm run type-check
 npm run lint
-npm run check     # lint + type-check + test 并行
+npm run format:check
+npm run check         # lint + format:check + type-check + test 并行
+npm run check:shared
 ```
 
-- `vite.config.ts` 的 `server.host` / `preview.host` 固定 `127.0.0.1`；端口被占用时由 Vite 自动顺延，以终端输出为准。
-- 中继以插件形式挂载，不需要单独启动第二个进程；`preview` 同源提供页面与 `/api`。
-- 生产构建后用 `npm start` 由 Express 同源提供页面与 `/api`，不引入 SSR；`npm run preview` 仍可用于快速预览。
-- `server/index.ts` 复用 `server/relayPlugin.ts` 的同一份 `/api` 中间件，路径、方法、错误码与请求头约定不变；监听地址仍为 `127.0.0.1`，可用 `PORT` 改端口。
-- 不新增依赖；博雅与凭据加密使用 Node 内置 `node:crypto`。
+- 中继与 WXT 开发服务器是两个独立进程：先 `npm start`，再按目标浏览器执行 `npm run dev` 或 `npm run dev:firefox`；开发服务器固定 `localhost:4000`，`strictPort` 下端口占用会直接失败。
+- 扩展请求默认发往 `http://127.0.0.1:3000`；需要改中继地址时，在构建或开发命令前设置 `WXT_RELAY_ORIGIN`。`PORT` 可改中继端口。
+- `npm start` 使用 `node --experimental-strip-types server/index.ts`；`TRAY=0` 可关闭托盘，仅保留 API。
+- 构建产物分别位于 `.output/chrome-mv3` 与 `.output/firefox-mv2`，作为对应浏览器的未打包扩展加载；不再有 `preview`、`dist` 静态托管或 SPA fallback。
+- Chrome/Edge 与 Firefox 双平台均为验收目标；`npm run zip` 与 `npm run zip:firefox` 分别生成商店用压缩包。
+- 不引入其他后端；加密使用 Node 内置 `node:crypto`，托盘使用 `tray-hook`。
 
 ## 11. 验收
 
-- 类型检查：`npm run build`（含 `vue-tsc`）与 `npm run type-check` 通过；`npm test` 通过；`npm run lint` 通过。
+- 构建与检查：`npm run type-check`、`npm run build`、`npm run build:firefox`、`npm test`、`npm run lint`、`npm run format:check` 通过。
+- 扩展构建与双平台：
+  - Chrome/Edge：`npm run build` 生成 `.output/chrome-mv3`；`manifest.json` 含 `chrome_url_overrides.newtab`、loopback `host_permissions` 与 `notifications`。
+  - Firefox：`npm run build:firefox` 生成 `.output/firefox-mv2`；`manifest.json` 含 `chrome_url_overrides.newtab`、`notifications`，loopback 主机权限位于 `permissions`。
+  - 两平台产物均不含 popup/content/background。
+  - Chrome/Edge 与 Firefox 分别加载未打包扩展后，打开新标签页即显示航启；子页面刷新后保持当前页面。
 - 中继检查：
-  - 非白名单方法返回 405；未列路径 404；未登录业务接口 401 `AUTH_REQUIRED`；Host 非本机拒绝；日志无凭据。
+  - 非白名单方法返回 405；未列 `/api` 路径返回 JSON 404；非 `/api` 路径返回文本 404；未登录业务接口 401 `AUTH_REQUIRED`；Host 非本机拒绝；日志无凭据。
+  - `POST` + `Origin: chrome-extension://...` 或 `moz-extension://...` 通过；`Origin: https://evil.example` 返回 403；同源 loopback 来源通过。
   - 登录单飞、验证码刷新、密码错误/验证码错误/密码过期分类、四源异步派生与单源重试。
   - 凭据文件损坏/密钥缺失不白屏；目录不可写时本次运行仍可用；退出登录后凭据文件不存在。
   - 背景接口路径穿越被拒绝；超过 20 MB 的图片跳过；非本机 Host 拒绝。
+- 托盘验收：
+  - 正常启动显示运行中，`/api/health` 返回 200；菜单“退出”与 Ctrl+C 后进程结束。
+  - 端口被占用时显示启动失败原因，进程保持到用户从托盘退出，退出码为 1。
+  - `TRAY=0` 不创建托盘但 API 正常；托盘二进制缺失时降级为无托盘，API 仍可用。
 - 认证验收：
   - 无验证码与有验证码登录均可完成；验证码可刷新；错误提示可区分。
   - 登录成功显示姓名、学号、登录时间；四源状态可轮询；失败项可单独重试。
@@ -1017,15 +1066,15 @@ npm run check     # lint + type-check + test 并行
   - 刷新与关闭页面后番茄钟运行态重置，不残留；localStorage 不可用或损坏时降级为内存并提示。
 - 文档状态：PRD、UI 文档、API 文档与本文为当前四份文档；后续变更需同时更新相关文档。
 
-## 12. 风险与待验证
+## 12. 风险与已知限制
 
-- 登录流程没有原始 HAR；SSO 页面结构、验证码配置、错误文案可能随学校更新变化，需真实联调与后续 HAR。
-- byxt Cookie 依赖 `byxt → SSO → byxt` 票据链；参考 B 不访问 byxt 首页，若真实环境拿不到 Cookie，需要补一次首页访问。
-- 博雅仅 `auth_token` 的可用性尚未被 HAR 最终证明；若返回会话失效，需评估是否补充可选 Cookie 字段。
-- 阳光没有 HAR；`campusAppLogin` 的响应结构与 `uid`/`token` 字段需真实联调验证。
-- 博雅响应是加密的；HAR 无法离线解密响应体，课程字段与状态判定来自参考 B 与测试，真实响应需联调验证。
-- 博雅 `Referer` 在 HAR 中随页面变化，实现按固定值；若上游拒绝再调整。
-- 考试接口日期/时间的实际字符串格式未固定，代码按多格式兼容。
-- Windows 文件 ACL 依赖 `%LOCALAPPDATA%` 的用户隔离；如需更强保证，再评估 `icacls` 或 DPAPI（本期不做）。
-- 异步派生顺序执行，最坏情况约 48 秒（4 × 12 秒）；设置页需显示“派生中”，避免用户误以为失败。
-- 验证码只处理图片类型；上游改成滑块、点选或第三方验证码时本期不实现。
+以下仅保留 RC 已知限制与发布前待办；PRD 所述功能已在开发版实机验收通过。
+
+- Windows 文件 ACL 依赖 `%LOCALAPPDATA%` 的用户隔离；RC 接受该现状，如需更强保证，后续再评估 `icacls` 或 DPAPI。
+- 异步派生顺序执行，最坏情况约 48 秒（4 × 12 秒）；设置页显示“派生中”，RC 接受该等待时间。
+- 验证码只处理图片类型；上游改成滑块、点选或第三方验证码时不在本期范围。
+- Firefox MV2 构建提示缺少扩展 ID 与 `data_collection_permissions`；RC 仅以本机临时扩展验收，不发布 AMO，补齐工作留待后续发布。
+- WXT 开发服务器固定 4000 且启用 `strictPort`；端口被占用时需先释放或修改 `wxt.config.ts`。
+- 托盘依赖 `tray-hook` 的平台二进制与桌面环境；缺失或无桌面时降级为无托盘，API 不受影响。
+- 中继当前放行任意扩展来源；RC 发布前需固定 Chrome 扩展 key 与 Firefox gecko ID，并在中继增加扩展 ID 白名单，见 [TODO.md](../TODO.md)。
+- 同一浏览器只能有一个扩展接管新标签页；与其他 newtab 扩展同时启用时，以最后启用者为准。
