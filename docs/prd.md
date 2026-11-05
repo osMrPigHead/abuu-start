@@ -1,4 +1,4 @@
-# 航启主页 / BUAA-Start PRD
+# 航启主页 / ABUU-Start PRD
 
 ## 1. 目标与用户
 

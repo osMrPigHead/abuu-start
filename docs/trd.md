@@ -1,4 +1,4 @@
-# 航启主页 / BUAA-Start TRD
+# 航启主页 / ABUU-Start TRD
 
 > 本文是当前唯一的技术设计文档，描述已实现的功能与实现口径。需求见 [prd.md](prd.md)，UI 布局见 [ui-lowfi.md](ui-lowfi.md)，北航上游接口见 [api.md](api.md)。目录分层与编码约束同时见仓库根目录 `AGENTS.md`。
 
@@ -330,7 +330,7 @@ vite.config.ts / vitest.config.ts
 - 文件大小 1 字节至 20 MB；超过 20 MB 跳过。
 - 用文件头 magic bytes 判断格式，至少识别 JPEG、PNG、GIF、WebP、BMP、AVIF；文件头与扩展名不符、无法读取或损坏的图片跳过，不阻塞其他图片。
 - 图片内容不复制进仓库、不写入 localStorage、不写入凭据文件。
-- `settings.json` 位于 `%LOCALAPPDATA%\buaa-start\settings.json`，明文保存背景目录路径；路径不是凭据。
+- `settings.json` 位于 `%LOCALAPPDATA%\abuu-start\settings.json`，明文保存背景目录路径；路径不是凭据。
 - `settings.json` 形如：
 
 ```json
@@ -402,11 +402,11 @@ vite.config.ts / vitest.config.ts
 
 ### 4.1 位置
 
-- 目录：`%LOCALAPPDATA%\buaa-start\`。
+- 目录：`%LOCALAPPDATA%\abuu-start\`。
 - 文件：`credentials.enc`（密文凭据）、`credentials.key`（32 字节随机密钥）、`settings.json`（背景目录等非敏感设置）。
 - 目录创建为 `0o700`；文件写入后 `chmod 0o600`。
 - Windows 上 `%LOCALAPPDATA%` 本身按用户隔离，继承当前用户 ACL；不额外调用 `icacls`，不引入原生依赖。
-- 非 Windows 开发环境回退到 `~/.local/state/buaa-start/`。
+- 非 Windows 开发环境回退到 `~/.local/state/abuu-start/`。
 
 ### 4.2 密文格式
 
@@ -422,7 +422,7 @@ vite.config.ts / vitest.config.ts
 }
 ```
 
-- `iv`：12 字节随机数；`tag`：16 字节 GCM 认证标签；`data`：密文；AAD：`buaa-start/credentials/v1`。
+- `iv`：12 字节随机数；`tag`：16 字节 GCM 认证标签；`data`：密文；AAD：`abuu-start/credentials/v1`。
 - 明文 JSON：
 
 ```json
@@ -481,7 +481,7 @@ vite.config.ts / vitest.config.ts
 
 ### 4.5 旧凭据迁移
 
-- 启动时删除旧键 `buaa-start.credentials.v1`，不尝试迁移明文。
+- 启动时删除旧键 `abuu-start.credentials.v1`，不尝试迁移明文。
 - 旧 `X-*` 凭据请求头不再被中继读取；前端也不再发送。
 - 升级后首次使用必须重新登录一次；旧业务缓存保留，登录后按缓存优先刷新。
 
@@ -678,7 +678,7 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 1. 前端 `POST /api/auth/logout`。
 2. 中继先尽力 SSO logout，再清内存、删密文与密钥。
 3. 前端清 `useAuth` 的会话状态与本次登录尝试。
-4. 前端清所有业务数据缓存（`buaa-start.cache.*`），但保留待办、快捷方式、番茄钟、背景目录与主页偏好。
+4. 前端清所有业务数据缓存（`abuu-start.cache.*`），但保留待办、快捷方式、番茄钟、背景目录与主页偏好。
 5. 设置页回到未登录；主页各卡片显示“未登录，前往设置”引导，不显示成“无数据”。
 
 ## 7. 前端
@@ -730,7 +730,7 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 - 背景区：绝对路径输入框、保存、重新扫描、清除；显示当前目录、图片数量与 `warning`。
 - 下方操作区：番茄钟桌面通知开关、权限状态、“测试通知”、清除缓存。
 - 连接状态：显示本地中继是否可用。
-- 清除缓存只删 `buaa-start.cache.*`；退出登录清业务缓存，但保留待办、快捷方式、番茄钟设置、背景目录、主页卡片与仅时钟模式等偏好。
+- 清除缓存只删 `abuu-start.cache.*`；退出登录清业务缓存，但保留待办、快捷方式、番茄钟设置、背景目录、主页卡片与仅时钟模式等偏好。
 
 ### 7.3 路由与页面
 
@@ -774,7 +774,7 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 
 #### 卡片开关
 
-- `useHomeCards` 为模块级 reactive 单例，五个开关默认开启，localStorage 键 `buaa-start.home.cards.v1`。
+- `useHomeCards` 为模块级 reactive 单例，五个开关默认开启，localStorage 键 `abuu-start.home.cards.v1`。
 - 存储值形如 `{ "schedule": true, "bykc": false, "todo": true, "focus": true, "ygdk": true }`；缺失、不是对象或字段不严格等于 `false` 时一律按开启处理。
 - 设置页切换立即写 localStorage 并生效，无保存按钮；写入失败提示“已保存到本次会话，但本地存储不可用”。
 - 五张卡片全部关闭时功能区只渲染快捷方式，仍为 11 行，编辑与拖拽仍可用。
@@ -800,7 +800,7 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 
 #### 仅时钟与背景模式
 
-- `useHomeDisplay` 维护 `minimalMode`，键 `buaa-start.home.display.v1`，默认 `false`；非法或缺省值按默认值处理。
+- `useHomeDisplay` 维护 `minimalMode`，键 `abuu-start.home.display.v1`，默认 `false`；非法或缺省值按默认值处理。
 - `minimalMode` 只在 `/` 生效；离开 `/` 时隐藏仅时钟视觉，但保留持久化状态。
 - 进入后隐藏搜索框、时钟行按钮与整个功能区，只显示时钟与背景；不显示切换按钮。
 - 点击视口任意位置退出；键盘可 Tab 聚焦后按 Enter 退出。
@@ -835,25 +835,25 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 
 | key | 内容 |
 | --- | --- |
-| `buaa-start.cache.byxt.schedule.v1` | `{ savedAt, term, weeks, currentWeek, weekSource, lastWeek, byWeek }` |
-| `buaa-start.cache.byxt.exams.v1` | `{ savedAt, term, exams }` |
-| `buaa-start.cache.spoc.assignments.v1` | `{ savedAt, term, assignments }` |
-| `buaa-start.cache.spoc.detail.v1.<id>` | `{ savedAt, assignment }` |
-| `buaa-start.cache.bykc.chosen.v1` | `{ savedAt, term, courses }` |
-| `buaa-start.cache.bykc.courses.v1.<page>.<pageSize>` | `{ savedAt, page, pageSize, total, totalPages, courses }` |
-| `buaa-start.cache.bykc.course.v1.<id>` | `{ savedAt, course }` |
-| `buaa-start.cache.ygdk.overview.v1` | `{ savedAt, overview }` |
-| `buaa-start.ygdk.settings.v1` | `YgdkSettings` |
-| `buaa-start.todos.v1` | `Todo[]` |
-| `buaa-start.shortcuts.v1` | `Shortcut[]` |
-| `buaa-start.pomodoro.settings.v1` | `PomodoroSettings` |
-| `buaa-start.pomodoro.notifications.v1` | `boolean`；未明确关闭时默认 `true` |
-| `buaa-start.schedule.highlightLeadMinutes.v1` | `number`（0–180，默认 30） |
-| `buaa-start.home.cards.v1` | `HomeCardVisibility` |
-| `buaa-start.home.display.v1` | `{ minimalMode }` |
-- 旧明文凭据键 `buaa-start.credentials.v1` 只在启动时删除，不再读写；localStorage 中不保存任何 Cookie、Token、RoleCode、UID 或密码。
+| `abuu-start.cache.byxt.schedule.v1` | `{ savedAt, term, weeks, currentWeek, weekSource, lastWeek, byWeek }` |
+| `abuu-start.cache.byxt.exams.v1` | `{ savedAt, term, exams }` |
+| `abuu-start.cache.spoc.assignments.v1` | `{ savedAt, term, assignments }` |
+| `abuu-start.cache.spoc.detail.v1.<id>` | `{ savedAt, assignment }` |
+| `abuu-start.cache.bykc.chosen.v1` | `{ savedAt, term, courses }` |
+| `abuu-start.cache.bykc.courses.v1.<page>.<pageSize>` | `{ savedAt, page, pageSize, total, totalPages, courses }` |
+| `abuu-start.cache.bykc.course.v1.<id>` | `{ savedAt, course }` |
+| `abuu-start.cache.ygdk.overview.v1` | `{ savedAt, overview }` |
+| `abuu-start.ygdk.settings.v1` | `YgdkSettings` |
+| `abuu-start.todos.v1` | `Todo[]` |
+| `abuu-start.shortcuts.v1` | `Shortcut[]` |
+| `abuu-start.pomodoro.settings.v1` | `PomodoroSettings` |
+| `abuu-start.pomodoro.notifications.v1` | `boolean`；未明确关闭时默认 `true` |
+| `abuu-start.schedule.highlightLeadMinutes.v1` | `number`（0–180，默认 30） |
+| `abuu-start.home.cards.v1` | `HomeCardVisibility` |
+| `abuu-start.home.display.v1` | `{ minimalMode }` |
+- 旧明文凭据键 `abuu-start.credentials.v1` 只在启动时删除，不再读写；localStorage 中不保存任何 Cookie、Token、RoleCode、UID 或密码。
 - 读写统一包在 `src/cache/storage.ts`：`JSON.parse` 失败、配额不足、隐私模式不可用时返回 `null` / 降级为内存状态，并给出一次页面提示。
-- 清除缓存只删 `buaa-start.cache.*`；清除凭据由“退出登录”完成；两者互不影响。
+- 清除缓存只删 `abuu-start.cache.*`；清除凭据由“退出登录”完成；两者互不影响。
 - 退出登录清业务缓存，但保留待办、快捷方式、番茄钟设置、背景目录、主页卡片与仅时钟模式。
 - 缓存数据不含 Cookie/Token；缓存优先 + 后台刷新，不做定时轮询。
 - 每个数据源独立 `SourceState`，状态为 `idle | loading | ok | cached | error | no-credential | auth-expired`。
@@ -920,7 +920,7 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 - 学期目标：`systemTermTarget > 0` 时使用系统值，否则使用用户 `termTarget`；用户值非法时回退默认值。
 - 周限制始终使用用户 `weekTarget`（默认 4），不使用系统 `weekTarget`。
 - 进度：学期进度 = `termCount / termTarget`；周进度 = `weekCount / weekTarget`；超过限制进度条封顶 100%，文字显示实际次数。
-- 设置页修改目标/周限制后立即写入 `buaa-start.ygdk.settings.v1`，主页响应式更新。
+- 设置页修改目标/周限制后立即写入 `abuu-start.ygdk.settings.v1`，主页响应式更新。
 - 失败：保留缓存并标注时间；无缓存显示错误与重试；不显示成“0 次”。
 - 不设详情路由；不提供打卡、补卡、上传。
 
@@ -931,11 +931,11 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 - 顺延：新截止时间 = 原截止时间 + 周期；若仍不晚于当前时间，继续加周期直到未来最近一次。
 - 排序：未完成在前；截止时间升序；无截止时间置后；已完成置后；同截止时间按创建时间。优先级只改变展示，不参与排序。
 - 待办卡片左右两栏：左栏本地待办，右栏 SPOC 作业；两栏各自滚动；SPOC 段只读，不显示勾选框，点击打开详情 modal。
-- 数据写 `buaa-start.todos.v1`；刷新保留。
+- 数据写 `abuu-start.todos.v1`；刷新保留。
 
 ### 8.6 番茄钟
 
-- 默认 25/5/15 分钟，每 4 个专注轮次进入长休；配置写 `buaa-start.pomodoro.settings.v1`。
+- 默认 25/5/15 分钟，每 4 个专注轮次进入长休；配置写 `abuu-start.pomodoro.settings.v1`。
 - 配置校验：专注 1–180 分钟，短休/长休 1–60 分钟，轮次 1–12；非法值不保存并提示。
 - 运行态只在内存：阶段、剩余秒数、运行中、暂停、已完成专注轮次、结束时间戳、阶段总时长、是否已发 1 分钟通知；刷新页面重置运行态，不写 localStorage，不新增后端接口。
 - 计时用 `endsAt` 时间戳 + 250ms 定时器校正，不用累加秒数，避免后台节流漂移。

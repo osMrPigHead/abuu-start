@@ -1,24 +1,24 @@
 /** 本地存储键，见 docs/trd.md 7.7。 */
 export const STORAGE_KEYS = {
-  scheduleCache: "buaa-start.cache.byxt.schedule.v1",
-  examsCache: "buaa-start.cache.byxt.exams.v1",
-  spocAssignmentsCache: "buaa-start.cache.spoc.assignments.v1",
-  spocDetailCachePrefix: "buaa-start.cache.spoc.detail.v1.",
-  bykcCoursesCachePrefix: "buaa-start.cache.bykc.courses.v1.",
-  bykcCourseCachePrefix: "buaa-start.cache.bykc.course.v1.",
-  bykcChosenCache: "buaa-start.cache.bykc.chosen.v1",
-  ygdkOverviewCache: "buaa-start.cache.ygdk.overview.v1",
-  ygdkSettings: "buaa-start.ygdk.settings.v1",
-  todos: "buaa-start.todos.v1",
-  shortcuts: "buaa-start.shortcuts.v1",
-  pomodoroSettings: "buaa-start.pomodoro.settings.v1",
-  pomodoroNotifications: "buaa-start.pomodoro.notifications.v1",
-  scheduleHighlightLeadMinutes: "buaa-start.schedule.highlightLeadMinutes.v1",
-  homeCards: "buaa-start.home.cards.v1",
-  homeDisplay: "buaa-start.home.display.v1",
+  scheduleCache: "abuu-start.cache.byxt.schedule.v1",
+  examsCache: "abuu-start.cache.byxt.exams.v1",
+  spocAssignmentsCache: "abuu-start.cache.spoc.assignments.v1",
+  spocDetailCachePrefix: "abuu-start.cache.spoc.detail.v1.",
+  bykcCoursesCachePrefix: "abuu-start.cache.bykc.courses.v1.",
+  bykcCourseCachePrefix: "abuu-start.cache.bykc.course.v1.",
+  bykcChosenCache: "abuu-start.cache.bykc.chosen.v1",
+  ygdkOverviewCache: "abuu-start.cache.ygdk.overview.v1",
+  ygdkSettings: "abuu-start.ygdk.settings.v1",
+  todos: "abuu-start.todos.v1",
+  shortcuts: "abuu-start.shortcuts.v1",
+  pomodoroSettings: "abuu-start.pomodoro.settings.v1",
+  pomodoroNotifications: "abuu-start.pomodoro.notifications.v1",
+  scheduleHighlightLeadMinutes: "abuu-start.schedule.highlightLeadMinutes.v1",
+  homeCards: "abuu-start.home.cards.v1",
+  homeDisplay: "abuu-start.home.display.v1",
 } as const;
 
-const CACHE_PREFIX = "buaa-start.cache.";
+const CACHE_PREFIX = "abuu-start.cache.";
 
 /** localStorage 不可用时降级为内存，页面可据此提示一次。 */
 let storageDegraded = false;
@@ -69,7 +69,7 @@ export function remove(key: string): void {
 }
 
 /** 旧明文凭据键；启动时删除，不尝试迁移，见 docs/trd.md 4.5。 */
-export const LEGACY_CREDENTIALS_KEY = "buaa-start.credentials.v1";
+export const LEGACY_CREDENTIALS_KEY = "abuu-start.credentials.v1";
 
 export function removeLegacyCredentials(): void {
   removeRaw(LEGACY_CREDENTIALS_KEY);
