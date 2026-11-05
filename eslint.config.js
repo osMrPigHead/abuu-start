@@ -12,6 +12,7 @@ export default tseslint.config(
       "node_modules/**",
       "docs/**",
       "private/**",
+      "wxt-migration/**",
     ],
   },
   js.configs.recommended,

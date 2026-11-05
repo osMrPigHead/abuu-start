@@ -16,5 +16,10 @@ private
 # 图片资源
 readme-images
 
+# WXT 扩展项目生成目录（独立工具链）
+wxt-migration/.wxt
+wxt-migration/.output
+wxt-migration/node_modules
+
 # 编辑器
 .idea

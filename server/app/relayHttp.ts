@@ -140,32 +140,50 @@ export function sendImage(
   res.end(image.data);
 }
 
-/** POST 同源校验，见 docs/trd.md 3.1。 */
-const assertPostOrigin: RequestHandler = (req, _res, next) => {
-  if (req.headers["sec-fetch-site"] === "cross-site") {
-    next(new RelayError("FORBIDDEN_ORIGIN", "请求来源不合法"));
-    return;
-  }
-
-  const origin = req.headers.origin;
-  if (typeof origin !== "string") {
-    next(new RelayError("FORBIDDEN_ORIGIN", "请求来源不合法"));
-    return;
-  }
+/**
+ * POST 来源校验，见 docs/trd.md 3.1。
+ * 浏览器扩展页面与中继不同源，但扩展来源无法被网页伪造，因此额外放行
+ * chrome-extension:// 与 moz-extension://；Host 仍必须是本机地址。
+ */
+export function isAllowedPostOrigin(input: {
+  origin: string | undefined;
+  host: string | undefined;
+  secFetchSite: string | undefined;
+}): boolean {
+  if (!isAllowedHost(input.host)) return false;
+  if (typeof input.origin !== "string") return false;
 
   let parsed: URL;
   try {
-    parsed = new URL(origin);
+    parsed = new URL(input.origin);
   } catch {
-    next(new RelayError("FORBIDDEN_ORIGIN", "请求来源不合法"));
-    return;
+    return false;
   }
 
   if (
-    parsed.protocol !== "http:" ||
-    !ALLOWED_HOSTS.has(parsed.hostname) ||
-    parsed.host !== req.headers.host
+    parsed.protocol === "chrome-extension:" ||
+    parsed.protocol === "moz-extension:"
   ) {
+    return true;
+  }
+
+  if (input.secFetchSite === "cross-site") return false;
+
+  return (
+    parsed.protocol === "http:" &&
+    ALLOWED_HOSTS.has(parsed.hostname) &&
+    parsed.host === input.host
+  );
+}
+
+const assertPostOrigin: RequestHandler = (req, _res, next) => {
+  const allowed = isAllowedPostOrigin({
+    origin: req.headers.origin,
+    host: req.headers.host,
+    secFetchSite: req.headers["sec-fetch-site"],
+  });
+
+  if (!allowed) {
     next(new RelayError("FORBIDDEN_ORIGIN", "请求来源不合法"));
     return;
   }

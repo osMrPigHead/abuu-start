@@ -1,0 +1,396 @@
+@import "tailwindcss";
+
+html {
+  overflow: hidden;
+}
+
+html,
+body {
+  height: 100%;
+  font-family: "Source Han Sans VF", sans-serif;
+  user-select: none;
+}
+
+body {
+  background-color: #0b1220;
+  overflow-y: auto;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+/* 背景层位于所有页面内容之下；用 img 铺满视口，避免 fixed background 随滚动位移。
+   自定义图与内置图都在 img 加载完成后通过 .is-loaded 渐入。 */
+.app-shell {
+  position: relative;
+  min-height: 100vh;
+}
+
+.app-background-image {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  width: 100vw;
+  height: 100vh;
+  object-fit: cover;
+  object-position: center;
+  opacity: 0;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+.app-background-image.is-loaded {
+  opacity: 1;
+  animation: background-fade-in 500ms ease-out both;
+}
+
+@keyframes background-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-background-image.is-loaded {
+    animation-duration: 1ms;
+  }
+}
+
+.app-content {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+}
+
+/* 叠层尽量贴近参考 A 的暗角遮罩；背景图由 App 背景层提供。
+   两个模式的遮罩各占一层，切换时只交叉淡化 opacity（渐变本身不可插值）。 */
+.home-backdrop {
+  isolation: isolate;
+}
+
+.home-backdrop::before,
+.home-backdrop::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  transition: opacity 200ms ease-out;
+}
+
+/* 完全功能模式：遮罩较重、范围较大。 */
+.home-backdrop::before {
+  opacity: 1;
+  background-image:
+    linear-gradient(
+      180deg,
+      rgb(0 0 0 / 0.5) 0%,
+      rgb(0 0 0 / 0.08) 32%,
+      rgb(0 0 0 / 0.42) 100%
+    ),
+    radial-gradient(
+      circle at center,
+      rgb(0 0 0 / 0.12) 0%,
+      rgb(0 0 0 / 0.55) 100%
+    );
+}
+
+/* 仅时钟与背景模式：遮罩透明度更低、范围更小，基准为参考 A 去掉 focusing 后的背景。 */
+.home-backdrop::after {
+  opacity: 0;
+  background-image:
+    linear-gradient(
+      180deg,
+      rgb(0 0 0 / 0.3) 0%,
+      rgb(0 0 0 / 0.03) 26%,
+      rgb(0 0 0 / 0.3) 100%
+    ),
+    radial-gradient(
+      circle at center,
+      rgb(0 0 0 / 0.06) 0%,
+      rgb(0 0 0 / 0.42) 100%
+    );
+}
+
+.home-backdrop-minimal::before {
+  opacity: 0;
+}
+
+.home-backdrop-minimal::after {
+  opacity: 1;
+}
+
+/* 参考 A 的日期在上、时间在下；字号为 1080P 下原 6vh/16vh 的一半并换算为 rem。 */
+.home-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  color: #fff;
+  text-shadow: 0 0 1.35rem #0003;
+}
+
+.home-clock-date {
+  padding-left: 0.675rem;
+  font:
+    275 2.025rem/1.2 "Source Han Sans VF",
+    sans-serif;
+}
+
+.home-clock-time {
+  font:
+    275 5.4rem/1.2 "Source Han Sans VF",
+    sans-serif;
+}
+
+/* 仅时钟与背景模式：时间在上、日期在下，固定左下角；
+   字号取参考 A 的 16vh/6vh 按 1080P 换算为 rem，不做完全功能模式的减半。 */
+.minimal-clock {
+  position: fixed;
+  bottom: 4.56rem;
+  left: 4.05rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  color: #fff;
+  text-shadow: 0 0 1.35rem #0003;
+  pointer-events: none;
+}
+
+.minimal-clock-time {
+  font:
+    275 10.8rem/1.2 "Source Han Sans VF",
+    sans-serif;
+}
+
+.minimal-clock-date {
+  padding-left: 0.675rem;
+  font:
+    275 4.05rem/1.2 "Source Han Sans VF",
+    sans-serif;
+}
+
+/* 横向瀑布流：以单行高度为基准，按行占位，超出视口后横向滚动。 */
+.waterfall-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.3) transparent;
+  overscroll-behavior-x: contain;
+}
+
+.waterfall-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.waterfall-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.waterfall-scroll::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.25);
+}
+
+/* 功能区的滚动视口铺满视口宽度，但内容起点仍与 1440px 页眉对齐，卡片视觉位置不变。 */
+.home-board-fullbleed {
+  padding-left: max(1.5rem, calc((100% - 1440px) / 2 + 1.5rem));
+  padding-right: 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .home-board-fullbleed {
+    padding-left: max(2.5rem, calc((100% - 1440px) / 2 + 2.5rem));
+    padding-right: 2.5rem;
+  }
+}
+
+.waterfall-board {
+  position: relative;
+}
+
+/* 专注计时：沿用时钟的细字重，字号按卡片宽度收敛；等宽数字避免跳动。 */
+.focus-time {
+  font:
+    275 3.75rem/1.05 "Source Han Sans VF",
+    sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  text-shadow: 0 0 1.1rem #0003;
+}
+
+/* 课程高亮：沿用参考 A 深色主题的暖色（即将开始）与冷色（进行中），
+   即将开始的闪烁频率也保持一致（1.1s，透明度 1 → 0.42）。 */
+.course-highlight-upcoming {
+  border-left-color: #ffa726;
+  background-color: rgb(255 157 0 / 0.25);
+  box-shadow: 0 0 0 2px rgb(255 143 0 / 0.4);
+  animation: course-blink 1.1s ease-in-out infinite;
+}
+
+.course-highlight-ongoing {
+  border-left-color: #4a9bff;
+  background-color: rgb(74 155 255 / 0.2);
+  box-shadow: 0 0 0 2px rgb(42 127 255 / 0.35);
+}
+
+@keyframes course-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.42;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .course-highlight-upcoming {
+    animation: none;
+  }
+}
+
+/* 课程行内横向滚动：保留滚动能力，不显示滚动条以免挤压卡片。 */
+.schedule-strip {
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.schedule-strip::-webkit-scrollbar {
+  display: none;
+}
+
+/* 待办列表纵向滚动：滚动条细、颜色与卡片一致。 */
+.todo-list {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.25) transparent;
+  overscroll-behavior-y: contain;
+}
+
+.todo-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.todo-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.todo-list::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.2);
+}
+
+/* 模式切换动画：方向见 docs/ui-lowfi.md「仅时钟与背景模式」。 */
+.home-top-enter-active,
+.home-board-enter-active,
+.minimal-clock-enter-active {
+  transition:
+    opacity 200ms ease-out,
+    transform 200ms ease-out;
+}
+
+.home-top-leave-active,
+.home-board-leave-active,
+.minimal-clock-leave-active {
+  transition:
+    opacity 150ms ease-in,
+    transform 150ms ease-in;
+}
+
+/* 完全功能模式：时钟与搜索行向上渐隐、向下渐入；功能区向下渐隐、向上渐入。 */
+.home-top-enter-from,
+.home-top-leave-to {
+  opacity: 0;
+  transform: translateY(-1.25rem);
+}
+
+.home-board-enter-from,
+.home-board-leave-to {
+  opacity: 0;
+  transform: translateY(1.25rem);
+}
+
+/* 仅时钟与背景模式：时钟向左渐隐、向右渐入。 */
+.minimal-clock-enter-from,
+.minimal-clock-leave-to {
+  opacity: 0;
+  transform: translateX(-2.5rem);
+}
+
+/* 路由切换：页眉沿用完全功能模式时钟与搜索行的方向，其余内容沿用功能区方向。
+   根元素只登记过渡时长（透明度实际不变），让 Vue 等子树动画结束后再卸载。 */
+.route-page-enter-active {
+  transition: opacity 200ms ease-out;
+}
+
+.route-page-leave-active {
+  transition: opacity 150ms ease-in;
+}
+
+.route-page-enter-active .route-page-header,
+.route-page-enter-active .route-page-body {
+  transition:
+    opacity 200ms ease-out,
+    transform 200ms ease-out;
+}
+
+.route-page-leave-active .route-page-header,
+.route-page-leave-active .route-page-body {
+  transition:
+    opacity 150ms ease-in,
+    transform 150ms ease-in;
+}
+
+.route-page-enter-from .route-page-header,
+.route-page-leave-to .route-page-header {
+  opacity: 0;
+  transform: translateY(-1.25rem);
+}
+
+.route-page-enter-from .route-page-body,
+.route-page-leave-to .route-page-body {
+  opacity: 0;
+  transform: translateY(1.25rem);
+}
+
+/* 仅时钟与背景模式：进入主页时沿用最小化时钟向左渐隐、向右渐入的方向。 */
+.route-page-enter-active .route-page-minimal {
+  transition:
+    opacity 200ms ease-out,
+    transform 200ms ease-out;
+}
+
+.route-page-leave-active .route-page-minimal {
+  transition:
+    opacity 150ms ease-in,
+    transform 150ms ease-in;
+}
+
+.route-page-enter-from .route-page-minimal,
+.route-page-leave-to .route-page-minimal {
+  opacity: 0;
+  transform: translateX(-2.5rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-backdrop::before,
+  .home-backdrop::after,
+  .home-top-enter-active,
+  .home-top-leave-active,
+  .home-board-enter-active,
+  .home-board-leave-active,
+  .minimal-clock-enter-active,
+  .minimal-clock-leave-active,
+  .route-page-enter-active,
+  .route-page-leave-active,
+  .route-page-enter-active .route-page-header,
+  .route-page-enter-active .route-page-body,
+  .route-page-enter-active .route-page-minimal,
+  .route-page-leave-active .route-page-header,
+  .route-page-leave-active .route-page-body,
+  .route-page-leave-active .route-page-minimal {
+    transition-duration: 1ms;
+  }
+}
