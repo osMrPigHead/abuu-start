@@ -23,7 +23,7 @@
 - 专注：可以自定义时间的番茄钟，有谁不想看着自推美图写作业呢？
 - 阳光打卡：学期和当周打卡次数统计，告别电脑前久坐，远离痔疮（x
 
-![背景图模式](readme-images/preview-head.png)![专注](readme-images/preview-focus.png)![日程页](readme-images/preview-schedule.png)![博雅课程广场](readme-images/preview-byxk.png)![高自由度的书签](readme-images/preview-shortcut.png)
+![背景图模式](readme-images/preview-head.jpg)![专注](readme-images/preview-focus.jpg)![日程页](readme-images/preview-schedule.jpg)![博雅课程广场](readme-images/preview-byxk.jpg)![高自由度的书签](readme-images/preview-shortcut.jpg)
 
 ## 技术方案
 
@@ -53,7 +53,7 @@ npm start       # 生产：Express 同源提供 dist 与 /api，127.0.0.1:3000
 
 那这就不得不说到作者原本的浏览器主页了，是在前 AI 时代自己做的（不过课表功能是后来加上的），当时原本是想解决随机背景图片这个问题：
 
-![原本的主页](readme-images/original-homepage.png)
+![原本的主页](readme-images/original-homepage.jpg)
 
 但这个主页所有的书签都得自己用 JSON 配置，课表也是让直接输入 Cookie 的纯前端方案，虽然我自己用着觉得不错，但当个作业交上去多少有些寒颤了，于是乎就诞生了分析下 UBAA 源码，做一个功能更全面的浏览器主页的想法。
 
