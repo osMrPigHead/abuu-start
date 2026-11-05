@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "wxt";
+import { CHROME_PUBLIC_KEY, FIREFOX_EXTENSION_ID } from "./extension.config.ts";
 
 /**
  * 航启的 WXT 扩展工程。
@@ -16,13 +17,20 @@ export default defineConfig({
   alias: {
     "@shared": resolve("shared"),
   },
-  manifest: {
+  manifest: ({ browser }) => ({
     name: "航启",
     short_name: "航启",
     description: "航启首页 · abuu-start · 更适合北航宝宝体质的浏览器启动页",
     permissions: ["notifications"],
     host_permissions: ["http://127.0.0.1/*", "http://localhost/*"],
-  },
+    ...(browser === "firefox"
+      ? {
+          browser_specific_settings: {
+            gecko: { id: FIREFOX_EXTENSION_ID },
+          },
+        }
+      : { key: CHROME_PUBLIC_KEY }),
+  }),
   dev: {
     server: {
       port: 4000,

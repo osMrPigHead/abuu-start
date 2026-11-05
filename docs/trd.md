@@ -8,7 +8,7 @@
 
 - 前端：WXT 浏览器扩展 + Vue 3 Composition API + `<script setup lang="ts">`，TypeScript strict，Vite 构建，Tailwind CSS，Vue Router 4（hash 模式）；不引入 Pinia、React、SSR。
 - 目标浏览器：Chrome/Edge MV3 与 Firefox MV2；两者都通过本机未打包扩展验收。
-- 扩展形态：只接管新标签页，manifest 声明 `chrome_url_overrides.newtab`、`notifications` 与 loopback 主机权限；Chrome/Edge MV3 写入 `host_permissions`，Firefox MV2 将主机权限并入 `permissions`；不生成 popup、options、background、content script。
+- 扩展形态：只接管新标签页，manifest 声明 `chrome_url_overrides.newtab`、`notifications` 与 loopback 主机权限；Chrome/Edge 通过固定 `key` 稳定扩展 ID，Firefox 通过 `browser_specific_settings.gecko.id` 固定扩展 ID；Chrome/Edge MV3 写入 `host_permissions`，Firefox MV2 将主机权限并入 `permissions`；不生成 popup、options、background、content script。
 - 状态：`reactive` / `ref` composable，模块级单例；跨页面共享的数据只通过 composable 暴露，不引入全局 store 库。
 - 中继：Node.js 22 LTS 的 TypeScript 模块，独立进程由 `npm start` 启动，只提供 `/api`，不托管页面或静态资源；只监听 `127.0.0.1:3000`（`PORT` 可覆盖）。托盘由 `tray-hook` 实现，显示运行中/启动失败并提供退出入口。
 - 扩展访问中继：扩展页面与中继不同源，所有 `/api` 请求使用绝对地址；默认 `http://127.0.0.1:3000`，构建时可用 `WXT_RELAY_ORIGIN` 覆盖。
@@ -59,14 +59,15 @@
 - Chrome/Edge 与 Firefox 均为验收目标：Chrome/Edge 构建 MV3，Firefox 构建 MV2。
 - 中继与扩展不同源：扩展用绝对地址访问中继，默认 `http://127.0.0.1:3000`；地址可用 `WXT_RELAY_ORIGIN` 覆盖。
 - 中继只提供 `/api`，非 `/api` 请求返回 404；不再使用 Vite 插件，也不再提供 SPA fallback。
-- `POST` 来源校验：Host 必须是 loopback；普通网页仍要求同源且非 `cross-site`；额外放行 `chrome-extension://` 与 `moz-extension://`。
+- `POST` 来源校验：Host 必须是 loopback；普通网页仍要求同源且非 `cross-site`；Chrome/Edge 只放行 `chrome-extension://<固定扩展 ID>`；Firefox 因内部 UUID 每次安装随机，RC 仍放行任意 `moz-extension://`（见 §9、§12）。
 - 托盘只显示运行中/启动失败两态；菜单“退出”与 SIGINT/SIGTERM 都优雅关闭；`TRAY=0` 时不创建托盘。
 - 路由使用 hash 模式，扩展页刷新不丢路由。
 
 ## 2. 目录结构
 
 ```text
-wxt.config.ts                 WXT 配置：srcDir、newtab、manifest、dev 4000、@shared 别名
+wxt.config.ts                 WXT 配置：srcDir、newtab、固定扩展 ID manifest、dev 4000、@shared 别名
+extension.config.ts           Chrome/Edge 固定公钥与派生 ID、Firefox gecko ID
 tsconfig.json / vitest.config.ts
 
 src/
@@ -124,7 +125,7 @@ scripts/check-shared-usage.mjs
   - 无请求体的接口（重试、登出、重新扫描）允许空 body。
   - 最大 16 KB；超过返回 `413 PAYLOAD_TOO_LARGE`。
   - 有 body 时必须是 JSON 对象；解析失败返回 `400 INVALID_REQUEST`。
-- 跨站防护：中继不返回 CORS 头。`POST` 先要求 Host 为 loopback 且 `Origin` 存在；`chrome-extension://` 或 `moz-extension://` 来源直接放行（网页无法伪造扩展来源），不要求与 Host 同源；其他来源仍必须是 `http://127.0.0.1:<port>` 或 `http://localhost:<port>`，且与 Host 完全一致，并拒绝 `Sec-Fetch-Site: cross-site`。缺失或不合法返回 `403 FORBIDDEN_ORIGIN`。
+- 跨站防护：中继不返回 CORS 头。`POST` 先要求 Host 为 loopback 且 `Origin` 存在；Chrome/Edge 只接受 `chrome-extension://<固定扩展 ID>`，其他 Chromium 扩展来源返回 `403 FORBIDDEN_ORIGIN`；Firefox 的 `moz-extension://` 主机是每次安装随机生成的内部 UUID，与 gecko ID 无映射，RC 仍放行任意 `moz-extension://` 来源。其他来源仍必须是 `http://127.0.0.1:<port>` 或 `http://localhost:<port>`，且与 Host 完全一致，并拒绝 `Sec-Fetch-Site: cross-site`。缺失或不合法返回 `403 FORBIDDEN_ORIGIN`。
 - 响应：
   - JSON 接口：`Content-Type: application/json; charset=utf-8`，`Cache-Control: no-store`。
   - 图片接口：按扩展名返回 `image/*`，`Cache-Control: no-store`，`X-Content-Type-Options: nosniff`。
@@ -991,8 +992,8 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 - 密码只用于 SSO 登录与自动重登；不参与派生；不返回前端。
 - 文件权限：目录 `0700`、文件 `0600`；密钥与密文分开。
 - 背景接口防路径穿越：文件名白名单校验 + `realpath` 前缀校验 + 只读清单；不接受绝对路径、`..`、分隔符；只返回白名单图片且只第一层，不提供目录浏览接口。
-- `POST` 来源校验 + JSON Content-Type；不启用 CORS；Host 校验保持。扩展来源（`chrome-extension://` / `moz-extension://`）在 loopback Host 下放行；普通网页仍要求同源。
-- 中继当前接受任意扩展 ID 的 `POST`；RC 发布前需为 Chrome 配置固定 key、Firefox 配置 gecko ID，并在中继维护扩展 ID 白名单，见 [TODO.md](../TODO.md)。
+- `POST` 来源校验 + JSON Content-Type；不启用 CORS；Host 校验保持。Chrome/Edge 只放行 `chrome-extension://<固定扩展 ID>`；Firefox 的 `moz-extension://` 内部 UUID 每次安装随机，RC 仍放行任意 `moz-extension://`；普通网页仍要求同源。
+- 固定扩展身份：Chrome/Edge 在 manifest 写入固定 `key`，由公钥派生扩展 ID；Firefox 写入 `browser_specific_settings.gecko.id`。中继白名单常量见 `extension.config.ts` 与 `server/app/relayHttp.ts`。
 - 登录单飞；自动重登节流（认证失败 5 分钟内不重复，瞬时失败 30 秒内不重复）；密码错误不自动重试。
 - 上游错误只返回固定中文文案；不回显 HTML、Token、Cookie；`server/http/upstream.ts` 的异常包装不得把请求体、Cookie 或上游 HTML 拼进错误消息。
 - 博雅课程简介、SPOC 作业说明只按纯文本展示，不使用 `v-html`；快捷方式 URL 只允许 `http:`/`https:`。
@@ -1030,13 +1031,13 @@ npm run check:shared
 
 - 构建与检查：`npm run type-check`、`npm run build`、`npm run build:firefox`、`npm test`、`npm run lint`、`npm run format:check` 通过。
 - 扩展构建与双平台：
-  - Chrome/Edge：`npm run build` 生成 `.output/chrome-mv3`；`manifest.json` 含 `chrome_url_overrides.newtab`、loopback `host_permissions` 与 `notifications`。
-  - Firefox：`npm run build:firefox` 生成 `.output/firefox-mv2`；`manifest.json` 含 `chrome_url_overrides.newtab`、`notifications`，loopback 主机权限位于 `permissions`。
+  - Chrome/Edge：`npm run build` 生成 `.output/chrome-mv3`；`manifest.json` 含 `chrome_url_overrides.newtab`、loopback `host_permissions`、`notifications` 与固定 `key`。
+  - Firefox：`npm run build:firefox` 生成 `.output/firefox-mv2`；`manifest.json` 含 `chrome_url_overrides.newtab`、`notifications`、`browser_specific_settings.gecko.id`，loopback 主机权限位于 `permissions`。
   - 两平台产物均不含 popup/content/background。
   - Chrome/Edge 与 Firefox 分别加载未打包扩展后，打开新标签页即显示航启；子页面刷新后保持当前页面。
 - 中继检查：
   - 非白名单方法返回 405；未列 `/api` 路径返回 JSON 404；非 `/api` 路径返回文本 404；未登录业务接口 401 `AUTH_REQUIRED`；Host 非本机拒绝；日志无凭据。
-  - `POST` + `Origin: chrome-extension://...` 或 `moz-extension://...` 通过；`Origin: https://evil.example` 返回 403；同源 loopback 来源通过。
+  - `POST` + `Origin: chrome-extension://<固定 ID>` 通过；`Origin: chrome-extension://<其他 ID>` 返回 403；`Origin: moz-extension://<任意内部 UUID>` 通过（Firefox 已知限制）；`Origin: https://evil.example` 返回 403；同源 loopback 来源通过。
   - 登录单飞、验证码刷新、密码错误/验证码错误/密码过期分类、四源异步派生与单源重试。
   - 凭据文件损坏/密钥缺失不白屏；目录不可写时本次运行仍可用；退出登录后凭据文件不存在。
   - 背景接口路径穿越被拒绝；超过 20 MB 的图片跳过；非本机 Host 拒绝。
@@ -1073,8 +1074,8 @@ npm run check:shared
 - Windows 文件 ACL 依赖 `%LOCALAPPDATA%` 的用户隔离；RC 接受该现状，如需更强保证，后续再评估 `icacls` 或 DPAPI。
 - 异步派生顺序执行，最坏情况约 48 秒（4 × 12 秒）；设置页显示“派生中”，RC 接受该等待时间。
 - 验证码只处理图片类型；上游改成滑块、点选或第三方验证码时不在本期范围。
-- Firefox MV2 构建提示缺少扩展 ID 与 `data_collection_permissions`；RC 仅以本机临时扩展验收，不发布 AMO，补齐工作留待后续发布。
+- Firefox MV2 构建仍提示缺少 `data_collection_permissions`；扩展 ID 已通过 `browser_specific_settings.gecko.id` 固定。RC 仅以本机临时扩展验收，不发布 AMO，数据收集声明留待后续发布。
 - WXT 开发服务器固定 4000 且启用 `strictPort`；端口被占用时需先释放或修改 `wxt.config.ts`。
 - 托盘依赖 `tray-hook` 的平台二进制与桌面环境；缺失或无桌面时降级为无托盘，API 不受影响。
-- 中继当前放行任意扩展来源；RC 发布前需固定 Chrome 扩展 key 与 Firefox gecko ID，并在中继增加扩展 ID 白名单，见 [TODO.md](../TODO.md)。
+- Firefox 的 `moz-extension://` 内部 UUID 每次安装随机，与 gecko ID 无映射；中继无法按 Origin 为 Firefox 做固定扩展 ID 白名单，RC 仍放行任意 `moz-extension://` 来源。Chrome/Edge 已使用固定 `key` 与扩展 ID 白名单。
 - 同一浏览器只能有一个扩展接管新标签页；与其他 newtab 扩展同时启用时，以最后启用者为准。

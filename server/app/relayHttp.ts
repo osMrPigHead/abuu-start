@@ -5,6 +5,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { ErrorRequestHandler, Request, RequestHandler } from "express";
 import type { BackgroundImageResult } from "../local/background.ts";
+import { CHROME_EXTENSION_ID } from "../../extension.config.ts";
 import { RelayError, toErrorBody, toRelayError } from "../core/errors.ts";
 
 const ALLOWED_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]", "::1"]);
@@ -142,8 +143,10 @@ export function sendImage(
 
 /**
  * POST 来源校验，见 docs/trd.md 3.1。
- * 浏览器扩展页面与中继不同源，但扩展来源无法被网页伪造，因此额外放行
- * chrome-extension:// 与 moz-extension://；Host 仍必须是本机地址。
+ * Chrome/Edge 只接受固定 ID 的 chrome-extension:// 来源；
+ * Firefox 的 moz-extension:// 主机是每次安装随机的内部 UUID，与 gecko ID
+ * 没有派生关系，RC 仍放行任意 moz-extension:// 来源（见 docs/trd.md 9/12）。
+ * Host 仍必须是本机地址。
  */
 export function isAllowedPostOrigin(input: {
   origin: string | undefined;
@@ -160,10 +163,11 @@ export function isAllowedPostOrigin(input: {
     return false;
   }
 
-  if (
-    parsed.protocol === "chrome-extension:" ||
-    parsed.protocol === "moz-extension:"
-  ) {
+  if (parsed.protocol === "chrome-extension:") {
+    return parsed.host === CHROME_EXTENSION_ID;
+  }
+
+  if (parsed.protocol === "moz-extension:") {
     return true;
   }
 
