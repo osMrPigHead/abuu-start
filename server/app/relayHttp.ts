@@ -1,6 +1,6 @@
 /**
  * 中继 HTTP 边界工具：Host / Origin 校验、JSON body 读取、JSON 与图片响应、
- * 日志与错误映射。dev/preview 的 Vite 插件与生产 Express 共用，见 docs/trd.md 3.1。
+ * 日志与错误映射。生产 Express 应用与单测共用，见 docs/trd.md 3.1。
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { ErrorRequestHandler, Request, RequestHandler } from "express";
@@ -25,7 +25,7 @@ export type RelayHandler = (
 ) => Promise<unknown> | unknown;
 
 /**
- * /api 入口中间件：非 /api 请求直接退出 Router，交给 Vite 或静态资源；
+ * /api 入口中间件：非 /api 请求直接退出 Router，由 createApp 统一 404；
  * 然后按“日志 → Host → 方法白名单”的顺序校验，顺序与改造前一致。
  */
 export function apiBoundary(): RequestHandler {
