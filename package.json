@@ -34,6 +34,7 @@
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
+    "@electron/windows-sign": "^2.1.0",
     "@eslint/js": "^10.0.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/express": "^5.0.6",
@@ -49,6 +50,7 @@
     "happy-dom": "^21.0.4",
     "postject": "^1.0.0-alpha.6",
     "prettier": "^3.9.10",
+    "resedit": "^3.1.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.72.1",

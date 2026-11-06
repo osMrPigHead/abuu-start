@@ -10,7 +10,7 @@
 - 目标浏览器：Chrome/Edge MV3 与 Firefox MV2；两者都通过本机未打包扩展验收。
 - 扩展形态：只接管新标签页，manifest 声明 `chrome_url_overrides.newtab`、`notifications` 与 loopback 主机权限；Chrome/Edge 通过固定 `key` 稳定扩展 ID，Firefox 通过 `browser_specific_settings.gecko.id` 固定扩展 ID；Chrome/Edge MV3 写入 `host_permissions`，Firefox MV2 将主机权限并入 `permissions`；不生成 popup、options、background、content script。
 - 状态：`reactive` / `ref` composable，模块级单例；跨页面共享的数据只通过 composable 暴露，不引入全局 store 库。
-- 中继：Node.js >=22.12 的 TypeScript 模块，开发态由 `npm start` 直接运行；发布态可用 `npm run build:server` 生成 Windows x64 单文件 exe（Node SEA + esbuild + postject，内嵌 Node 运行时，目标机无需安装 Node）。只提供 `/api`，不托管页面或静态资源；只监听 `127.0.0.1:3000`（`PORT` 可覆盖）。托盘由 `tray-hook` 实现，显示运行中/启动失败并提供退出入口；exe 首次启用托盘时把托盘客户端、原生二进制、图标与许可释放到 `%LOCALAPPDATA%\abuu-start\runtime\tray-hook\<runtimeId>\`，释放失败时降级为无托盘。
+- 中继：Node.js >=22.12 的 TypeScript 模块，开发态由 `npm start` 直接运行；发布态可用 `npm run build:server` 生成 Windows x64 单文件 exe（Node SEA + esbuild + postject，内嵌 Node 运行时，目标机无需安装 Node）。构建时用 `resedit` 写入应用图标与版本信息，并用随 `@electron/windows-sign` 提供的 `signtool` 以本地自签名证书签名，默认附带 DigiCert RFC3161 时间戳。只提供 `/api`，不托管页面或静态资源；只监听 `127.0.0.1:3000`（`PORT` 可覆盖）。托盘由 `tray-hook` 实现，显示运行中/启动失败并提供退出入口；exe 首次启用托盘时把托盘客户端、原生二进制、图标与许可释放到 `%LOCALAPPDATA%\abuu-start\runtime\tray-hook\<runtimeId>\`，释放失败时降级为无托盘。
 - 扩展访问中继：扩展页面与中继不同源，所有 `/api` 请求使用绝对地址；默认 `http://127.0.0.1:3000`，构建时可用 `WXT_RELAY_ORIGIN` 覆盖。
 - 对外接口：业务数据只读 `GET /api/*`；仅登录、登出、验证码预加载、单源重试与背景目录设置/重新扫描使用白名单 `POST`。中继内部再调用上游的 GET/POST、AES/RSA、Token 头；前端不接触上游路径。
 - HTTP：前端所有请求统一走 `src/api/client.ts`，基址由 `src/api/base.ts` 的 `relayUrl()` 生成；`request` 负责 `GET`，`postJson` 只用于白名单 `POST`，网络失败与非 JSON 响应统一映射为 `RELAY_UNREACHABLE`。
@@ -33,8 +33,8 @@
 - 多用户、账号体系、权限管理、账号切换、云端同步。
 - 移动端布局、SSR、Pinia、React。
 - 扩展的 popup、options、background、content script、侧边栏、快捷键、右键菜单。
-- 应用商店发布、自动更新与签名；只验证本机加载的未打包扩展。
-- 可执行文件代码签名、安装包、自动更新、跨平台交叉编译与隐藏控制台窗口。
+- 应用商店发布与自动更新；只验证本机加载的未打包扩展。
+- 受信任证书的正式代码签名、安装包、自动更新、跨平台交叉编译与隐藏控制台窗口。
 - 中继托管前端页面或静态资源。
 - 托盘点击行为、开机自启与 HTTP 退出接口。
 - 任何教务业务写操作：作业提交、阳光打卡、博雅选退课/签到、教务管理操作、附件下载。
@@ -62,7 +62,7 @@
 - 中继只提供 `/api`，非 `/api` 请求返回 404；不再使用 Vite 插件，也不再提供 SPA fallback。
 - `POST` 来源校验：Host 必须是 loopback；普通网页仍要求同源且非 `cross-site`；Chrome/Edge 只放行 `chrome-extension://<固定扩展 ID>`；Firefox 因内部 UUID 每次安装随机，RC 仍放行任意 `moz-extension://`（见 §9、§12）。
 - 托盘只显示运行中/启动失败两态；菜单“退出”与 SIGINT/SIGTERM 都优雅关闭；`TRAY=0` 时不创建托盘。
-- 中继发布态只构建 Windows x64 单文件 exe；`npm start` 保留；可执行文件不签名，首次启用托盘时释放托盘组件到本机用户目录。
+- 中继发布态只构建 Windows x64 单文件 exe；`npm start` 保留；exe 默认写入应用图标/版本信息，并用 `private/code-signing` 下的本地自签名证书签名，默认附带 `http://timestamp.digicert.com` 时间戳；可用 `--no-sign` 跳过签名、`--no-timestamp` 跳过时间戳，首次启用托盘时释放托盘组件到本机用户目录。
 - 路由使用 hash 模式，扩展页刷新不丢路由。
 
 ## 2. 目录结构
@@ -98,7 +98,7 @@ server/
   index.ts                    启动、信号、托盘编排与优雅退出
   app/                        config.ts、createApp.ts、routes.ts、relayHttp.ts：/api 边界
   tray/                       controller.ts、packaged.ts、status.ts、tray-hook.LICENSE、
-                              assets/{running,error}.png：托盘状态与 SEA 资产释放
+                              assets/{running,error}.png、assets/app.ico：托盘状态、SEA 资产释放与 exe 图标
   auth/                       session.ts、state.ts、preload.ts、login.ts、relogin.ts、
                               deriveRunner.ts、derive.ts、deriveHelpers.ts、cas.ts、
                               http.ts、cookieJar.ts、store.ts、crypto.ts、types.ts
@@ -111,8 +111,11 @@ server/
 
 scripts/check-shared-usage.mjs
 scripts/build-server-exe.mjs  Windows x64 单文件中继构建
+scripts/make-app-icon.mjs     从 public/icon 生成 server/tray/assets/app.ico
+scripts/sign-server-exe.ps1   自签名证书生成与 signtool 签名
 .output/                      扩展构建产物：chrome-mv3 / firefox-mv2，不提交
 dist/server/                  中继可执行产物 abuu-start-relay.exe，不提交
+private/code-signing/         本地代码签名证书、密码与 CER，不提交
 ```
 
 ## 3. 中继 API
@@ -438,12 +441,24 @@ dist/server/                  中继可执行产物 abuu-start-relay.exe，不�
 
 ### 3.8 可执行文件构建与运行
 
-- 仅支持 Windows x64；构建机需 Node >=22.12，并在仓库根执行 `npm install`（包含 `tray-hook` 的 optionalDependencies）。
-- `npm run build:server` 使用 esbuild 把 `server/index.ts` 打成 CJS，把 `tray-hook` 客户端打成 CJS，再用 Node SEA 生成 blob、复制当前 Node 为 `dist/server/abuu-start-relay.exe`，最后用 postject 注入。默认执行一次 `TRAY=0` + 随机端口的 `/api/health` 冒烟测试；`npm run build:server -- --no-smoke` 可跳过。
+- 仅支持 Windows x64；构建机需 Node >=22.12，并在仓库根执行 `npm install`（包含 `tray-hook` 的 optionalDependencies 与 `resedit`、`@electron/windows-sign`）。
+- 构建顺序：
+  1. esbuild 把 `server/index.ts` 与 tray-hook 客户端打成 CJS。
+  2. Node SEA 生成 blob。
+  3. 复制当前 Node 为 `dist/server/abuu-start-relay.exe`，用 postject 注入 SEA blob。
+  4. 用 `resedit` 写入 `server/tray/assets/app.ico` 图标与版本信息；此步骤同时重写 PE，修复 postject 后的文件结构，使 Authenticode 签名可写入。
+  5. 用 `@electron/windows-sign` 自带的 `signtool.exe` 签名。
+  6. 默认执行一次 `TRAY=0` + 随机端口的 `/api/health` 冒烟测试。
+- 图标：默认 `server/tray/assets/app.ico`，由 `scripts/make-app-icon.mjs` 从 `public/icon/{16,32,48,96,128}.png` 生成；文件缺失时构建脚本自动生成。可用 `--icon <path>` 或 `ABUU_APP_ICON` 替换。
+- 版本信息：取 `package.json` 的 `version`（写成四段，如 `0.1.0.0`），写入 `FileDescription=航启本地中继`、`ProductName=航启`、`CompanyName=abuu-start`、`LegalCopyright=MIT License` 等字段。
+- 签名：默认使用本地自签名证书，文件位于 `private/code-signing/abuu-start-dev.pfx`、`.cer`、`.password.txt`（不提交）。PFX 缺失时自动生成；可用 `ABUU_SIGN_PFX`、`ABUU_SIGN_PFX_PASSWORD`、`ABUU_SIGN_PFX_PASSWORD_FILE` 替换为真实证书。`--no-sign` 或 `ABUU_SIGN=0` 跳过签名。
+- 时间戳：默认对签名附加 RFC3161 时间戳，地址 `http://timestamp.digicert.com`；可用 `--timestamp <url>` 或 `ABUU_SIGN_TIMESTAMP_URL` 覆盖，`--no-timestamp` 关闭。默认时间戳失败会使构建失败，避免产出无时间戳的发布件。
+- 签名状态：自签名证书未安装到受信任根时通常为 `NotTrusted`/`UnknownError`，签名仍有效但 Windows 可能显示未知发布者；构建脚本会读取签名证书指纹与时间戳证书并输出状态。可选把 CER 安装到 `CurrentUser\Root` 与 `TrustedPublisher` 以本地信任。
+- `npm run build:server -- --no-smoke` 可跳过冒烟测试；`npm run build:server -- --no-sign` 可跳过签名；`npm run build:server -- --no-timestamp` 可跳过时间戳。
 - 产物是单文件；不随包分发 `node_modules`。exe 内嵌的 Node 版本等于构建机 Node 版本，不保证跨版本一致。
 - 运行时首次启用托盘前，把内嵌的 `tray-hook.cjs`、`tray-hook.exe`、`running.png`、`error.png`、`tray-hook.LICENSE` 释放到 `%LOCALAPPDATA%\abuu-start\runtime\tray-hook\<runtimeId>\`；`runtimeId` 由资产哈希生成。文件大小一致时复用，缺失或大小不符时重写；目录不可写、文件被占用或释放失败时只记录警告并继续提供 `/api`。
 - `TRAY=0` 时不释放托盘资产；`PORT`、SIGINT/SIGTERM、端口占用错误态与源码运行一致。凭据、`settings.json`、背景目录仍位于 `%LOCALAPPDATA%\abuu-start\`，与启动方式无关。
-- 可执行文件未签名，不提供安装包、自动更新、自定义图标或隐藏控制台窗口；仅 Windows x64 验收。
+- 自签名证书只适合本地；正式发布需替换为受信任 CA 证书。不提供安装包、自动更新、自定义安装器或隐藏控制台窗口；仅 Windows x64 验收。
 
 ## 4. 凭据存储与加密
 
@@ -1021,7 +1036,8 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 ```bash
 npm install
 npm start             # 本地中继 + 托盘，127.0.0.1:3000
-npm run build:server  # Windows x64 单文件中继 -> dist/server/abuu-start-relay.exe
+npm run build:server  # Windows x64 单文件中继（图标 + 版本信息 + 自签名 + 时间戳）-> dist/server/abuu-start-relay.exe
+node scripts/make-app-icon.mjs # 从 public/icon 重新生成 app.ico
 npm run dev           # WXT 开发服务器（Chrome/Edge），localhost:4000
 npm run dev:firefox   # WXT 开发服务器（Firefox）
 npm run build         # Chrome/Edge MV3 -> .output/chrome-mv3
@@ -1039,7 +1055,11 @@ npm run check:shared
 - 中继与 WXT 开发服务器是两个独立进程：先 `npm start`，再按目标浏览器执行 `npm run dev` 或 `npm run dev:firefox`；开发服务器固定 `localhost:4000`，`strictPort` 下端口占用会直接失败。
 - 扩展请求默认发往 `http://127.0.0.1:3000`；需要改中继地址时，在构建或开发命令前设置 `WXT_RELAY_ORIGIN`。`PORT` 可改中继端口。
 - `npm start` 使用 `node --experimental-strip-types server/index.ts`；`TRAY=0` 可关闭托盘，仅保留 API。
-- `npm run build:server` 仅支持 Windows x64，需 Node >=22.12；默认带 `TRAY=0` 冒烟测试，`-- --no-smoke` 可跳过。产物不依赖目标机的 Node 或 `node_modules`。
+- `npm run build:server` 仅支持 Windows x64，需 Node >=22.12；默认带 `TRAY=0` 冒烟测试，`-- --no-smoke` 可跳过；默认签名，`-- --no-sign` 或 `ABUU_SIGN=0` 可跳过。产物不依赖目标机的 Node 或 `node_modules`。
+- 默认附带 RFC3161 时间戳；`-- --no-timestamp` 关闭，`-- --timestamp <url>` 或 `ABUU_SIGN_TIMESTAMP_URL` 覆盖时间戳地址；时间戳失败会使构建失败。
+- 图标可用 `-- --icon <path>` 或 `ABUU_APP_ICON` 覆盖；默认 `server/tray/assets/app.ico` 缺失时自动生成。
+- 证书默认读写 `private/code-signing/abuu-start-dev.pfx`；可用 `ABUU_SIGN_PFX`、`ABUU_SIGN_PFX_PASSWORD`、`ABUU_SIGN_PFX_PASSWORD_FILE` 覆盖，`ABUU_SIGNTOOL` 可指定其他 signtool。
+- 版本信息取 `package.json` 的 `version`；修改版本号后重新构建即可更新 exe 的 FileVersion/ProductVersion。
 - 扩展构建产物分别位于 `.output/chrome-mv3` 与 `.output/firefox-mv2`，作为对应浏览器的未打包扩展加载；不再有 `preview`、`dist` 静态托管或 SPA fallback。`dist/server/` 仅用于中继 exe，`npm run build` 清空 `.output/` 时不会删除它。
 - Chrome/Edge 与 Firefox 双平台均为验收目标；`npm run zip` 与 `npm run zip:firefox` 分别生成商店用压缩包。
 - 不引入其他后端；加密使用 Node 内置 `node:crypto`，托盘使用 `tray-hook`。
@@ -1064,6 +1084,11 @@ npm run check:shared
   - `TRAY=0` 不创建托盘但 API 正常；托盘二进制缺失时降级为无托盘，API 仍可用。
 - 可执行文件验收：
   - Windows x64 上 `npm run build:server` 生成 `dist/server/abuu-start-relay.exe`，默认冒烟测试通过。
+  - 资源管理器/`ExtractAssociatedIcon` 显示航启图标；`VersionInfo` 显示 `FileDescription=航启本地中继`、`ProductName=航启`、版本与 `package.json` 一致。
+  - `Get-AuthenticodeSignature` 能读取签名证书，证书指纹与 `private/code-signing/abuu-start-dev.cer` 一致；未信任自签名时状态为 `NotTrusted`/`UnknownError`，证书仍存在。
+  - 默认构建的签名带 RFC3161 时间戳，`TimeStamperCertificate` 非空；`--no-timestamp` 构建后 `TimeStamperCertificate` 为空；时间戳服务不可达时构建失败。
+  - 删除 `server/tray/assets/app.ico` 后构建自动重新生成；删除 `private/code-signing/*` 后构建自动生成新证书并签名。
+  - `npm run build:server -- --no-sign` 构建后签名为 `NotSigned`，exe 仍可启动；`npm run build:server -- --icon <path>` 可替换图标，缺失路径时构建失败并提示。
   - 在未安装 Node、无 `node_modules` 的目录只放 exe，启动后 `/api/health` 返回 200；登录、四源派生、背景设置与 `npm start` 一致。
   - 首次启用托盘时释放资产到 `%LOCALAPPDATA%\abuu-start\runtime\tray-hook\<runtimeId>\`；再次启动复用；删除该目录后可重新释放。
   - 托盘、`TRAY=0`、端口占用、SIGINT/SIGTERM 与源码运行一致；释放失败时 API 仍可用。
@@ -1101,8 +1126,12 @@ npm run check:shared
 - WXT 开发服务器固定 4000 且启用 `strictPort`；端口被占用时需先释放或修改 `wxt.config.ts`。
 - 托盘依赖 `tray-hook` 的平台二进制与桌面环境；缺失或无桌面时降级为无托盘，API 不受影响。
 - 可执行文件使用 Node SEA（Stability 1.1）；产物约 90–100 MB，升级 Node 后需重新构建。
-- exe 未签名，可能触发 SmartScreen 或杀毒软件误报；不提供安装包、自动更新与代码签名。
-- exe 仅支持 Windows x64，且必须在目标平台构建；不提供交叉编译。双击 exe 会保留控制台窗口，使用 Node 默认图标，不包含应用版本资源。
+- exe 默认使用本地自签名证书，未安装到受信任根时 Windows 仍可能显示未知发布者，SmartScreen 也可能继续警告；正式发布需替换为受信任 CA 证书。不提供安装包与自动更新。
+- 自签名私钥、密码与 CER 位于 `private/code-signing/`，不提交；证书默认 5 年有效，过期或更换后需重新构建。替换证书可通过 `ABUU_SIGN_PFX` 等环境变量完成。
+- exe 仅支持 Windows x64，且必须在目标平台构建；不提供交叉编译。双击 exe 会保留控制台窗口；图标由 `server/tray/assets/app.ico` 提供，版本信息由 `package.json` 提供。
+- 签名依赖 `@electron/windows-sign` 随包的 `signtool.exe`；若该依赖被裁剪或替换，需提供可用的 `ABUU_SIGNTOOL` 或 `--no-sign`。
+- 时间戳默认依赖 DigiCert TSA；网络不可达、TSA 拒绝或限流时构建失败，可用 `--no-timestamp` 或更换 `ABUU_SIGN_TIMESTAMP_URL`。时间戳不会让自签名证书变为受信任发布者，只用于证明签名时间并在证书过期后辅助验证。
+- `postject` 注入后必须先由 `resedit` 重写 PE，再签名；该顺序用于同时保留 SEA blob、写入图标/版本信息并让 signtool 接受文件。
 - 托盘原生二进制与 `tray-hook` 客户端随 exe 释放到用户目录；目录不可写、被杀毒软件锁定或文件被占用时托盘降级，API 不受影响；旧 `runtimeId` 目录不自动清理。
 - `tray-hook` 以 MIT 许可随 exe 分发，许可文本保存在 `server/tray/tray-hook.LICENSE`。
 - Firefox 的 `moz-extension://` 内部 UUID 每次安装随机，与 gecko ID 无映射；中继无法按 Origin 为 Firefox 做固定扩展 ID 白名单，RC 仍放行任意 `moz-extension://` 来源。Chrome/Edge 已使用固定 `key` 与扩展 ID 白名单。

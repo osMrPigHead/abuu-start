@@ -2,11 +2,13 @@
 /**
  * 构建 Windows x64 单文件本地中继。
  *
- * server/index.ts -> esbuild CJS -> Node SEA blob -> postject 注入。
+ * server/index.ts -> esbuild CJS -> Node SEA blob -> postject 注入，
+ * 再用 resedit 写入图标/版本信息，最后用 signtool 签名并附加时间戳。
  * tray-hook 客户端在构建时把原生二进制路径改为运行期环境变量，
  * 原生二进制、客户端、图标与许可作为 SEA 资产嵌入 exe。
  *
- * 用法：npm run build:server [-- --no-smoke]
+ * 用法：npm run build:server [-- --no-smoke] [--no-sign] [--no-timestamp]
+ *       [--timestamp [url]] [--icon <path>]
  */
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -24,6 +26,8 @@ import { dirname, join, relative, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
+import { Data, NtExecutable, NtExecutableResource, Resource } from "resedit";
+import { makeAppIcon } from "./make-app-icon.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const OUTPUT_DIRECTORY = join(ROOT, "dist", "server");
@@ -35,6 +39,16 @@ const SEA_CONFIG_PATH = join(TEMP_DIRECTORY, "sea-config.json");
 const SEA_BLOB_PATH = join(TEMP_DIRECTORY, "sea-prep.blob");
 
 const SERVER_ENTRY_PATH = join(ROOT, "server", "index.ts");
+const PACKAGE_JSON_PATH = join(ROOT, "package.json");
+const DEFAULT_ICON_PATH = join(ROOT, "server", "tray", "assets", "app.ico");
+const SIGN_SCRIPT_PATH = join(ROOT, "scripts", "sign-server-exe.ps1");
+const POWERSHELL_PATH = join(
+  process.env.SystemRoot ?? "C:\\Windows",
+  "System32",
+  "WindowsPowerShell",
+  "v1.0",
+  "powershell.exe",
+);
 const TRAY_HOOK_SOURCE_PATH = join(
   ROOT,
   "node_modules",
@@ -56,45 +70,260 @@ const TRAY_HOOK_MARKER = "const BINARY_PATH = resolveBinaryPath();";
 const TRAY_HOOK_PATCHED =
   "const BINARY_PATH = process.env.ABUU_TRAY_HOOK_BINARY || resolveBinaryPath();";
 const SENTINEL_FUSE = "NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2";
+const DEFAULT_TIMESTAMP_URL = "http://timestamp.digicert.com";
 const MIN_NODE_MAJOR = 22;
 const MIN_NODE_MINOR = 12;
 
-const args = new Set(process.argv.slice(2));
-
-if (args.has("--help") || args.has("-h")) {
-  printHelp();
-  process.exit(0);
-}
-
-const unknownArgs = [...args].filter((arg) => arg !== "--no-smoke");
-if (unknownArgs.length > 0) {
-  console.error(`[build:server] 未知参数：${unknownArgs.join(" ")}`);
-  process.exit(1);
-}
-
-const smoke = !args.has("--no-smoke");
-
-void main().catch((error) => {
+try {
+  const options = parseArguments(process.argv.slice(2));
+  if (options.help) {
+    printHelp();
+  } else {
+    void main(options).catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[build:server] 失败：${message}`);
+      process.exitCode = 1;
+    });
+  }
+} catch (error) {
   const message = error instanceof Error ? error.message : String(error);
   console.error(`[build:server] 失败：${message}`);
   process.exitCode = 1;
-});
+}
+
+function parseArguments(argv) {
+  const result = {
+    smoke: true,
+    sign: process.env.ABUU_SIGN !== "0",
+    timestampUrl:
+      process.env.ABUU_SIGN_TIMESTAMP_URL?.trim() || DEFAULT_TIMESTAMP_URL,
+    iconPath: process.env.ABUU_APP_ICON
+      ? resolve(ROOT, process.env.ABUU_APP_ICON)
+      : DEFAULT_ICON_PATH,
+    help: false,
+  };
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index];
+    if (argument === "--no-smoke") {
+      result.smoke = false;
+      continue;
+    }
+    if (argument === "--no-sign") {
+      result.sign = false;
+      continue;
+    }
+    if (argument === "--no-timestamp") {
+      result.timestampUrl = null;
+      continue;
+    }
+    if (argument === "--timestamp") {
+      const value = argv[index + 1];
+      if (value && !value.startsWith("--")) {
+        result.timestampUrl = value;
+        index += 1;
+      } else {
+        result.timestampUrl = DEFAULT_TIMESTAMP_URL;
+      }
+      continue;
+    }
+    if (argument.startsWith("--timestamp=")) {
+      const value = argument.slice("--timestamp=".length).trim();
+      if (!value) {
+        throw new Error("--timestamp 需要非空 URL");
+      }
+      result.timestampUrl = value;
+      continue;
+    }
+    if (argument === "--help" || argument === "-h") {
+      result.help = true;
+      continue;
+    }
+    if (argument === "--icon") {
+      const value = argv[index + 1];
+      if (!value) {
+        throw new Error("--icon 需要指定 ICO 文件路径");
+      }
+      result.iconPath = resolve(ROOT, value);
+      index += 1;
+      continue;
+    }
+    throw new Error(`未知参数：${argument}`);
+  }
+
+  return result;
+}
 
 function printHelp() {
   console.log(
     [
-      "用法：npm run build:server [-- --no-smoke]",
+      "用法：npm run build:server [-- --no-smoke] [--no-sign] [--no-timestamp]",
+      "       [--timestamp [url]] [--icon <path>]",
       "",
       "构建 Windows x64 单文件本地中继：dist/server/abuu-start-relay.exe",
-      "  --no-smoke   跳过启动冒烟测试",
-      "  -h, --help   显示本帮助",
+      "  --no-smoke        跳过启动冒烟测试",
+      "  --no-sign         跳过签名（也可设置 ABUU_SIGN=0）",
+      "  --no-timestamp    不附带时间戳",
+      `  --timestamp [url] 附带 RFC3161 时间戳，默认 ${DEFAULT_TIMESTAMP_URL}`,
+      "  --icon <path>     使用指定 ICO，默认 server/tray/assets/app.ico",
+      "  -h, --help        显示本帮助",
       "",
       "要求：Windows x64、Node >=22.12，且已执行 npm install（包含 optionalDependencies）。",
     ].join("\n"),
   );
 }
 
-async function main() {
+async function ensureAppIcon(iconPath) {
+  if (!(await isFile(iconPath))) {
+    if (iconPath !== DEFAULT_ICON_PATH) {
+      throw new Error(`缺少图标文件：${iconPath}`);
+    }
+    console.log(
+      `[build:server] 默认图标缺失，生成 ${relative(ROOT, DEFAULT_ICON_PATH)}`,
+    );
+    await makeAppIcon({ outputPath: DEFAULT_ICON_PATH });
+  }
+
+  const header = await readFile(iconPath);
+  if (
+    header.length < 6 ||
+    header.readUInt16LE(0) !== 0 ||
+    header.readUInt16LE(2) !== 1
+  ) {
+    throw new Error(`不是有效 ICO 文件：${iconPath}`);
+  }
+}
+
+async function applyWindowsResources(exePath, iconPath) {
+  const versionString = await readPackageVersion();
+  const iconData = await readFile(iconPath);
+  const executable = NtExecutable.from(await readFile(exePath), {
+    ignoreCert: true,
+  });
+  const resources = NtExecutableResource.from(executable);
+  const iconFile = Data.IconFile.from(iconData);
+  const iconGroups = Resource.IconGroupEntry.fromEntries(resources.entries);
+  const iconGroupId = iconGroups[0]?.id ?? 1;
+  const iconGroupLang = iconGroups[0]?.lang ?? 1033;
+
+  Resource.IconGroupEntry.replaceIconsForResource(
+    resources.entries,
+    iconGroupId,
+    iconGroupLang,
+    iconFile.icons.map((icon) => icon.data),
+  );
+
+  const versions = Resource.VersionInfo.fromEntries(resources.entries);
+  const versionInfo = versions[0] ?? Resource.VersionInfo.createEmpty();
+  versionInfo.setFileVersion(versionString, 1033);
+  versionInfo.setProductVersion(versionString, 1033);
+  versionInfo.setStringValues(
+    { lang: 1033, codepage: 1200 },
+    {
+      FileDescription: "航启本地中继",
+      ProductName: "航启",
+      CompanyName: "abuu-start",
+      LegalCopyright: "MIT License",
+      OriginalFilename: "abuu-start-relay.exe",
+      InternalName: "abuu-start-relay",
+      Comments: "abuu-start local relay",
+    },
+  );
+  versionInfo.outputToResourceEntries(resources.entries);
+
+  resources.outputResource(executable);
+  await writeFile(exePath, Buffer.from(executable.generate()));
+
+  const verification = NtExecutable.from(await readFile(exePath), {
+    ignoreCert: true,
+  });
+  const verificationResources = NtExecutableResource.from(verification);
+  if (
+    Resource.IconGroupEntry.fromEntries(verificationResources.entries)
+      .length === 0
+  ) {
+    throw new Error("写入后未找到图标资源");
+  }
+  if (
+    Resource.VersionInfo.fromEntries(verificationResources.entries).length === 0
+  ) {
+    throw new Error("写入后未找到版本信息资源");
+  }
+
+  console.log(`[build:server] 图标与版本信息：${versionString}`);
+}
+
+async function readPackageVersion() {
+  const packageJson = JSON.parse(await readFile(PACKAGE_JSON_PATH, "utf8"));
+  const version =
+    typeof packageJson.version === "string" ? packageJson.version : "0.1.0";
+  const parts = version
+    .split(".")
+    .map((part) => Number.parseInt(part, 10) || 0);
+  while (parts.length < 4) parts.push(0);
+  return parts.slice(0, 4).join(".");
+}
+
+async function signExecutable(timestampUrl) {
+  await assertFile(POWERSHELL_PATH, "未找到 Windows PowerShell 5.1");
+  await assertFile(
+    SIGN_SCRIPT_PATH,
+    "缺少签名脚本 scripts/sign-server-exe.ps1",
+  );
+
+  await run(POWERSHELL_PATH, [
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-File",
+    SIGN_SCRIPT_PATH,
+    "-FilePath",
+    EXECUTABLE_PATH,
+    "-TimestampUrl",
+    timestampUrl ?? "",
+  ]);
+}
+
+async function verifySignature(timestampRequired) {
+  const script = [
+    '$env:PSModulePath = "$env:SystemRoot\\system32\\WindowsPowerShell\\v1.0\\Modules"',
+    "Import-Module Microsoft.PowerShell.Security",
+    `$signature = Get-AuthenticodeSignature -FilePath ${quotePowerShellLiteral(EXECUTABLE_PATH)}`,
+    "if ($null -eq $signature.SignerCertificate) { Write-Error 'no signer certificate'; exit 2 }",
+    "if ($signature.Status -in @('HashMismatch', 'NotSigned', 'NotSupported', 'Incompatible')) { Write-Error \"bad signature status: $($signature.Status)\"; exit 3 }",
+    'Write-Output "STATUS=$($signature.Status)"',
+    'Write-Output "THUMBPRINT=$($signature.SignerCertificate.Thumbprint)"',
+    'if ($null -ne $signature.TimeStamperCertificate) { Write-Output "TIMESTAMP=$($signature.TimeStamperCertificate.Subject)" } else { Write-Output "TIMESTAMP=" }',
+  ].join("; ");
+
+  const result = await capture(POWERSHELL_PATH, [
+    "-NoProfile",
+    "-Command",
+    script,
+  ]);
+  if (result.code !== 0) {
+    throw new Error(
+      `签名验证失败：${result.stderr.trim() || result.stdout.trim()}`,
+    );
+  }
+
+  const status =
+    result.stdout.match(/^STATUS=(.+)$/m)?.[1]?.trim() ?? "unknown";
+  const thumbprint =
+    result.stdout.match(/^THUMBPRINT=(.+)$/m)?.[1]?.trim() ?? "";
+  const timestamp = result.stdout.match(/^TIMESTAMP=(.*)$/m)?.[1]?.trim() ?? "";
+
+  if (timestampRequired && timestamp === "") {
+    throw new Error("签名验证失败：未找到 RFC3161 时间戳");
+  }
+
+  console.log(
+    `[build:server] 签名状态：${status}${thumbprint ? ` (${thumbprint})` : ""}`,
+  );
+  console.log(`[build:server] 时间戳：${timestamp === "" ? "无" : timestamp}`);
+}
+
+async function main(options) {
   assertEnvironment();
   await assertFile(
     TRAY_HOOK_SOURCE_PATH,
@@ -107,6 +336,7 @@ async function main() {
   await assertFile(RUNNING_ICON_PATH, `缺少托盘图标：${RUNNING_ICON_PATH}`);
   await assertFile(ERROR_ICON_PATH, `缺少托盘图标：${ERROR_ICON_PATH}`);
   await assertFile(LICENSE_PATH, `缺少第三方许可：${LICENSE_PATH}`);
+  await ensureAppIcon(options.iconPath);
 
   console.log(`[build:server] Node ${process.versions.node}`);
   await rm(OUTPUT_DIRECTORY, { recursive: true, force: true });
@@ -125,7 +355,22 @@ async function main() {
   await copyFile(process.execPath, EXECUTABLE_PATH);
   await injectSeaBlob();
 
-  if (smoke) {
+  console.log("[build:server] 写入图标与版本信息");
+  await applyWindowsResources(EXECUTABLE_PATH, options.iconPath);
+
+  if (options.sign) {
+    console.log(
+      options.timestampUrl
+        ? `[build:server] 签名 exe（时间戳：${options.timestampUrl}）`
+        : "[build:server] 签名 exe（不附带时间戳）",
+    );
+    await signExecutable(options.timestampUrl);
+    await verifySignature(options.timestampUrl !== null);
+  } else {
+    console.log("[build:server] 已跳过签名（--no-sign / ABUU_SIGN=0）");
+  }
+
+  if (options.smoke) {
     console.log("[build:server] 运行启动冒烟测试（TRAY=0）");
     await smokeTest();
   } else {
@@ -374,6 +619,31 @@ function run(command, commandArgs) {
   });
 }
 
+function capture(command, commandArgs) {
+  return new Promise((resolveCapture, reject) => {
+    const child = spawn(command, commandArgs, {
+      cwd: ROOT,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout?.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr?.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.once("error", reject);
+    child.once("exit", (code, signal) => {
+      resolveCapture({ code, signal, stdout, stderr });
+    });
+  });
+}
+
+function quotePowerShellLiteral(value) {
+  return `'${value.replaceAll("'", "''")}'`;
+}
+
 async function assertFile(path, message) {
   try {
     const info = await stat(path);
@@ -383,6 +653,15 @@ async function assertFile(path, message) {
   }
 
   throw new Error(message);
+}
+
+async function isFile(path) {
+  try {
+    const info = await stat(path);
+    return info.isFile();
+  } catch {
+    return false;
+  }
 }
 
 function delay(ms) {
