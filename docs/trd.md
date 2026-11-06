@@ -10,7 +10,7 @@
 - 目标浏览器：Chrome/Edge MV3 与 Firefox MV2；两者都通过本机未打包扩展验收。
 - 扩展形态：只接管新标签页，manifest 声明 `chrome_url_overrides.newtab`、`notifications` 与 loopback 主机权限；Chrome/Edge 通过固定 `key` 稳定扩展 ID，Firefox 通过 `browser_specific_settings.gecko.id` 固定扩展 ID；Chrome/Edge MV3 写入 `host_permissions`，Firefox MV2 将主机权限并入 `permissions`；不生成 popup、options、background、content script。
 - 状态：`reactive` / `ref` composable，模块级单例；跨页面共享的数据只通过 composable 暴露，不引入全局 store 库。
-- 中继：Node.js 22 LTS 的 TypeScript 模块，独立进程由 `npm start` 启动，只提供 `/api`，不托管页面或静态资源；只监听 `127.0.0.1:3000`（`PORT` 可覆盖）。托盘由 `tray-hook` 实现，显示运行中/启动失败并提供退出入口。
+- 中继：Node.js >=22.12 的 TypeScript 模块，开发态由 `npm start` 直接运行；发布态可用 `npm run build:server` 生成 Windows x64 单文件 exe（Node SEA + esbuild + postject，内嵌 Node 运行时，目标机无需安装 Node）。只提供 `/api`，不托管页面或静态资源；只监听 `127.0.0.1:3000`（`PORT` 可覆盖）。托盘由 `tray-hook` 实现，显示运行中/启动失败并提供退出入口；exe 首次启用托盘时把托盘客户端、原生二进制、图标与许可释放到 `%LOCALAPPDATA%\abuu-start\runtime\tray-hook\<runtimeId>\`，释放失败时降级为无托盘。
 - 扩展访问中继：扩展页面与中继不同源，所有 `/api` 请求使用绝对地址；默认 `http://127.0.0.1:3000`，构建时可用 `WXT_RELAY_ORIGIN` 覆盖。
 - 对外接口：业务数据只读 `GET /api/*`；仅登录、登出、验证码预加载、单源重试与背景目录设置/重新扫描使用白名单 `POST`。中继内部再调用上游的 GET/POST、AES/RSA、Token 头；前端不接触上游路径。
 - HTTP：前端所有请求统一走 `src/api/client.ts`，基址由 `src/api/base.ts` 的 `relayUrl()` 生成；`request` 负责 `GET`，`postJson` 只用于白名单 `POST`，网络失败与非 JSON 响应统一映射为 `RELAY_UNREACHABLE`。
@@ -34,6 +34,7 @@
 - 移动端布局、SSR、Pinia、React。
 - 扩展的 popup、options、background、content script、侧边栏、快捷键、右键菜单。
 - 应用商店发布、自动更新与签名；只验证本机加载的未打包扩展。
+- 可执行文件代码签名、安装包、自动更新、跨平台交叉编译与隐藏控制台窗口。
 - 中继托管前端页面或静态资源。
 - 托盘点击行为、开机自启与 HTTP 退出接口。
 - 任何教务业务写操作：作业提交、阳光打卡、博雅选退课/签到、教务管理操作、附件下载。
@@ -61,6 +62,7 @@
 - 中继只提供 `/api`，非 `/api` 请求返回 404；不再使用 Vite 插件，也不再提供 SPA fallback。
 - `POST` 来源校验：Host 必须是 loopback；普通网页仍要求同源且非 `cross-site`；Chrome/Edge 只放行 `chrome-extension://<固定扩展 ID>`；Firefox 因内部 UUID 每次安装随机，RC 仍放行任意 `moz-extension://`（见 §9、§12）。
 - 托盘只显示运行中/启动失败两态；菜单“退出”与 SIGINT/SIGTERM 都优雅关闭；`TRAY=0` 时不创建托盘。
+- 中继发布态只构建 Windows x64 单文件 exe；`npm start` 保留；可执行文件不签名，首次启用托盘时释放托盘组件到本机用户目录。
 - 路由使用 hash 模式，扩展页刷新不丢路由。
 
 ## 2. 目录结构
@@ -95,7 +97,8 @@ shared/                       api.ts、auth.ts、errors.ts、guards.ts、schedul
 server/
   index.ts                    启动、信号、托盘编排与优雅退出
   app/                        config.ts、createApp.ts、routes.ts、relayHttp.ts：/api 边界
-  tray/                       controller.ts、status.ts、assets/{running,error}.png：托盘状态
+  tray/                       controller.ts、packaged.ts、status.ts、tray-hook.LICENSE、
+                              assets/{running,error}.png：托盘状态与 SEA 资产释放
   auth/                       session.ts、state.ts、preload.ts、login.ts、relogin.ts、
                               deriveRunner.ts、derive.ts、deriveHelpers.ts、cas.ts、
                               http.ts、cookieJar.ts、store.ts、crypto.ts、types.ts
@@ -107,7 +110,9 @@ server/
                               bykcApi.ts、bykcCrypto.ts、ygdkApi.ts、types.ts：协议层
 
 scripts/check-shared-usage.mjs
-.output/                      构建产物：chrome-mv3 / firefox-mv2，不提交
+scripts/build-server-exe.mjs  Windows x64 单文件中继构建
+.output/                      扩展构建产物：chrome-mv3 / firefox-mv2，不提交
+dist/server/                  中继可执行产物 abuu-start-relay.exe，不提交
 ```
 
 ## 3. 中继 API
@@ -429,6 +434,16 @@ scripts/check-shared-usage.mjs
   - `error`：图标为红色角标，显示端口占用等启动失败原因；进程保持存活，直到用户从托盘退出，退出码为 1。
 - `TRAY=0` 时不创建托盘；`tray-hook` 二进制缺失、无桌面环境或初始化失败时只记录警告，API 继续提供。
 - 菜单“退出”、SIGINT 与 SIGTERM 统一走优雅关闭：停止接收新请求，最多等待 2 秒让在途请求结束，再关闭托盘并让事件循环自然退出；不在信号处理器中直接 `process.exit()`。
+- 发布态 exe 复用同一启动编排与 `PORT`/`TRAY` 环境变量；构建与托盘资产释放见 3.8。
+
+### 3.8 可执行文件构建与运行
+
+- 仅支持 Windows x64；构建机需 Node >=22.12，并在仓库根执行 `npm install`（包含 `tray-hook` 的 optionalDependencies）。
+- `npm run build:server` 使用 esbuild 把 `server/index.ts` 打成 CJS，把 `tray-hook` 客户端打成 CJS，再用 Node SEA 生成 blob、复制当前 Node 为 `dist/server/abuu-start-relay.exe`，最后用 postject 注入。默认执行一次 `TRAY=0` + 随机端口的 `/api/health` 冒烟测试；`npm run build:server -- --no-smoke` 可跳过。
+- 产物是单文件；不随包分发 `node_modules`。exe 内嵌的 Node 版本等于构建机 Node 版本，不保证跨版本一致。
+- 运行时首次启用托盘前，把内嵌的 `tray-hook.cjs`、`tray-hook.exe`、`running.png`、`error.png`、`tray-hook.LICENSE` 释放到 `%LOCALAPPDATA%\abuu-start\runtime\tray-hook\<runtimeId>\`；`runtimeId` 由资产哈希生成。文件大小一致时复用，缺失或大小不符时重写；目录不可写、文件被占用或释放失败时只记录警告并继续提供 `/api`。
+- `TRAY=0` 时不释放托盘资产；`PORT`、SIGINT/SIGTERM、端口占用错误态与源码运行一致。凭据、`settings.json`、背景目录仍位于 `%LOCALAPPDATA%\abuu-start\`，与启动方式无关。
+- 可执行文件未签名，不提供安装包、自动更新、自定义图标或隐藏控制台窗口；仅 Windows x64 验收。
 
 ## 4. 凭据存储与加密
 
@@ -1006,6 +1021,7 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 ```bash
 npm install
 npm start             # 本地中继 + 托盘，127.0.0.1:3000
+npm run build:server  # Windows x64 单文件中继 -> dist/server/abuu-start-relay.exe
 npm run dev           # WXT 开发服务器（Chrome/Edge），localhost:4000
 npm run dev:firefox   # WXT 开发服务器（Firefox）
 npm run build         # Chrome/Edge MV3 -> .output/chrome-mv3
@@ -1023,13 +1039,14 @@ npm run check:shared
 - 中继与 WXT 开发服务器是两个独立进程：先 `npm start`，再按目标浏览器执行 `npm run dev` 或 `npm run dev:firefox`；开发服务器固定 `localhost:4000`，`strictPort` 下端口占用会直接失败。
 - 扩展请求默认发往 `http://127.0.0.1:3000`；需要改中继地址时，在构建或开发命令前设置 `WXT_RELAY_ORIGIN`。`PORT` 可改中继端口。
 - `npm start` 使用 `node --experimental-strip-types server/index.ts`；`TRAY=0` 可关闭托盘，仅保留 API。
-- 构建产物分别位于 `.output/chrome-mv3` 与 `.output/firefox-mv2`，作为对应浏览器的未打包扩展加载；不再有 `preview`、`dist` 静态托管或 SPA fallback。
+- `npm run build:server` 仅支持 Windows x64，需 Node >=22.12；默认带 `TRAY=0` 冒烟测试，`-- --no-smoke` 可跳过。产物不依赖目标机的 Node 或 `node_modules`。
+- 扩展构建产物分别位于 `.output/chrome-mv3` 与 `.output/firefox-mv2`，作为对应浏览器的未打包扩展加载；不再有 `preview`、`dist` 静态托管或 SPA fallback。`dist/server/` 仅用于中继 exe，`npm run build` 清空 `.output/` 时不会删除它。
 - Chrome/Edge 与 Firefox 双平台均为验收目标；`npm run zip` 与 `npm run zip:firefox` 分别生成商店用压缩包。
 - 不引入其他后端；加密使用 Node 内置 `node:crypto`，托盘使用 `tray-hook`。
 
 ## 11. 验收
 
-- 构建与检查：`npm run type-check`、`npm run build`、`npm run build:firefox`、`npm test`、`npm run lint`、`npm run format:check` 通过。
+- 构建与检查：`npm run type-check`、`npm run build`、`npm run build:firefox`、`npm run build:server`、`npm test`、`npm run lint`、`npm run format:check` 通过。
 - 扩展构建与双平台：
   - Chrome/Edge：`npm run build` 生成 `.output/chrome-mv3`；`manifest.json` 含 `chrome_url_overrides.newtab`、loopback `host_permissions`、`notifications` 与固定 `key`。
   - Firefox：`npm run build:firefox` 生成 `.output/firefox-mv2`；`manifest.json` 含 `chrome_url_overrides.newtab`、`notifications`、`browser_specific_settings.gecko.id`，loopback 主机权限位于 `permissions`。
@@ -1045,6 +1062,12 @@ npm run check:shared
   - 正常启动显示运行中，`/api/health` 返回 200；菜单“退出”与 Ctrl+C 后进程结束。
   - 端口被占用时显示启动失败原因，进程保持到用户从托盘退出，退出码为 1。
   - `TRAY=0` 不创建托盘但 API 正常；托盘二进制缺失时降级为无托盘，API 仍可用。
+- 可执行文件验收：
+  - Windows x64 上 `npm run build:server` 生成 `dist/server/abuu-start-relay.exe`，默认冒烟测试通过。
+  - 在未安装 Node、无 `node_modules` 的目录只放 exe，启动后 `/api/health` 返回 200；登录、四源派生、背景设置与 `npm start` 一致。
+  - 首次启用托盘时释放资产到 `%LOCALAPPDATA%\abuu-start\runtime\tray-hook\<runtimeId>\`；再次启动复用；删除该目录后可重新释放。
+  - 托盘、`TRAY=0`、端口占用、SIGINT/SIGTERM 与源码运行一致；释放失败时 API 仍可用。
+  - 非 Windows x64 或 Node <22.12 构建得到明确失败提示。
 - 认证验收：
   - 无验证码与有验证码登录均可完成；验证码可刷新；错误提示可区分。
   - 登录成功显示姓名、学号、登录时间；四源状态可轮询；失败项可单独重试。
@@ -1077,5 +1100,10 @@ npm run check:shared
 - Firefox MV2 构建仍提示缺少 `data_collection_permissions`；扩展 ID 已通过 `browser_specific_settings.gecko.id` 固定。RC 仅以本机临时扩展验收，不发布 AMO，数据收集声明留待后续发布。
 - WXT 开发服务器固定 4000 且启用 `strictPort`；端口被占用时需先释放或修改 `wxt.config.ts`。
 - 托盘依赖 `tray-hook` 的平台二进制与桌面环境；缺失或无桌面时降级为无托盘，API 不受影响。
+- 可执行文件使用 Node SEA（Stability 1.1）；产物约 90–100 MB，升级 Node 后需重新构建。
+- exe 未签名，可能触发 SmartScreen 或杀毒软件误报；不提供安装包、自动更新与代码签名。
+- exe 仅支持 Windows x64，且必须在目标平台构建；不提供交叉编译。双击 exe 会保留控制台窗口，使用 Node 默认图标，不包含应用版本资源。
+- 托盘原生二进制与 `tray-hook` 客户端随 exe 释放到用户目录；目录不可写、被杀毒软件锁定或文件被占用时托盘降级，API 不受影响；旧 `runtimeId` 目录不自动清理。
+- `tray-hook` 以 MIT 许可随 exe 分发，许可文本保存在 `server/tray/tray-hook.LICENSE`。
 - Firefox 的 `moz-extension://` 内部 UUID 每次安装随机，与 gecko ID 无映射；中继无法按 Origin 为 Firefox 做固定扩展 ID 白名单，RC 仍放行任意 `moz-extension://` 来源。Chrome/Edge 已使用固定 `key` 与扩展 ID 白名单。
 - 同一浏览器只能有一个扩展接管新标签页；与其他 newtab 扩展同时启用时，以最后启用者为准。

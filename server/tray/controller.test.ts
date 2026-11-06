@@ -99,6 +99,19 @@ describe("startTray", () => {
     expect(warn).toHaveBeenCalled();
   });
 
+  it("托盘运行时不可用时返回 null 且不抛错", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const controller = await startTray({
+      state: { phase: "running", port: 3000 },
+      onQuit: vi.fn(),
+      runtime: null,
+    });
+
+    expect(controller).toBeNull();
+    expect(warn).toHaveBeenCalled();
+  });
+
   it("退出等待超时后兜底销毁，且重复调用幂等", async () => {
     vi.useFakeTimers();
     try {

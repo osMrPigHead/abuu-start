@@ -11,7 +11,7 @@
 
 航启首页是一款面向北京航空航天大学本科生的浏览器首页，基于 Vite、Vue.js、Tailwind CSS 构建，提供课表、考试、博雅课程、SPOC 作业、阳光打卡的便携**查询**功能；此外，还提供番茄钟专注、自定义待办和常规的浏览器主页快捷入口功能。
 
-该项目尚处早期阶段，部分功能尚不成熟或有待完善，暂不提供预编译版本。
+该项目尚处早期阶段，部分功能尚不成熟或有待完善，仓库不附带预编译产物；可按下方命令自行构建扩展与中继可执行文件。
 
 ## 核心功能
 
@@ -27,18 +27,28 @@
 
 ## 技术方案
 
-前端采用 Vite + Vue 3 + Tailwind CSS 构建，后端是原生 TypeScript + HTTP Fetch 实现；开发时后端作为 Vite 插件挂载，生产构建后由 Express 同源提供页面与 `/api`。后端负责存储和处理北京航空航天大学系统的认证信息、请求课表、作业等信息并返回，存储背景图片设置、提供背景图片，其他个性化设置（打卡目标、日程高亮时间阈值、主页卡片显示状态、番茄钟桌面通知）均存储在浏览器 localStorage，课表、作业等的缓存存储在浏览器 localStorage。
+前端使用 WXT 构建 Chrome/Edge MV3 与 Firefox MV2 扩展，Vue 3 SPA 接管新标签页；后端是 Node.js + Express 本地中继，只提供 `/api`，负责统一认证、教务数据聚合、背景图片与本机设置。开发时 `npm start` 直接运行 TypeScript 中继，`npm run dev` 启动 WXT；发布时中继可构建为 Windows x64 单文件 exe，目标机无需安装 Node。其他个性化设置（打卡目标、日程高亮时间阈值、主页卡片显示状态、番茄钟桌面通知）与课表、作业缓存均存储在浏览器 localStorage。
 
 ## 运行
 
 本地运行方式：
 
 ```bash
-npm run dev     # 开发：Vite + 中继，127.0.0.1:5173
-npm run build   # 构建前端
-npm test        # 运行测试
-npm start       # 生产：Express 同源提供 dist 与 /api，127.0.0.1:3000
+npm install
+npm start             # 本地中继 + 托盘，127.0.0.1:3000
+npm run dev           # WXT 开发服务器（Chrome/Edge），localhost:4000
+npm run dev:firefox   # WXT 开发服务器（Firefox）
+npm run build         # Chrome/Edge MV3 -> .output/chrome-mv3
+npm run build:firefox # Firefox MV2 -> .output/firefox-mv2
+npm run build:server  # Windows x64 单文件中继 -> dist/server/abuu-start-relay.exe
+npm test              # Vitest
 ```
+
+- 中继与 WXT 开发服务器是两个独立进程：先 `npm start`，再按目标浏览器启动开发服务器。
+- `npm run build:server` 仅支持 Windows x64，需 Node >=22.12；默认执行一次 `TRAY=0` 启动冒烟测试，`npm run build:server -- --no-smoke` 可跳过。
+- 中继 exe 不依赖目标机的 Node 或 `node_modules`；首次启用托盘时把 `tray-hook` 组件释放到 `%LOCALAPPDATA%\abuu-start\runtime\`，释放失败时降级为无托盘，API 仍可用。
+- `TRAY=0` 可关闭托盘；`PORT` 可改中继端口；`WXT_RELAY_ORIGIN` 可改扩展访问的中继地址。
+- exe 未签名，可能触发 SmartScreen 或杀毒软件误报；双击 exe 会保留控制台窗口。
 
 ## 后期规划
 

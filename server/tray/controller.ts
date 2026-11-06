@@ -1,18 +1,15 @@
 /**
  * tray-hook 适配器：启动托盘、应用状态展示、绑定退出事件。
- * tray-hook 在模块顶层解析平台二进制，缺失时会直接抛错；
- * 因此这里只静态引用类型，运行期用动态 import，失败即降级为不显示托盘。
+ * 源码模式动态 import tray-hook；SEA 模式从本机运行时目录加载释放出的客户端。
+ * 任一环节失败都降级为不显示托盘，API 继续提供。
  */
-import { fileURLToPath } from "node:url";
 import { TRAY_QUIT_ID, presentTray, type TrayState } from "./status.ts";
+import {
+  loadTrayModule,
+  resolveTrayRuntime,
+  type TrayRuntime,
+} from "./packaged.ts";
 import type { MenuItemTemplate } from "tray-hook";
-
-const RUNNING_ICON = fileURLToPath(
-  new URL("./assets/running.png", import.meta.url),
-);
-const ERROR_ICON = fileURLToPath(
-  new URL("./assets/error.png", import.meta.url),
-);
 
 const QUIT_TIMEOUT_MS = 1_500;
 
@@ -38,14 +35,25 @@ export type TrayController = {
 export type StartTrayOptions = {
   state: TrayState;
   onQuit: () => void;
-  /** 测试注入点；缺省时动态加载 tray-hook。 */
+  /** 测试注入点；缺省时加载 tray-hook。 */
   create?: () => TrayPort;
+  /** 测试注入点；缺省时按源码/SEA 模式解析托盘运行时。 */
+  runtime?: TrayRuntime | null;
 };
 
 export async function startTray(
   options: StartTrayOptions,
 ): Promise<TrayController | null> {
-  const tray = await createTray(options.create);
+  const runtime =
+    options.runtime === undefined
+      ? await resolveTrayRuntime()
+      : options.runtime;
+  if (!runtime) {
+    console.warn("[relay] 托盘运行时不可用，继续仅提供 /api");
+    return null;
+  }
+
+  const tray = await createTray(options.create, runtime);
   if (!tray) return null;
 
   let exited = false;
@@ -73,7 +81,10 @@ export async function startTray(
 
   try {
     await tray.start();
-    await tray.defineStates({ running: RUNNING_ICON, error: ERROR_ICON });
+    await tray.defineStates({
+      running: runtime.runningIconPath,
+      error: runtime.errorIconPath,
+    });
     await tray.setState(presentation.stateName);
     await tray.setTooltip(presentation.tooltip);
     await tray.setMenu(presentation.menu);
@@ -115,6 +126,7 @@ export async function startTray(
 
 async function createTray(
   factory: (() => TrayPort) | undefined,
+  runtime: TrayRuntime,
 ): Promise<TrayPort | null> {
   if (factory) {
     try {
@@ -126,8 +138,9 @@ async function createTray(
   }
 
   try {
-    const { createTray: create } = await import("tray-hook");
-    return create() as unknown as TrayPort;
+    const trayModule = await loadTrayModule(runtime);
+    if (!trayModule) return null;
+    return trayModule.createTray() as TrayPort;
   } catch (error) {
     console.warn("[relay] 托盘不可用，继续仅提供 /api", error);
     return null;
