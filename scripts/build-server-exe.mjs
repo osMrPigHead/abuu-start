@@ -7,8 +7,8 @@
  * tray-hook 客户端在构建时把原生二进制路径改为运行期环境变量，
  * 原生二进制、客户端、图标与许可作为 SEA 资产嵌入 exe。
  *
- * 用法：npm run build:server [-- --no-smoke] [--no-sign] [--no-timestamp]
- *       [--timestamp [url]] [--icon <path>]
+ * 用法：npm run build:server [-- --gui] [--no-smoke] [--no-sign]
+ *       [--no-timestamp] [--timestamp [url]] [--icon <path>]
  */
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -69,6 +69,10 @@ const LICENSE_PATH = join(ROOT, "server", "tray", "tray-hook.LICENSE");
 const TRAY_HOOK_MARKER = "const BINARY_PATH = resolveBinaryPath();";
 const TRAY_HOOK_PATCHED =
   "const BINARY_PATH = process.env.ABUU_TRAY_HOOK_BINARY || resolveBinaryPath();";
+const TRAY_SPAWN_MARKER =
+  'spawn(BINARY_PATH, [], { stdio: ["pipe", "pipe", "inherit"] })';
+const TRAY_SPAWN_PATCHED =
+  'spawn(BINARY_PATH, [], { stdio: ["pipe", "pipe", "inherit"], windowsHide: true })';
 const SENTINEL_FUSE = "NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2";
 const DEFAULT_TIMESTAMP_URL = "http://timestamp.digicert.com";
 const MIN_NODE_MAJOR = 22;
@@ -95,6 +99,7 @@ function parseArguments(argv) {
   const result = {
     smoke: true,
     sign: process.env.ABUU_SIGN !== "0",
+    gui: false,
     timestampUrl:
       process.env.ABUU_SIGN_TIMESTAMP_URL?.trim() || DEFAULT_TIMESTAMP_URL,
     iconPath: process.env.ABUU_APP_ICON
@@ -107,6 +112,14 @@ function parseArguments(argv) {
     const argument = argv[index];
     if (argument === "--no-smoke") {
       result.smoke = false;
+      continue;
+    }
+    if (
+      argument === "--gui" ||
+      argument === "--windowed" ||
+      argument === "--no-console"
+    ) {
+      result.gui = true;
       continue;
     }
     if (argument === "--no-sign") {
@@ -157,10 +170,11 @@ function parseArguments(argv) {
 function printHelp() {
   console.log(
     [
-      "用法：npm run build:server [-- --no-smoke] [--no-sign] [--no-timestamp]",
-      "       [--timestamp [url]] [--icon <path>]",
+      "用法：npm run build:server [-- --gui] [--no-smoke] [--no-sign]",
+      "       [--no-timestamp] [--timestamp [url]] [--icon <path>]",
       "",
       "构建 Windows x64 单文件本地中继：dist/server/abuu-start-relay.exe",
+      "  --gui             生成无控制台窗口的 GUI 子系统 exe（别名 --windowed/--no-console）",
       "  --no-smoke        跳过启动冒烟测试",
       "  --no-sign         跳过签名（也可设置 ABUU_SIGN=0）",
       "  --no-timestamp    不附带时间戳",
@@ -168,6 +182,7 @@ function printHelp() {
       "  --icon <path>     使用指定 ICO，默认 server/tray/assets/app.ico",
       "  -h, --help        显示本帮助",
       "",
+      "无控制台构建：npm run build:server:gui",
       "要求：Windows x64、Node >=22.12，且已执行 npm install（包含 optionalDependencies）。",
     ].join("\n"),
   );
@@ -251,6 +266,52 @@ async function applyWindowsResources(exePath, iconPath) {
   }
 
   console.log(`[build:server] 图标与版本信息：${versionString}`);
+}
+
+/**
+ * 设置 PE 可选头中的子系统：3 = 控制台，2 = Windows GUI。
+ * 必须在 resedit 重写 PE 之后、签名之前执行，签名会覆盖后续字节修改。
+ */
+async function applySubsystem(exePath, gui) {
+  const buffer = await readFile(exePath);
+  if (buffer.readUInt16LE(0) !== 0x5a4d) {
+    throw new Error("不是有效的 MZ/PE 文件");
+  }
+
+  const peOffset = buffer.readUInt32LE(0x3c);
+  if (
+    peOffset + 24 > buffer.length ||
+    buffer.readUInt32LE(peOffset) !== 0x00004550
+  ) {
+    throw new Error("PE 头无效");
+  }
+
+  const optionalHeaderOffset = peOffset + 24;
+  if (optionalHeaderOffset + 0x46 > buffer.length) {
+    throw new Error("PE 可选头越界");
+  }
+
+  const magic = buffer.readUInt16LE(optionalHeaderOffset);
+  if (magic !== 0x10b && magic !== 0x20b) {
+    throw new Error(`未知 PE 可选头 magic：0x${magic.toString(16)}`);
+  }
+
+  const subsystemOffset = optionalHeaderOffset + 0x44;
+  const target = gui ? 2 : 3;
+  if (buffer.readUInt16LE(subsystemOffset) !== target) {
+    buffer.writeUInt16LE(target, subsystemOffset);
+    await writeFile(exePath, buffer);
+  }
+
+  const verification = await readFile(exePath);
+  const actual = verification.readUInt16LE(subsystemOffset);
+  if (actual !== target) {
+    throw new Error(`PE 子系统写入失败：期望 ${target}，实际 ${actual}`);
+  }
+
+  console.log(
+    `[build:server] PE 子系统：${gui ? "Windows GUI（无控制台窗口）" : "控制台"} (${actual})`,
+  );
 }
 
 async function readPackageVersion() {
@@ -357,6 +418,7 @@ async function main(options) {
 
   console.log("[build:server] 写入图标与版本信息");
   await applyWindowsResources(EXECUTABLE_PATH, options.iconPath);
+  await applySubsystem(EXECUTABLE_PATH, options.gui);
 
   if (options.sign) {
     console.log(
@@ -412,7 +474,16 @@ async function buildTrayClient() {
     );
   }
 
-  const patched = source.replace(TRAY_HOOK_MARKER, TRAY_HOOK_PATCHED);
+  const spawnOccurrences = source.split(TRAY_SPAWN_MARKER).length - 1;
+  if (spawnOccurrences !== 1) {
+    throw new Error(
+      "tray-hook 源码中的 spawn 选项标记不唯一或已变化，请更新 scripts/build-server-exe.mjs",
+    );
+  }
+
+  const patched = source
+    .replace(TRAY_HOOK_MARKER, TRAY_HOOK_PATCHED)
+    .replace(TRAY_SPAWN_MARKER, TRAY_SPAWN_PATCHED);
   await build({
     stdin: {
       contents: patched,
@@ -432,6 +503,9 @@ async function buildTrayClient() {
   const bundled = await readFile(TRAY_CLIENT_PATH, "utf8");
   if (!bundled.includes("ABUU_TRAY_HOOK_BINARY")) {
     throw new Error("tray-hook 客户端补丁未生效");
+  }
+  if (!bundled.includes("windowsHide: true")) {
+    throw new Error("tray-hook 客户端未隐藏 daemon 控制台窗口");
   }
 }
 

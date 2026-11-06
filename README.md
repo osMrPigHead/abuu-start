@@ -32,7 +32,7 @@
 **目前仅提供 Windows x64 版本，macOS 或 Linux 系统用户请通过下方“自行构建”运行**，欢迎有能力对 macOS 或 Linux 场景进行调试和开发的贡献者参与本项目的贡献。
 
 1. **安装扩展**：从 [Releases](https://github.com/osMrPigHead/abuu-start/releases) 下载扩展后（后缀名为 `crx` 或 `zip`，Edge、360 浏览器、QQ 浏览器等均使用 `chrome-mv2`），解压到任意目录，在浏览器扩展管理中启用开发人员模式，选择“加载已解压的扩展”
-2. **启用中继**：从 [Releases](https://github.com/osMrPigHead/abuu-start/releases) 下载 `.exe` 可执行文件后，双击运行即可，通过系统托盘监测运行状态。
+2. **启用中继**：从 [Releases](https://github.com/osMrPigHead/abuu-start/releases) 下载 `.exe` 可执行文件后，双击运行即可，通过系统托盘监测运行状态（目前构建版本为自签名证书签署，会导致 SmartScreen 警告，是正常现象）。
 
 ### 自行构建
 
@@ -40,17 +40,18 @@
 
 ```bash
 npm install
-npm start             # 本地中继 + 托盘，127.0.0.1:3000
-npm run dev           # WXT 开发服务器（Chrome/Edge），localhost:4000
-npm run dev:firefox   # WXT 开发服务器（Firefox）
-npm run build         # Chrome/Edge MV3 -> .output/chrome-mv3
-npm run build:firefox # Firefox MV2 -> .output/firefox-mv2
-npm run build:server  # Windows x64 单文件中继 -> dist/server/abuu-start-relay.exe
-npm test              # Vitest
+npm start                 # 本地中继 + 托盘，127.0.0.1:3000
+npm run dev               # WXT 开发服务器（Chrome/Edge），localhost:4000
+npm run dev:firefox       # WXT 开发服务器（Firefox）
+npm run build             # Chrome/Edge MV3 -> .output/chrome-mv3
+npm run build:firefox     # Firefox MV2 -> .output/firefox-mv2
+npm run build:server      # Windows x64 单文件中继 -> dist/server/abuu-start-relay.exe
+npm run build:server:gui  # Windows x64 单文件中继（窗口版本） -> dist/server/abuu-start-relay.exe
+npm test                  # Vitest
 ```
 
 - 中继与 WXT 开发服务器是两个独立进程：先 `npm start`，再按目标浏览器启动开发服务器。
-- `npm run build:server` 仅支持 Windows x64，需 Node >=22.12；默认执行一次 `TRAY=0` 启动冒烟测试，`npm run build:server -- --no-smoke` 可跳过；可用 `--no-sign` 和 `--no-timestamp` 跳过签名和时间戳。
+- `npm run build:server` 仅支持 Windows x64，需 Node >=22.12；默认执行一次 `TRAY=0` 启动冒烟测试，`npm run build:server -- --no-smoke` 可跳过；可用 `--no-sign` 和 `--no-timestamp` 跳过签名和时间戳，用 `--gui` `--windowed` `--no-console` 可构建窗口版本。
 - 中继 exe 不依赖目标机的 Node 或 `node_modules`；首次启用托盘时把 `tray-hook` 组件释放到 `%LOCALAPPDATA%\abuu-start\runtime\`，释放失败时降级为无托盘，API 仍可用。
 - `TRAY=0` 可关闭托盘；`PORT` 可改中继端口；`WXT_RELAY_ORIGIN` 可改扩展访问的中继地址。
 
