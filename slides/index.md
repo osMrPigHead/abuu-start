@@ -121,26 +121,68 @@ By osMrPigHead
 <div class="middle center">
 <div style="width: 100%">
 
-# 运行方式
+# 运行和安装方式
 
-本项目暂未提供预构建版本，需要手动通过 `npm run dev` 运行（悲
+本项目暂只为 Windows x64 提供预编译的后端中继
+<br>
+为 Chromium 内核浏览器和 Firefox 提供打包的扩展文件
+
+<hr>
+
+**注意：若要使用北航系统相关功能，需要同时安装扩展和后端中继**
 
 </div>
 </div>
 
 <!--v-->
 
-## 运行方式
+## 扩展安装
 
-在命令行中执行如下命令&#x2004;(确保你安装了&#x2004;git&#x2004;和&#x2004;npm)
+- 从 [Releases](https://github.com/osMrPigHead/abuu-start/releases) 下载扩展后，解压到一个稳定的目录
+- 在浏览器扩展程序菜单中，启用开发者模式，点击“加载未打包的扩展程序”，选择刚才解压的目录
 
-```bash
+<div class="r-stack">
+<img src="static/import-chrome.png">
+</div>
+
+- 我应该下载哪个文件？
+	- Chrome&#x2004;/&#x2004;Edge&#x2004;/&#x2004;360&#x2004;/&#x2004;QQ&#x2004;浏览器：
+  <br>`abuu-start-v0.2.0-rc-chrome.zip`
+	- Firefox&#x2004;浏览器：
+  <br>`abuu-start-v0.2.0-rc-firefox.zip`
+
+<!--v-->
+
+## 后端中继
+
+本项目通过运行在电脑上的后端中继连接北航系统，因此，仅安装扩展只能替换浏览器主页，但无法获取北航系统信息。
+
+要获取北航系统信息，需要安装后端中继。
+
+**后端中继目前仅提供&#x2004;Windows x64&#x2004;版本，macOS&#x2004;或&#x2004;Linux&#x2004;用户请通过下方“自行构建”运行**，欢迎有能力对&#x2004;macOS&#x2004;或&#x2004;Linux&#x2004;场景进行调试和开发的贡献者参与本项目的贡献。
+
+从 [Releases](https://github.com/osMrPigHead/abuu-start/releases) 下载&#x2004;`abuu-start-relay-v0.2.0-rc.exe`&#x2004;后双击运行即可，Windows SmartScreen&#x2004;可能会提示“无法识别的应用”，选择“仍要运行”即可。
+
+~~因为作者没钱买数字证书呜呜呜呜呜呜呜呜呜呜呜~~
+
+<!--v-->
+
+## 自行构建
+
+克隆本仓库后使用&#x2004;`npm run start`&#x2004;运行后端中继服务，使用&#x2004;`npm run build`&#x2004;或&#x2004;`npm run build:firefox`&#x2004;构建扩展，使用&#x2004;`npm run build:server`&#x2004;构建可执行文件 (暂仅保证对&#x2004;Windows x64&#x2004;平台有效)
+
+```shell
 git clone https://github.com/osMrPigHead/abuu-start.git
 cd abuu-start
-npm run dev
-```
 
-然后在浏览器访问 [`http://localhost:5173/`](http://localhost:5173/)
+npm run start          # 运行后端中继
+
+npm run build          # 构建 Chrome 扩展
+
+npm run build:firefox  # 构建 Firefox 扩展
+
+npm run build:server   # 构建后端中继可执行文件
+```
 
 <!--s-->
 <div class="middle center">

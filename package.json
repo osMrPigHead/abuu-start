@@ -2,7 +2,7 @@
   "name": "abuu-start",
   "description": "航启：北京航空航天大学教务信息聚合浏览器主页与本地中继",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0-rc",
   "type": "module",
   "engines": {
     "node": ">=22.12.0"

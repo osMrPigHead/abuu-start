@@ -317,7 +317,7 @@ async function applySubsystem(exePath, gui) {
 async function readPackageVersion() {
   const packageJson = JSON.parse(await readFile(PACKAGE_JSON_PATH, "utf8"));
   const version =
-    typeof packageJson.version === "string" ? packageJson.version : "0.1.0";
+    typeof packageJson.version === "string" ? packageJson.version : "0.2.0-rc";
   const parts = version
     .split(".")
     .map((part) => Number.parseInt(part, 10) || 0);
