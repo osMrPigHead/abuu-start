@@ -57,8 +57,8 @@ By osMrPigHead
 ## 日程 <small>一站式聚合课表、博雅、考试，重要事件一目了然</small>
 
 <div class="r-stack">
-<img src="static/feature-schedule.png" height="530">
-<img src="static/feature-schedule-main.png" height="280" style="position: relative; right: -160px; bottom: -160px">
+<img src="static/feature-schedule.jpg" height="530">
+<img src="static/feature-schedule-main.jpg" height="280" style="position: relative; right: -160px; bottom: -160px">
 </div>
 
 <!--v-->
@@ -66,8 +66,8 @@ By osMrPigHead
 ## 待办 <small>个人事务与&thinsp;SPOC&thinsp;作业集中显示，告别&thinsp;DDL&thinsp;的焦头烂额</small>
 
 <div class="r-stack">
-<img src="static/feature-todo.png" height="500">
-<img src="static/feature-todo-detail.png" height="300" style="position: relative; right: -180px; bottom: -140px">
+<img src="static/feature-todo.jpg" height="500">
+<img src="static/feature-todo-detail.jpg" height="300" style="position: relative; right: -180px; bottom: -140px">
 </div>
 
 <!--v-->
@@ -75,8 +75,8 @@ By osMrPigHead
 ## 博雅课程广场 <small>随机推荐博雅课程，与心怡博雅邂逅</small>
 
 <div class="r-stack">
-<img src="static/feature-byxk.png" height="560">
-<img src="static/feature-byxk-main.png" height="340" style="position: relative; left: -200px; bottom: -120px">
+<img src="static/feature-byxk.jpg" height="560">
+<img src="static/feature-byxk-main.jpg" height="340" style="position: relative; left: -200px; bottom: -120px">
 </div>
 
 <!--v-->
@@ -84,7 +84,7 @@ By osMrPigHead
 ## 阳光打卡进度查询 <small>告别久坐，健康生活</small>
 
 <div class="r-stack">
-<img src="static/feature-workout.png" width="900">
+<img src="static/feature-workout.jpg" width="900">
 </div>
 
 <!--v-->
@@ -95,9 +95,9 @@ By osMrPigHead
 
 <div class="col">
 
-<img style="margin: 0" src="static/awesome.png">
+<img style="margin: 0" src="static/awesome.jpg">
 
-<p style="margin: 0"><img style="margin: 0" src="static/feature-focus.png" width="360"></p>
+<p style="margin: 0"><img style="margin: 0" src="static/feature-focus.jpg" width="360"></p>
 
 ##### 专注倒计时
 
@@ -105,11 +105,11 @@ By osMrPigHead
 
 <div class="col">
 
-<p style="margin: 0"><img style="margin: 0" src="static/feature-shortcut.png" width="440"></p>
+<p style="margin: 0"><img style="margin: 0" src="static/feature-shortcut.jpg" width="440"></p>
 
 ##### 高自由度的快捷入口
 
-<p style="margin: 0"><img style="margin: 0" src="static/feature-bg.png" width="360"></p>
+<p style="margin: 0"><img style="margin: 0" src="static/feature-bg.jpg" width="360"></p>
 
 ##### 可定制的随机背景
 
