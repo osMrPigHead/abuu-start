@@ -1,4 +1,4 @@
-# 航启主页 / BUAA-Start TRD
+# 航启主页 / ABUU-Start TRD
 
 > 本文是当前唯一的技术设计文档，描述已实现的功能与实现口径。需求见 [prd.md](prd.md)，UI 布局见 [ui-lowfi.md](ui-lowfi.md)，北航上游接口见 [api.md](api.md)。目录分层与编码约束同时见仓库根目录 `AGENTS.md`。
 
@@ -6,13 +6,16 @@
 
 ### 1.1 技术栈与部署
 
-- 前端：Vue 3 Composition API + `<script setup lang="ts">`，TypeScript strict，Vite，Tailwind CSS，Vue Router 4；不引入 Pinia、React、SSR。
+- 前端：WXT 浏览器扩展 + Vue 3 Composition API + `<script setup lang="ts">`，TypeScript strict，Vite 构建，Tailwind CSS，Vue Router 4（hash 模式）；不引入 Pinia、React、SSR。
+- 目标浏览器：Chrome/Edge MV3 与 Firefox MV2；两者都通过本机未打包扩展验收。
+- 扩展形态：只接管新标签页，manifest 声明 `chrome_url_overrides.newtab`、`notifications` 与 loopback 主机权限；Chrome/Edge 通过固定 `key` 稳定扩展 ID，Firefox 通过 `browser_specific_settings.gecko.id` 固定扩展 ID；Chrome/Edge MV3 写入 `host_permissions`，Firefox MV2 将主机权限并入 `permissions`；不生成 popup、options、background、content script。
 - 状态：`reactive` / `ref` composable，模块级单例；跨页面共享的数据只通过 composable 暴露，不引入全局 store 库。
-- 中继：Node.js 22 LTS 的 TypeScript 模块，作为 Vite 插件同时挂到开发服务器与 `vite preview`；生产构建由 `npm start` 的本地 Express 服务同源提供 `dist` 与同一套 `/api`，只监听 `127.0.0.1`。
+- 中继：Node.js >=22.12 的 TypeScript 模块，开发态由 `npm start` 直接运行；发布态可用 `npm run build:server` 生成 Windows x64 单文件 exe（Node SEA + esbuild + postject，内嵌 Node 运行时，目标机无需安装 Node），或用 `npm run build:server:gui` 生成不显示控制台窗口的版本。构建时用 `resedit` 写入应用图标与版本信息，按需把 PE 子系统改为 Windows GUI，并用随 `@electron/windows-sign` 提供的 `signtool` 以本地自签名证书签名，默认附带 DigiCert RFC3161 时间戳。只提供 `/api`，不托管页面或静态资源；只监听 `127.0.0.1:26171`（`PORT` 可覆盖）。托盘由 `tray-hook` 实现，显示运行中/启动失败并提供退出入口；exe 首次启用托盘时把托盘客户端、原生二进制、图标与许可释放到 `%LOCALAPPDATA%\abuu-start\runtime\tray-hook\<runtimeId>\`，释放失败时降级为无托盘。
+- 扩展访问中继：扩展页面与中继不同源，所有 `/api` 请求使用绝对地址；默认 `http://127.0.0.1:26171`，构建时可用 `WXT_RELAY_ORIGIN` 覆盖。
 - 对外接口：业务数据只读 `GET /api/*`；仅登录、登出、验证码预加载、单源重试与背景目录设置/重新扫描使用白名单 `POST`。中继内部再调用上游的 GET/POST、AES/RSA、Token 头；前端不接触上游路径。
-- HTTP：前端所有请求统一走 `src/api/client.ts`；`request` 负责 `GET`，`postJson` 只用于白名单 `POST`，网络失败与非 JSON 响应统一映射为 `RELAY_UNREACHABLE`。
+- HTTP：前端所有请求统一走 `src/api/client.ts`，基址由 `src/api/base.ts` 的 `relayUrl()` 生成；`request` 负责 `GET`，`postJson` 只用于白名单 `POST`，网络失败与非 JSON 响应统一映射为 `RELAY_UNREACHABLE`。
 - 缓存：前端 localStorage，按数据源分键，缓存优先 + 后台刷新；不做定时轮询。
-- 分层：`shared/` 放前后端共用类型、无副作用常量与纯校验函数；`src/domain/` 放无 Vue 依赖的领域规则；`src/cache/` 放 localStorage 读写与归一化；`src/composables/` 放模块级状态与流程；`views/` 不直接 `fetch`，`components/` 不读写 localStorage；`server/` 不引用前端代码。
+- 分层：`shared/` 保持在仓库根，放前后端共用类型、无副作用常量与纯校验函数，前端通过 `@shared` 别名引用，不复制；`src/domain/` 放无 Vue 依赖的领域规则；`src/cache/` 放 localStorage 读写与归一化；`src/composables/` 放模块级状态与流程；`views/` 不直接 `fetch`，`components/` 不读写 localStorage；`server/` 不引用前端代码。
 - 单用户、本机数据、桌面优先；不做移动端布局、账号切换与云端同步。
 
 ### 1.2 功能范围
@@ -22,12 +25,18 @@
 - 统一登录：中继完成学校统一认证，派生 byxt、SPOC、博雅、阳光四类数据源凭据。
 - 教务聚合：byxt 课表与考试、博雅已选课程与课程广场、SPOC 作业、阳光打卡概览。
 - 主页卡片开关与“仅时钟与背景模式”。
+- 浏览器扩展在 Chrome/Edge 与 Firefox 中接管新标签页；本地中继托盘显示运行状态并提供退出入口。
 - 桌面端响应式布局；不做移动端布局；具体响应式规则以 [ui-lowfi.md](ui-lowfi.md) 为准。
 
 ### 1.3 非目标
 
 - 多用户、账号体系、权限管理、账号切换、云端同步。
 - 移动端布局、SSR、Pinia、React。
+- 扩展的 popup、options、background、content script、侧边栏、快捷键、右键菜单。
+- 应用商店发布与自动更新；只验证本机加载的未打包扩展。
+- 受信任证书的正式代码签名、安装包、自动更新与跨平台交叉编译。
+- 中继托管前端页面或静态资源。
+- 托盘点击行为、开机自启与 HTTP 退出接口。
 - 任何教务业务写操作：作业提交、阳光打卡、博雅选退课/签到、教务管理操作、附件下载。
 - 研究生 GSMIS 课表；仅支持本科 byxt。
 - 注册、找回密码、修改密码；验证码识别、自动填写或第三方打码。
@@ -47,27 +56,25 @@
 - 主页卡片关闭后功能区固定 11 行；关闭的卡片不占位，同列后续卡片上移。
 - 番茄钟只在页面内运行；刷新或关闭页面重置运行态，不新增计时后端。
 - 所有教务数据只读；不执行提交、打卡、选退课、签到、附件下载。
+- 前端改为 WXT 扩展，只接管新标签页；`shared/` 不复制，通过 `@shared` 别名引用仓库根。
+- Chrome/Edge 与 Firefox 均为验收目标：Chrome/Edge 构建 MV3，Firefox 构建 MV2。
+- 中继与扩展不同源：扩展用绝对地址访问中继，默认 `http://127.0.0.1:26171`；地址可用 `WXT_RELAY_ORIGIN` 覆盖。
+- 中继只提供 `/api`，非 `/api` 请求返回 404；不再使用 Vite 插件，也不再提供 SPA fallback。
+- `POST` 来源校验：Host 必须是 loopback；普通网页仍要求同源且非 `cross-site`；Chrome/Edge 只放行 `chrome-extension://<固定扩展 ID>`；Firefox 因内部 UUID 每次安装随机，RC 仍放行任意 `moz-extension://`（见 §9、§12）。
+- 托盘只显示运行中/启动失败两态；菜单“退出”与 SIGINT/SIGTERM 都优雅关闭；`TRAY=0` 时不创建托盘。
+- 中继发布态只构建 Windows x64 单文件 exe；`npm start` 保留；exe 默认写入应用图标/版本信息，并用 `private/code-signing` 下的本地自签名证书签名，默认附带 `http://timestamp.digicert.com` 时间戳；可用 `--no-sign` 跳过签名、`--no-timestamp` 跳过时间戳，`--gui` 生成无控制台窗口的 GUI 子系统版本，首次启用托盘时释放托盘组件到本机用户目录。
+- 路由使用 hash 模式，扩展页刷新不丢路由。
 
 ## 2. 目录结构
 
 ```text
-server/
-  index.ts / relayPlugin.ts   生产与 Vite 入口
-  app/                        routes.ts、relayHttp.ts：白名单路由与 /api 边界
-  auth/                       session.ts、state.ts、preload.ts、login.ts、relogin.ts、
-                              deriveRunner.ts、derive.ts、deriveHelpers.ts、cas.ts、
-                              http.ts、cookieJar.ts、store.ts、crypto.ts、types.ts
-  core/                       datetime.ts、errors.ts、guards.ts、htmlText.ts、json.ts
-  http/                       fetch.ts、upstream.ts：上游 fetch、信封读取与超时
-  local/                      background.ts、settingsStore.ts：本机背景与设置
-  sources/                    byxt.ts、byxtWeek.ts、spoc.ts、bykc.ts、ygdk.ts：业务归一化
-  upstreams/                  urls.ts、byxtApi.ts、spocApi.ts、spocCrypto.ts、
-                              bykcApi.ts、bykcCrypto.ts、ygdkApi.ts、types.ts：协议层
-
-shared/                       api.ts、auth.ts、errors.ts、guards.ts、schedule.ts、validation.ts
+wxt.config.ts                 WXT 配置：srcDir、newtab、固定扩展 ID manifest、dev 4000、@shared 别名
+extension.config.ts           Chrome/Edge 固定公钥与派生 ID、Firefox gecko ID
+tsconfig.json / vitest.config.ts
 
 src/
-  api/                        client.ts、auth.ts、background.ts、byxt.ts、spoc.ts、
+  entrypoints/newtab/          index.html、main.ts：扩展唯一入口
+  api/                        base.ts、client.ts、auth.ts、background.ts、byxt.ts、spoc.ts、
                               bykc.ts、ygdk.ts、relay.ts、errors.ts
   cache/                      storage.ts、schedule.ts、exams.ts、spoc.ts、bykc.ts、ygdk.ts
   composables/                模块级状态与流程；如 useAuth、useBackground、useHomeCards、
@@ -81,28 +88,52 @@ src/
   views/                      HomeView、ScheduleView、ExamsView、SpocListView、BykcView、SettingsView
   utils/                      日期、favicon、id、guards、番茄钟音频/通知
   assets/backgrounds/         仓库内置背景图与来源清单
-  router.ts、types.ts、App.vue、main.ts、style.css
+  router.ts、types.ts、App.vue、main.ts、style.css、vite-env.d.ts
+
+public/icon/                  扩展图标 16/32/48/96/128
+
+shared/                       api.ts、auth.ts、errors.ts、guards.ts、schedule.ts、validation.ts
+
+server/
+  index.ts                    启动、信号、托盘编排与优雅退出
+  app/                        config.ts、createApp.ts、routes.ts、relayHttp.ts：/api 边界
+  tray/                       controller.ts、packaged.ts、status.ts、tray-hook.LICENSE、
+                              assets/{running,error}.png、assets/app.ico：托盘状态、SEA 资产释放与 exe 图标
+  auth/                       session.ts、state.ts、preload.ts、login.ts、relogin.ts、
+                              deriveRunner.ts、derive.ts、deriveHelpers.ts、cas.ts、
+                              http.ts、cookieJar.ts、store.ts、crypto.ts、types.ts
+  core/                       datetime.ts、errors.ts、guards.ts、htmlText.ts、json.ts
+  http/                       fetch.ts、upstream.ts：上游 fetch、信封读取与超时
+  local/                      background.ts、settingsStore.ts：本机背景与设置
+  sources/                    byxt.ts、byxtWeek.ts、spoc.ts、bykc.ts、ygdk.ts：业务归一化
+  upstreams/                  urls.ts、byxtApi.ts、spocApi.ts、spocCrypto.ts、
+                              bykcApi.ts、bykcCrypto.ts、ygdkApi.ts、types.ts：协议层
 
 scripts/check-shared-usage.mjs
-vite.config.ts / vitest.config.ts
+scripts/build-server-exe.mjs  Windows x64 单文件中继构建
+scripts/make-app-icon.mjs     从 public/icon 生成 server/tray/assets/app.ico
+scripts/sign-server-exe.ps1   自签名证书生成与 signtool 签名
+.output/                      扩展构建产物：chrome-mv3 / firefox-mv2，不提交
+dist/server/                  中继可执行产物 abuu-start-relay.exe，不提交
+private/code-signing/         本地代码签名证书、密码与 CER，不提交
 ```
 
 ## 3. 中继 API
 
 ### 3.1 通用约定
 
-- 监听：`127.0.0.1:5173`（dev）/ `127.0.0.1:4173`（preview）/ `127.0.0.1:3000`（`npm start`，可用 `PORT` 覆盖）；只接受 Host 为 `127.0.0.1`、`localhost` 或 `[::1]` 的请求，非本机 Host 返回 `404 NOT_FOUND`。
+- 监听：`127.0.0.1:26171`（`npm start`，可用 `PORT` 覆盖）；只接受 Host 为 `127.0.0.1`、`localhost` 或 `[::1]` 的请求，非本机 Host 返回 `404 NOT_FOUND`。中继不再挂到 Vite 开发服务器或 preview。
 - 方法：
   - 业务数据只接受 `GET`。
   - 仅 `/api/auth/preload`、`/api/auth/login`、`/api/auth/logout`、`/api/auth/sources/:source/retry`、`/api/background/directory`、`/api/background/rescan` 接受 `POST`。
-  - 非 `GET` / `POST` 方法返回 `405 METHOD_NOT_ALLOWED`；未列出的路径或方法组合返回 `404 NOT_FOUND`，不回退到 SPA。
+  - 非 `GET` / `POST` 方法返回 `405 METHOD_NOT_ALLOWED`；未列出的 `/api/*` 路径或方法组合返回 JSON `404 NOT_FOUND`；非 `/api` 请求返回文本 404，不回退到页面或静态资源。
 - 路由表按 `method + path` 匹配；`/api/spoc/assignments/:assignmentId` 与 `/api/bykc/courses/:id` 按前缀匹配，方法仍为 `GET`。
 - `POST` 请求体：
   - 有请求体时，`Content-Type` 必须是 `application/json`（可带 `charset=utf-8`）；其他类型返回 `415 UNSUPPORTED_MEDIA`。
   - 无请求体的接口（重试、登出、重新扫描）允许空 body。
   - 最大 16 KB；超过返回 `413 PAYLOAD_TOO_LARGE`。
   - 有 body 时必须是 JSON 对象；解析失败返回 `400 INVALID_REQUEST`。
-- 跨站防护：中继不返回 CORS 头；`POST` 要求 `Origin` 为当前页面源（`http://127.0.0.1:<port>` 或 `http://localhost:<port>`），缺失或不匹配返回 `403 FORBIDDEN_ORIGIN`；拒绝 `Sec-Fetch-Site: cross-site`。
+- 跨站防护：中继不返回 CORS 头。`POST` 先要求 Host 为 loopback 且 `Origin` 存在；Chrome/Edge 只接受 `chrome-extension://<固定扩展 ID>`，其他 Chromium 扩展来源返回 `403 FORBIDDEN_ORIGIN`；Firefox 的 `moz-extension://` 主机是每次安装随机生成的内部 UUID，与 gecko ID 无映射，RC 仍放行任意 `moz-extension://` 来源。其他来源仍必须是 `http://127.0.0.1:<port>` 或 `http://localhost:<port>`，且与 Host 完全一致，并拒绝 `Sec-Fetch-Site: cross-site`。缺失或不合法返回 `403 FORBIDDEN_ORIGIN`。
 - 响应：
   - JSON 接口：`Content-Type: application/json; charset=utf-8`，`Cache-Control: no-store`。
   - 图片接口：按扩展名返回 `image/*`，`Cache-Control: no-store`，`X-Content-Type-Options: nosniff`。
@@ -330,7 +361,7 @@ vite.config.ts / vitest.config.ts
 - 文件大小 1 字节至 20 MB；超过 20 MB 跳过。
 - 用文件头 magic bytes 判断格式，至少识别 JPEG、PNG、GIF、WebP、BMP、AVIF；文件头与扩展名不符、无法读取或损坏的图片跳过，不阻塞其他图片。
 - 图片内容不复制进仓库、不写入 localStorage、不写入凭据文件。
-- `settings.json` 位于 `%LOCALAPPDATA%\buaa-start\settings.json`，明文保存背景目录路径；路径不是凭据。
+- `settings.json` 位于 `%LOCALAPPDATA%\abuu-start\settings.json`，明文保存背景目录路径；路径不是凭据。
 - `settings.json` 形如：
 
 ```json
@@ -398,15 +429,48 @@ vite.config.ts / vitest.config.ts
 - 阳光：基址 `https://ygdk.buaa.edu.cn/api`；全部 `POST application/x-www-form-urlencoded; charset=UTF-8`；表单固定追加 `uid`、`token`；请求头 `X-Requested-With: XMLHttpRequest`；响应 `{ "code": 1, "result": ... }`，`code === -98` 为认证失效。
 - 时间：列表 ISO 8601 带偏移 → `Asia/Shanghai` 的 `YYYY-MM-DD HH:mm:ss`；不带偏移的 `YYYY-MM-DD HH:mm:ss` 原样保留；日期取 `YYYY-MM-DD`。
 
+### 3.7 中继进程与托盘
+
+- `server/index.ts` 只做启动编排：读取端口与 `TRAY`、监听 HTTP、注册 SIGINT/SIGTERM、建立托盘；`server/app/createApp.ts` 生成只含 `/api` 的 Express 应用。
+- 托盘使用 `tray-hook`，状态只有 `running` 与 `error`：
+  - `running`：图标为绿色角标，tooltip 显示运行中与 `127.0.0.1:<PORT>`，菜单状态行显示 `http://127.0.0.1:<PORT>`，菜单提供“退出”。
+  - `error`：图标为红色角标，显示端口占用等启动失败原因；进程保持存活，直到用户从托盘退出，退出码为 1。
+- `TRAY=0` 时不创建托盘；`tray-hook` 二进制缺失、无桌面环境或初始化失败时只记录警告，API 继续提供。
+- 菜单“退出”、SIGINT 与 SIGTERM 统一走优雅关闭：停止接收新请求，最多等待 2 秒让在途请求结束，再关闭托盘并让事件循环自然退出；不在信号处理器中直接 `process.exit()`。
+- 发布态 exe 复用同一启动编排与 `PORT`/`TRAY` 环境变量；构建与托盘资产释放见 3.8。
+
+### 3.8 可执行文件构建与运行
+
+- 仅支持 Windows x64；构建机需 Node >=22.12，并在仓库根执行 `npm install`（包含 `tray-hook` 的 optionalDependencies 与 `resedit`、`@electron/windows-sign`）。
+- 构建顺序：
+  1. esbuild 把 `server/index.ts` 与 tray-hook 客户端打成 CJS；tray-hook 客户端的 daemon spawn 注入 `windowsHide: true`，避免 GUI 版本再弹出托盘 daemon 的控制台窗口。
+  2. Node SEA 生成 blob。
+  3. 复制当前 Node 为 `dist/server/abuu-start-relay.exe`，用 postject 注入 SEA blob。
+  4. 用 `resedit` 写入 `server/tray/assets/app.ico` 图标与版本信息；此步骤同时重写 PE，修复 postject 后的文件结构，使 Authenticode 签名可写入。
+  5. 默认把 PE 可选头子系统写为控制台（3）；`--gui` 时写为 Windows GUI（2），双击或从资源管理器启动不分配控制台窗口。
+  6. 用 `@electron/windows-sign` 自带的 `signtool.exe` 签名。
+  7. 默认执行一次 `TRAY=0` + 随机端口的 `/api/health` 冒烟测试。
+- 图标：默认 `server/tray/assets/app.ico`，由 `scripts/make-app-icon.mjs` 从 `public/icon/{16,32,48,96,128}.png` 生成；文件缺失时构建脚本自动生成。可用 `--icon <path>` 或 `ABUU_APP_ICON` 替换。
+- 版本信息：取 `package.json` 的 `version`（写成四段，如 `0.1.0.0`），写入 `FileDescription=航启本地中继`、`ProductName=航启`、`CompanyName=abuu-start`、`LegalCopyright=MIT License` 等字段。
+- 签名：默认使用本地自签名证书，文件位于 `private/code-signing/abuu-start-dev.pfx`、`.cer`、`.password.txt`（不提交）。PFX 缺失时自动生成；可用 `ABUU_SIGN_PFX`、`ABUU_SIGN_PFX_PASSWORD`、`ABUU_SIGN_PFX_PASSWORD_FILE` 替换为真实证书。`--no-sign` 或 `ABUU_SIGN=0` 跳过签名。
+- 时间戳：默认对签名附加 RFC3161 时间戳，地址 `http://timestamp.digicert.com`；可用 `--timestamp <url>` 或 `ABUU_SIGN_TIMESTAMP_URL` 覆盖，`--no-timestamp` 关闭。默认时间戳失败会使构建失败，避免产出无时间戳的发布件。
+- 签名状态：自签名证书未安装到受信任根时通常为 `NotTrusted`/`UnknownError`，签名仍有效但 Windows 可能显示未知发布者；构建脚本会读取签名证书指纹与时间戳证书并输出状态。可选把 CER 安装到 `CurrentUser\Root` 与 `TrustedPublisher` 以本地信任。
+- 无控制台版本：`--gui`（别名 `--windowed`、`--no-console`）或 `npm run build:server:gui` 把 PE 子系统设为 Windows GUI（2），启动时不创建/附加控制台窗口，适合双击运行。构建时同时给 tray-hook daemon 的 `spawn` 加 `windowsHide: true`，避免其控制台子系统再次弹出窗口；托盘与 `/api` 行为不变。代价是 `console` 日志不再显示在终端，需要排障时改用默认控制台版本。
+- `npm run build:server -- --no-smoke` 可跳过冒烟测试；`npm run build:server -- --no-sign` 可跳过签名；`npm run build:server -- --no-timestamp` 可跳过时间戳。
+- 产物是单文件；不随包分发 `node_modules`。exe 内嵌的 Node 版本等于构建机 Node 版本，不保证跨版本一致。
+- 运行时首次启用托盘前，把内嵌的 `tray-hook.cjs`、`tray-hook.exe`、`running.png`、`error.png`、`tray-hook.LICENSE` 释放到 `%LOCALAPPDATA%\abuu-start\runtime\tray-hook\<runtimeId>\`；`runtimeId` 由资产哈希生成。文件大小一致时复用，缺失或大小不符时重写；目录不可写、文件被占用或释放失败时只记录警告并继续提供 `/api`。
+- `TRAY=0` 时不释放托盘资产；`PORT`、SIGINT/SIGTERM、端口占用错误态与源码运行一致。凭据、`settings.json`、背景目录仍位于 `%LOCALAPPDATA%\abuu-start\`，与启动方式无关。
+- 自签名证书只适合本地；正式发布需替换为受信任 CA 证书。不提供安装包、自动更新或自定义安装器；默认产物保留控制台窗口，需要无控制台版本时使用 `--gui`；仅 Windows x64 验收。
+
 ## 4. 凭据存储与加密
 
 ### 4.1 位置
 
-- 目录：`%LOCALAPPDATA%\buaa-start\`。
+- 目录：`%LOCALAPPDATA%\abuu-start\`。
 - 文件：`credentials.enc`（密文凭据）、`credentials.key`（32 字节随机密钥）、`settings.json`（背景目录等非敏感设置）。
 - 目录创建为 `0o700`；文件写入后 `chmod 0o600`。
 - Windows 上 `%LOCALAPPDATA%` 本身按用户隔离，继承当前用户 ACL；不额外调用 `icacls`，不引入原生依赖。
-- 非 Windows 开发环境回退到 `~/.local/state/buaa-start/`。
+- 非 Windows 开发环境回退到 `~/.local/state/abuu-start/`。
 
 ### 4.2 密文格式
 
@@ -422,7 +486,7 @@ vite.config.ts / vitest.config.ts
 }
 ```
 
-- `iv`：12 字节随机数；`tag`：16 字节 GCM 认证标签；`data`：密文；AAD：`buaa-start/credentials/v1`。
+- `iv`：12 字节随机数；`tag`：16 字节 GCM 认证标签；`data`：密文；AAD：`abuu-start/credentials/v1`。
 - 明文 JSON：
 
 ```json
@@ -481,7 +545,7 @@ vite.config.ts / vitest.config.ts
 
 ### 4.5 旧凭据迁移
 
-- 启动时删除旧键 `buaa-start.credentials.v1`，不尝试迁移明文。
+- 启动时删除旧键 `abuu-start.credentials.v1`，不尝试迁移明文。
 - 旧 `X-*` 凭据请求头不再被中继读取；前端也不再发送。
 - 升级后首次使用必须重新登录一次；旧业务缓存保留，登录后按缓存优先刷新。
 
@@ -678,7 +742,7 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 1. 前端 `POST /api/auth/logout`。
 2. 中继先尽力 SSO logout，再清内存、删密文与密钥。
 3. 前端清 `useAuth` 的会话状态与本次登录尝试。
-4. 前端清所有业务数据缓存（`buaa-start.cache.*`），但保留待办、快捷方式、番茄钟、背景目录与主页偏好。
+4. 前端清所有业务数据缓存（`abuu-start.cache.*`），但保留待办、快捷方式、番茄钟、背景目录与主页偏好。
 5. 设置页回到未登录；主页各卡片显示“未登录，前往设置”引导，不显示成“无数据”。
 
 ## 7. 前端
@@ -730,7 +794,7 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 - 背景区：绝对路径输入框、保存、重新扫描、清除；显示当前目录、图片数量与 `warning`。
 - 下方操作区：番茄钟桌面通知开关、权限状态、“测试通知”、清除缓存。
 - 连接状态：显示本地中继是否可用。
-- 清除缓存只删 `buaa-start.cache.*`；退出登录清业务缓存，但保留待办、快捷方式、番茄钟设置、背景目录、主页卡片与仅时钟模式等偏好。
+- 清除缓存只删 `abuu-start.cache.*`；退出登录清业务缓存，但保留待办、快捷方式、番茄钟设置、背景目录、主页卡片与仅时钟模式等偏好。
 
 ### 7.3 路由与页面
 
@@ -744,7 +808,8 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 | `/bykc` | BykcView | 博雅课程广场分页、详情 modal |
 | `/settings` | SettingsView | 统一登录、阳光目标、日程高亮、主页卡片、背景、通知与缓存、连接状态 |
 
-- 未知路由重定向 `/`；history 模式；dev/preview 与 `npm start` 均提供 SPA fallback。
+- 本文路由均为逻辑路径；扩展页使用 hash 模式，实际地址形如 `chrome-extension://<id>/newtab.html#/schedule` 或 `moz-extension://<uuid>/newtab.html#/schedule`，刷新或重开扩展页保持当前路由。
+- 未知路由重定向 `/`；不依赖服务器回退，不使用 history 模式。
 - 不设登录页；登录只在 `/settings` 的统一登录区。
 - 仅时钟与背景模式只在 `/` 生效；其他页面正常显示。
 - 主页时钟：日期 `YYYYMMDD DDD`（如 `20261026 Mon`），时间 `HH:mm:ss`，每秒更新。
@@ -774,7 +839,7 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 
 #### 卡片开关
 
-- `useHomeCards` 为模块级 reactive 单例，五个开关默认开启，localStorage 键 `buaa-start.home.cards.v1`。
+- `useHomeCards` 为模块级 reactive 单例，五个开关默认开启，localStorage 键 `abuu-start.home.cards.v1`。
 - 存储值形如 `{ "schedule": true, "bykc": false, "todo": true, "focus": true, "ygdk": true }`；缺失、不是对象或字段不严格等于 `false` 时一律按开启处理。
 - 设置页切换立即写 localStorage 并生效，无保存按钮；写入失败提示“已保存到本次会话，但本地存储不可用”。
 - 五张卡片全部关闭时功能区只渲染快捷方式，仍为 11 行，编辑与拖拽仍可用。
@@ -800,7 +865,7 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 
 #### 仅时钟与背景模式
 
-- `useHomeDisplay` 维护 `minimalMode`，键 `buaa-start.home.display.v1`，默认 `false`；非法或缺省值按默认值处理。
+- `useHomeDisplay` 维护 `minimalMode`，键 `abuu-start.home.display.v1`，默认 `false`；非法或缺省值按默认值处理。
 - `minimalMode` 只在 `/` 生效；离开 `/` 时隐藏仅时钟视觉，但保留持久化状态。
 - 进入后隐藏搜索框、时钟行按钮与整个功能区，只显示时钟与背景；不显示切换按钮。
 - 点击视口任意位置退出；键盘可 Tab 聚焦后按 Enter 退出。
@@ -811,10 +876,10 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 
 `useBackground` 为模块级单例，状态包含目录、清单、选中文件名、`warning`、`busy`、`fallback` 与 `hydrated`。
 
-- `hydrate()` 在应用启动时调用一次 `GET /api/background`，记忆化后不再重跑；页面不得重复调用，否则会重新随机选图。
+- `hydrate()` 在应用启动时调用一次 `GET /api/background`（绝对地址），记忆化后不再重跑；页面不得重复调用，否则会重新随机选图。
 - 从 `images` 随机选一张作为 `selectedName`；同一 SPA 会话内所有页面共用。
 - 浏览器刷新后重新随机；子页面不重新选图。
-- 图片地址：`/api/background/image?name=<encodeURIComponent(name)>`。
+- 图片地址由 `relayUrl("/api/background/image?name=...")` 生成，默认 `http://127.0.0.1:26171/api/background/image?name=<encodeURIComponent(name)>`。
 - 选中文件名后不预加载；由 `App.vue` 的 `<img>` 加载成功调用 `markLoaded(name)`，失败调用 `markFailed(name)`。
 - 单张加载失败：从未失败的图片中再随机选一张；连续失败 3 张或全部失败，设 `fallback=true`。
 - 自定义图加载期间不渲染内置图；加载成功后渐入；`fallback=true` 时渲染内置图。
@@ -835,25 +900,25 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 
 | key | 内容 |
 | --- | --- |
-| `buaa-start.cache.byxt.schedule.v1` | `{ savedAt, term, weeks, currentWeek, weekSource, lastWeek, byWeek }` |
-| `buaa-start.cache.byxt.exams.v1` | `{ savedAt, term, exams }` |
-| `buaa-start.cache.spoc.assignments.v1` | `{ savedAt, term, assignments }` |
-| `buaa-start.cache.spoc.detail.v1.<id>` | `{ savedAt, assignment }` |
-| `buaa-start.cache.bykc.chosen.v1` | `{ savedAt, term, courses }` |
-| `buaa-start.cache.bykc.courses.v1.<page>.<pageSize>` | `{ savedAt, page, pageSize, total, totalPages, courses }` |
-| `buaa-start.cache.bykc.course.v1.<id>` | `{ savedAt, course }` |
-| `buaa-start.cache.ygdk.overview.v1` | `{ savedAt, overview }` |
-| `buaa-start.ygdk.settings.v1` | `YgdkSettings` |
-| `buaa-start.todos.v1` | `Todo[]` |
-| `buaa-start.shortcuts.v1` | `Shortcut[]` |
-| `buaa-start.pomodoro.settings.v1` | `PomodoroSettings` |
-| `buaa-start.pomodoro.notifications.v1` | `boolean`；未明确关闭时默认 `true` |
-| `buaa-start.schedule.highlightLeadMinutes.v1` | `number`（0–180，默认 30） |
-| `buaa-start.home.cards.v1` | `HomeCardVisibility` |
-| `buaa-start.home.display.v1` | `{ minimalMode }` |
-- 旧明文凭据键 `buaa-start.credentials.v1` 只在启动时删除，不再读写；localStorage 中不保存任何 Cookie、Token、RoleCode、UID 或密码。
+| `abuu-start.cache.byxt.schedule.v1` | `{ savedAt, term, weeks, currentWeek, weekSource, lastWeek, byWeek }` |
+| `abuu-start.cache.byxt.exams.v1` | `{ savedAt, term, exams }` |
+| `abuu-start.cache.spoc.assignments.v1` | `{ savedAt, term, assignments }` |
+| `abuu-start.cache.spoc.detail.v1.<id>` | `{ savedAt, assignment }` |
+| `abuu-start.cache.bykc.chosen.v1` | `{ savedAt, term, courses }` |
+| `abuu-start.cache.bykc.courses.v1.<page>.<pageSize>` | `{ savedAt, page, pageSize, total, totalPages, courses }` |
+| `abuu-start.cache.bykc.course.v1.<id>` | `{ savedAt, course }` |
+| `abuu-start.cache.ygdk.overview.v1` | `{ savedAt, overview }` |
+| `abuu-start.ygdk.settings.v1` | `YgdkSettings` |
+| `abuu-start.todos.v1` | `Todo[]` |
+| `abuu-start.shortcuts.v1` | `Shortcut[]` |
+| `abuu-start.pomodoro.settings.v1` | `PomodoroSettings` |
+| `abuu-start.pomodoro.notifications.v1` | `boolean`；未明确关闭时默认 `true` |
+| `abuu-start.schedule.highlightLeadMinutes.v1` | `number`（0–180，默认 30） |
+| `abuu-start.home.cards.v1` | `HomeCardVisibility` |
+| `abuu-start.home.display.v1` | `{ minimalMode }` |
+- 旧明文凭据键 `abuu-start.credentials.v1` 只在启动时删除，不再读写；localStorage 中不保存任何 Cookie、Token、RoleCode、UID 或密码。
 - 读写统一包在 `src/cache/storage.ts`：`JSON.parse` 失败、配额不足、隐私模式不可用时返回 `null` / 降级为内存状态，并给出一次页面提示。
-- 清除缓存只删 `buaa-start.cache.*`；清除凭据由“退出登录”完成；两者互不影响。
+- 清除缓存只删 `abuu-start.cache.*`；清除凭据由“退出登录”完成；两者互不影响。
 - 退出登录清业务缓存，但保留待办、快捷方式、番茄钟设置、背景目录、主页卡片与仅时钟模式。
 - 缓存数据不含 Cookie/Token；缓存优先 + 后台刷新，不做定时轮询。
 - 每个数据源独立 `SourceState`，状态为 `idle | loading | ok | cached | error | no-credential | auth-expired`。
@@ -920,7 +985,7 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 - 学期目标：`systemTermTarget > 0` 时使用系统值，否则使用用户 `termTarget`；用户值非法时回退默认值。
 - 周限制始终使用用户 `weekTarget`（默认 4），不使用系统 `weekTarget`。
 - 进度：学期进度 = `termCount / termTarget`；周进度 = `weekCount / weekTarget`；超过限制进度条封顶 100%，文字显示实际次数。
-- 设置页修改目标/周限制后立即写入 `buaa-start.ygdk.settings.v1`，主页响应式更新。
+- 设置页修改目标/周限制后立即写入 `abuu-start.ygdk.settings.v1`，主页响应式更新。
 - 失败：保留缓存并标注时间；无缓存显示错误与重试；不显示成“0 次”。
 - 不设详情路由；不提供打卡、补卡、上传。
 
@@ -931,11 +996,11 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 - 顺延：新截止时间 = 原截止时间 + 周期；若仍不晚于当前时间，继续加周期直到未来最近一次。
 - 排序：未完成在前；截止时间升序；无截止时间置后；已完成置后；同截止时间按创建时间。优先级只改变展示，不参与排序。
 - 待办卡片左右两栏：左栏本地待办，右栏 SPOC 作业；两栏各自滚动；SPOC 段只读，不显示勾选框，点击打开详情 modal。
-- 数据写 `buaa-start.todos.v1`；刷新保留。
+- 数据写 `abuu-start.todos.v1`；刷新保留。
 
 ### 8.6 番茄钟
 
-- 默认 25/5/15 分钟，每 4 个专注轮次进入长休；配置写 `buaa-start.pomodoro.settings.v1`。
+- 默认 25/5/15 分钟，每 4 个专注轮次进入长休；配置写 `abuu-start.pomodoro.settings.v1`。
 - 配置校验：专注 1–180 分钟，短休/长休 1–60 分钟，轮次 1–12；非法值不保存并提示。
 - 运行态只在内存：阶段、剩余秒数、运行中、暂停、已完成专注轮次、结束时间戳、阶段总时长、是否已发 1 分钟通知；刷新页面重置运行态，不写 localStorage，不新增后端接口。
 - 计时用 `endsAt` 时间戳 + 250ms 定时器校正，不用累加秒数，避免后台节流漂移。
@@ -959,7 +1024,8 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 - 密码只用于 SSO 登录与自动重登；不参与派生；不返回前端。
 - 文件权限：目录 `0700`、文件 `0600`；密钥与密文分开。
 - 背景接口防路径穿越：文件名白名单校验 + `realpath` 前缀校验 + 只读清单；不接受绝对路径、`..`、分隔符；只返回白名单图片且只第一层，不提供目录浏览接口。
-- `POST` 同源校验 + JSON Content-Type；不启用 CORS；Host 校验保持。
+- `POST` 来源校验 + JSON Content-Type；不启用 CORS；Host 校验保持。Chrome/Edge 只放行 `chrome-extension://<固定扩展 ID>`；Firefox 的 `moz-extension://` 内部 UUID 每次安装随机，RC 仍放行任意 `moz-extension://`；普通网页仍要求同源。
+- 固定扩展身份：Chrome/Edge 在 manifest 写入固定 `key`，由公钥派生扩展 ID；Firefox 写入 `browser_specific_settings.gecko.id`。中继白名单常量见 `extension.config.ts` 与 `server/app/relayHttp.ts`。
 - 登录单飞；自动重登节流（认证失败 5 分钟内不重复，瞬时失败 30 秒内不重复）；密码错误不自动重试。
 - 上游错误只返回固定中文文案；不回显 HTML、Token、Cookie；`server/http/upstream.ts` 的异常包装不得把请求体、Cookie 或上游 HTML 拼进错误消息。
 - 博雅课程简介、SPOC 作业说明只按纯文本展示，不使用 `v-html`；快捷方式 URL 只允许 `http:`/`https:`。
@@ -971,30 +1037,88 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 
 ```bash
 npm install
-npm run dev       # Vite + 中继，127.0.0.1:5173
-npm run build     # vue-tsc -b + vite build
-npm run preview   # Vite preview + 中继，127.0.0.1:4173
-npm start         # Express 同源提供 dist 与 /api，127.0.0.1:3000
-npm test          # Vitest
+npm start             # 本地中继 + 托盘，127.0.0.1:26171
+npm run build:server  # Windows x64 单文件中继（图标 + 版本信息 + 自签名 + 时间戳）-> dist/server/abuu-start-relay.exe
+npm run build:server:gui # 同上，但生成无控制台窗口的 GUI 子系统版本
+node scripts/make-app-icon.mjs # 从 public/icon 重新生成 app.ico
+npm run dev           # WXT 开发服务器（Chrome/Edge），localhost:4000
+npm run dev:firefox   # WXT 开发服务器（Firefox）
+npm run build         # Chrome/Edge MV3 -> .output/chrome-mv3
+npm run build:firefox # Firefox MV2 -> .output/firefox-mv2
+npm run zip           # 打包 Chrome/Edge 扩展
+npm run zip:firefox   # 打包 Firefox 扩展
+npm test              # Vitest
 npm run type-check
 npm run lint
-npm run check     # lint + type-check + test 并行
+npm run format:check
+npm run check         # lint + format:check + type-check + test 并行
+npm run check:shared
 ```
 
-- `vite.config.ts` 的 `server.host` / `preview.host` 固定 `127.0.0.1`；端口被占用时由 Vite 自动顺延，以终端输出为准。
-- 中继以插件形式挂载，不需要单独启动第二个进程；`preview` 同源提供页面与 `/api`。
-- 生产构建后用 `npm start` 由 Express 同源提供页面与 `/api`，不引入 SSR；`npm run preview` 仍可用于快速预览。
-- `server/index.ts` 复用 `server/relayPlugin.ts` 的同一份 `/api` 中间件，路径、方法、错误码与请求头约定不变；监听地址仍为 `127.0.0.1`，可用 `PORT` 改端口。
-- 不新增依赖；博雅与凭据加密使用 Node 内置 `node:crypto`。
+- 中继与 WXT 开发服务器是两个独立进程：先 `npm start`，再按目标浏览器执行 `npm run dev` 或 `npm run dev:firefox`；开发服务器固定 `localhost:4000`，`strictPort` 下端口占用会直接失败。
+- 扩展请求默认发往 `http://127.0.0.1:26171`；需要改中继地址时，在构建或开发命令前设置 `WXT_RELAY_ORIGIN`。`PORT` 可改中继端口。
+- `npm start` 使用 `node --experimental-strip-types server/index.ts`；`TRAY=0` 可关闭托盘，仅保留 API。
+- `npm run build:server` 仅支持 Windows x64，需 Node >=22.12；默认带 `TRAY=0` 冒烟测试，`-- --no-smoke` 可跳过；默认签名，`-- --no-sign` 或 `ABUU_SIGN=0` 可跳过。产物不依赖目标机的 Node 或 `node_modules`。
+- `npm run build:server:gui` 或 `npm run build:server -- --gui` 生成 GUI 子系统版本，双击不显示控制台窗口；`--windowed`、`--no-console` 为同义参数。默认版本保留控制台窗口。
+- 默认附带 RFC3161 时间戳；`-- --no-timestamp` 关闭，`-- --timestamp <url>` 或 `ABUU_SIGN_TIMESTAMP_URL` 覆盖时间戳地址；时间戳失败会使构建失败。
+- 图标可用 `-- --icon <path>` 或 `ABUU_APP_ICON` 覆盖；默认 `server/tray/assets/app.ico` 缺失时自动生成。
+- 证书默认读写 `private/code-signing/abuu-start-dev.pfx`；可用 `ABUU_SIGN_PFX`、`ABUU_SIGN_PFX_PASSWORD`、`ABUU_SIGN_PFX_PASSWORD_FILE` 覆盖，`ABUU_SIGNTOOL` 可指定其他 signtool。
+- 版本信息取 `package.json` 的 `version`；修改版本号后重新构建即可更新 exe 的 FileVersion/ProductVersion。
+- 扩展构建产物分别位于 `.output/chrome-mv3` 与 `.output/firefox-mv2`，作为对应浏览器的未打包扩展加载；不再有 `preview`、`dist` 静态托管或 SPA fallback。`dist/server/` 仅用于中继 exe，`npm run build` 清空 `.output/` 时不会删除它。
+- Chrome/Edge 与 Firefox 双平台均为验收目标；`npm run zip` 与 `npm run zip:firefox` 分别生成商店用压缩包。
+- 不引入其他后端；加密使用 Node 内置 `node:crypto`，托盘使用 `tray-hook`。
+
+### 10.1 扩展密钥与 ID 修改
+
+- 单一来源：`extension.config.ts` 保存 `CHROME_PUBLIC_KEY`、`FIREFOX_EXTENSION_ID`，并由公钥派生 `CHROME_EXTENSION_ID`；`wxt.config.ts` 与 `server/app/relayHttp.ts` 只引用这些常量，不在别处手写 ID。
+- 更换 Chrome/Edge 密钥：生成新的 RSA 2048 密钥对，私钥以 PKCS#8 PEM 写入 `private/extension-key.pem`（0600，gitignore），把对应 SPKI DER 公钥的 base64 填入 `CHROME_PUBLIC_KEY`；`CHROME_EXTENSION_ID` 会自动变化，需同步更新 `server/app/relayHttp.test.ts` 中的期望 ID，然后重新构建并重载扩展。
+  ```bash
+  # 先备份 private/extension-key.pem；下面的命令会覆盖它
+  node --input-type=module -e 'import { generateKeyPairSync } from "node:crypto"; import { mkdirSync, writeFileSync } from "node:fs"; const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048, publicKeyEncoding: { type: "spki", format: "der" }, privateKeyEncoding: { type: "pkcs8", format: "pem" } }); mkdirSync("private", { recursive: true }); writeFileSync("private/extension-key.pem", privateKey, { mode: 0o600 }); console.log(publicKey.toString("base64"));'
+  ```
+  使用已有私钥时，先放入 `private/extension-key.pem`，再用以下命令导出对应公钥：
+  ```bash
+  node --input-type=module -e 'import { createPublicKey } from "node:crypto"; import { readFileSync } from "node:fs"; console.log(createPublicKey(readFileSync("private/extension-key.pem")).export({ type: "spki", format: "der" }).toString("base64"));'
+  ```
+  将上述任一方式得到的 base64 填入 `CHROME_PUBLIC_KEY`，再运行以下命令取得新 ID，并更新测试中的期望值：
+  ```bash
+  node --experimental-strip-types --input-type=module -e 'import { CHROME_EXTENSION_ID } from "./extension.config.ts"; console.log(CHROME_EXTENSION_ID);'
+  ```
+- 只更换 Firefox gecko ID：修改 `FIREFOX_EXTENSION_ID` 后重新构建 Firefox，无需修改 Chrome 白名单；Firefox 内部 UUID 仍每次安装随机，中继仍放行任意 `moz-extension://`。
+- 私钥必须与公钥配对：只替换私钥而保留旧公钥会无法用同一扩展 ID 正确签名 CRX；私钥丢失不影响已固定公钥/ID 的未打包加载，但要重新生成密钥对并接受扩展 ID 变化。
+- 验证：`npm test`、`npm run type-check`、`npm run build`、`npm run build:firefox`；检查产物 manifest 的 `key` / gecko ID，重启中继后验证 Chrome/Edge 来源。
+- 注意：Chrome/Edge 扩展 ID 变化会改变扩展 origin，旧 localStorage 不迁移；`private/extension-key.pem` 不提交、不进入构建产物。
 
 ## 11. 验收
 
-- 类型检查：`npm run build`（含 `vue-tsc`）与 `npm run type-check` 通过；`npm test` 通过；`npm run lint` 通过。
+- 构建与检查：`npm run type-check`、`npm run build`、`npm run build:firefox`、`npm run build:server`、`npm test`、`npm run lint`、`npm run format:check` 通过。
+- 扩展构建与双平台：
+  - Chrome/Edge：`npm run build` 生成 `.output/chrome-mv3`；`manifest.json` 含 `chrome_url_overrides.newtab`、loopback `host_permissions`、`notifications` 与固定 `key`。
+  - Firefox：`npm run build:firefox` 生成 `.output/firefox-mv2`；`manifest.json` 含 `chrome_url_overrides.newtab`、`notifications`、`browser_specific_settings.gecko.id`，loopback 主机权限位于 `permissions`。
+  - 两平台产物均不含 popup/content/background。
+  - Chrome/Edge 与 Firefox 分别加载未打包扩展后，打开新标签页即显示航启；子页面刷新后保持当前页面。
 - 中继检查：
-  - 非白名单方法返回 405；未列路径 404；未登录业务接口 401 `AUTH_REQUIRED`；Host 非本机拒绝；日志无凭据。
+  - 非白名单方法返回 405；未列 `/api` 路径返回 JSON 404；非 `/api` 路径返回文本 404；未登录业务接口 401 `AUTH_REQUIRED`；Host 非本机拒绝；日志无凭据。
+  - `POST` + `Origin: chrome-extension://<固定 ID>` 通过；`Origin: chrome-extension://<其他 ID>` 返回 403；`Origin: moz-extension://<任意内部 UUID>` 通过（Firefox 已知限制）；`Origin: https://evil.example` 返回 403；同源 loopback 来源通过。
   - 登录单飞、验证码刷新、密码错误/验证码错误/密码过期分类、四源异步派生与单源重试。
   - 凭据文件损坏/密钥缺失不白屏；目录不可写时本次运行仍可用；退出登录后凭据文件不存在。
   - 背景接口路径穿越被拒绝；超过 20 MB 的图片跳过；非本机 Host 拒绝。
+- 托盘验收：
+  - 正常启动显示运行中，`/api/health` 返回 200；菜单“退出”与 Ctrl+C 后进程结束。
+  - 端口被占用时显示启动失败原因，进程保持到用户从托盘退出，退出码为 1。
+  - `TRAY=0` 不创建托盘但 API 正常；托盘二进制缺失时降级为无托盘，API 仍可用。
+- 可执行文件验收：
+  - Windows x64 上 `npm run build:server` 生成 `dist/server/abuu-start-relay.exe`，默认冒烟测试通过。
+  - `npm run build:server:gui` 生成的 exe 的 PE 子系统为 Windows GUI（2），双击不出现控制台窗口；托盘、`/api/health`、签名与时间戳与默认版本一致。
+  - 资源管理器/`ExtractAssociatedIcon` 显示航启图标；`VersionInfo` 显示 `FileDescription=航启本地中继`、`ProductName=航启`、版本与 `package.json` 一致。
+  - `Get-AuthenticodeSignature` 能读取签名证书，证书指纹与 `private/code-signing/abuu-start-dev.cer` 一致；未信任自签名时状态为 `NotTrusted`/`UnknownError`，证书仍存在。
+  - 默认构建的签名带 RFC3161 时间戳，`TimeStamperCertificate` 非空；`--no-timestamp` 构建后 `TimeStamperCertificate` 为空；时间戳服务不可达时构建失败。
+  - 删除 `server/tray/assets/app.ico` 后构建自动重新生成；删除 `private/code-signing/*` 后构建自动生成新证书并签名。
+  - `npm run build:server -- --no-sign` 构建后签名为 `NotSigned`，exe 仍可启动；`npm run build:server -- --icon <path>` 可替换图标，缺失路径时构建失败并提示。
+  - 在未安装 Node、无 `node_modules` 的目录只放 exe，启动后 `/api/health` 返回 200；登录、四源派生、背景设置与 `npm start` 一致。
+  - 首次启用托盘时释放资产到 `%LOCALAPPDATA%\abuu-start\runtime\tray-hook\<runtimeId>\`；再次启动复用；删除该目录后可重新释放。
+  - 托盘、`TRAY=0`、端口占用、SIGINT/SIGTERM 与源码运行一致；释放失败时 API 仍可用。
+  - 非 Windows x64 或 Node <22.12 构建得到明确失败提示。
 - 认证验收：
   - 无验证码与有验证码登录均可完成；验证码可刷新；错误提示可区分。
   - 登录成功显示姓名、学号、登录时间；四源状态可轮询；失败项可单独重试。
@@ -1017,15 +1141,24 @@ npm run check     # lint + type-check + test 并行
   - 刷新与关闭页面后番茄钟运行态重置，不残留；localStorage 不可用或损坏时降级为内存并提示。
 - 文档状态：PRD、UI 文档、API 文档与本文为当前四份文档；后续变更需同时更新相关文档。
 
-## 12. 风险与待验证
+## 12. 风险与已知限制
 
-- 登录流程没有原始 HAR；SSO 页面结构、验证码配置、错误文案可能随学校更新变化，需真实联调与后续 HAR。
-- byxt Cookie 依赖 `byxt → SSO → byxt` 票据链；参考 B 不访问 byxt 首页，若真实环境拿不到 Cookie，需要补一次首页访问。
-- 博雅仅 `auth_token` 的可用性尚未被 HAR 最终证明；若返回会话失效，需评估是否补充可选 Cookie 字段。
-- 阳光没有 HAR；`campusAppLogin` 的响应结构与 `uid`/`token` 字段需真实联调验证。
-- 博雅响应是加密的；HAR 无法离线解密响应体，课程字段与状态判定来自参考 B 与测试，真实响应需联调验证。
-- 博雅 `Referer` 在 HAR 中随页面变化，实现按固定值；若上游拒绝再调整。
-- 考试接口日期/时间的实际字符串格式未固定，代码按多格式兼容。
-- Windows 文件 ACL 依赖 `%LOCALAPPDATA%` 的用户隔离；如需更强保证，再评估 `icacls` 或 DPAPI（本期不做）。
-- 异步派生顺序执行，最坏情况约 48 秒（4 × 12 秒）；设置页需显示“派生中”，避免用户误以为失败。
-- 验证码只处理图片类型；上游改成滑块、点选或第三方验证码时本期不实现。
+以下仅保留 RC 已知限制与发布前待办；PRD 所述功能已在开发版实机验收通过。
+
+- Windows 文件 ACL 依赖 `%LOCALAPPDATA%` 的用户隔离；RC 接受该现状，如需更强保证，后续再评估 `icacls` 或 DPAPI。
+- 异步派生顺序执行，最坏情况约 48 秒（4 × 12 秒）；设置页显示“派生中”，RC 接受该等待时间。
+- 验证码只处理图片类型；上游改成滑块、点选或第三方验证码时不在本期范围。
+- Firefox MV2 构建仍提示缺少 `data_collection_permissions`；扩展 ID 已通过 `browser_specific_settings.gecko.id` 固定。RC 仅以本机临时扩展验收，不发布 AMO，数据收集声明留待后续发布。
+- WXT 开发服务器固定 4000 且启用 `strictPort`；端口被占用时需先释放或修改 `wxt.config.ts`。
+- 托盘依赖 `tray-hook` 的平台二进制与桌面环境；缺失或无桌面时降级为无托盘，API 不受影响。
+- 可执行文件使用 Node SEA（Stability 1.1）；产物约 90–100 MB，升级 Node 后需重新构建。
+- exe 默认使用本地自签名证书，未安装到受信任根时 Windows 仍可能显示未知发布者，SmartScreen 也可能继续警告；正式发布需替换为受信任 CA 证书。不提供安装包与自动更新。
+- 自签名私钥、密码与 CER 位于 `private/code-signing/`，不提交；证书默认 5 年有效，过期或更换后需重新构建。替换证书可通过 `ABUU_SIGN_PFX` 等环境变量完成。
+- exe 仅支持 Windows x64，且必须在目标平台构建；不提供交叉编译。默认版本双击 exe 会保留控制台窗口，`npm run build:server:gui` 生成的版本不显示控制台但也不输出终端日志；图标由 `server/tray/assets/app.ico` 提供，版本信息由 `package.json` 提供。
+- 签名依赖 `@electron/windows-sign` 随包的 `signtool.exe`；若该依赖被裁剪或替换，需提供可用的 `ABUU_SIGNTOOL` 或 `--no-sign`。
+- 时间戳默认依赖 DigiCert TSA；网络不可达、TSA 拒绝或限流时构建失败，可用 `--no-timestamp` 或更换 `ABUU_SIGN_TIMESTAMP_URL`。时间戳不会让自签名证书变为受信任发布者，只用于证明签名时间并在证书过期后辅助验证。
+- `postject` 注入后必须先由 `resedit` 重写 PE，再签名；该顺序用于同时保留 SEA blob、写入图标/版本信息并让 signtool 接受文件。
+- 托盘原生二进制与 `tray-hook` 客户端随 exe 释放到用户目录；客户端在构建时注入 `windowsHide: true`，避免 GUI 版本启动托盘 daemon 时再弹控制台窗口；目录不可写、被杀毒软件锁定或文件被占用时托盘降级，API 不受影响；旧 `runtimeId` 目录不自动清理。
+- `tray-hook` 以 MIT 许可随 exe 分发，许可文本保存在 `server/tray/tray-hook.LICENSE`。
+- Firefox 的 `moz-extension://` 内部 UUID 每次安装随机，与 gecko ID 无映射；中继无法按 Origin 为 Firefox 做固定扩展 ID 白名单，RC 仍放行任意 `moz-extension://` 来源。Chrome/Edge 已使用固定 `key` 与扩展 ID 白名单。
+- 同一浏览器只能有一个扩展接管新标签页；与其他 newtab 扩展同时启用时，以最后启用者为准。

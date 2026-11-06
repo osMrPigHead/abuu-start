@@ -9,6 +9,10 @@ export default tseslint.config(
     ignores: [
       "dist/**",
       "_site/**",
+      ".output/**",
+      ".wxt/**",
+      ".acl-recovery/**",
+      ".migration-backup/**",
       "node_modules/**",
       "docs/**",
       "private/**",
@@ -32,7 +36,12 @@ export default tseslint.config(
     },
   },
   {
-    files: ["server/**/*.ts", "*.config.ts", "shared/**/*.ts"],
+    files: [
+      "server/**/*.ts",
+      "*.config.ts",
+      "shared/**/*.ts",
+      "scripts/**/*.mjs",
+    ],
     languageOptions: {
       globals: globals.node,
     },

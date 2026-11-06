@@ -60,7 +60,7 @@ describe("pomodoro notifications", () => {
     expect(Fake.instances[0]?.title).toBe("航启番茄钟");
     expect(Fake.instances[0]?.options?.body).toBe("测试通知");
     expect(Fake.instances[0]?.options?.tag).toBe(
-      "buaa-start-pomodoro-one-minute",
+      "abuu-start-pomodoro-one-minute",
     );
   });
 

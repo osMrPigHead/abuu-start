@@ -11,7 +11,7 @@
 
 航启首页是一款面向北京航空航天大学本科生的浏览器首页，基于 Vite、Vue.js、Tailwind CSS 构建，提供课表、考试、博雅课程、SPOC 作业、阳光打卡的便携**查询**功能；此外，还提供番茄钟专注、自定义待办和常规的浏览器主页快捷入口功能。
 
-该项目尚处早期阶段，部分功能尚不成熟或有待完善，暂不提供预编译版本。
+该项目尚处早期阶段，部分功能尚不成熟或有待完善。
 
 项目主页：[点这里](https://osmrpighead.github.io/abuu-start)
 
@@ -25,27 +25,41 @@
 - 专注：可以自定义时间的番茄钟，有谁不想看着自推美图写作业呢？
 - 阳光打卡：学期和当周打卡次数统计，告别电脑前久坐，远离痔疮（x
 
-![背景图模式](readme-images/preview-head.png)![专注](readme-images/preview-focus.png)![日程页](readme-images/preview-schedule.png)![博雅课程广场](readme-images/preview-byxk.png)![高自由度的书签](readme-images/preview-shortcut.png)
-
-## 技术方案
-
-前端采用 Vite + Vue 3 + Tailwind CSS 构建，后端是原生 TypeScript + HTTP Fetch 实现；开发时后端作为 Vite 插件挂载，生产构建后由 Express 同源提供页面与 `/api`。后端负责存储和处理北京航空航天大学系统的认证信息、请求课表、作业等信息并返回，存储背景图片设置、提供背景图片，其他个性化设置（打卡目标、日程高亮时间阈值、主页卡片显示状态、番茄钟桌面通知）均存储在浏览器 localStorage，课表、作业等的缓存存储在浏览器 localStorage。
+![背景图模式](readme-images/preview-head.jpg)![专注](readme-images/preview-focus.jpg)![日程页](readme-images/preview-schedule.jpg)![博雅课程广场](readme-images/preview-byxk.jpg)![高自由度的书签](readme-images/preview-shortcut.jpg)
 
 ## 运行
+
+### 运行预编译产物
+
+**目前仅提供 Windows x64 版本，macOS 或 Linux 系统用户请通过下方“自行构建”运行**，欢迎有能力对 macOS 或 Linux 场景进行调试和开发的贡献者参与本项目的贡献。
+
+1. **安装扩展**：从 [Releases](https://github.com/osMrPigHead/abuu-start/releases) 下载扩展后（后缀名为 `crx` 或 `zip`，Edge、360 浏览器、QQ 浏览器等均使用 `chrome-mv2`），解压到任意目录，在浏览器扩展管理中启用开发人员模式，选择“加载已解压的扩展”
+2. **启用中继**：从 [Releases](https://github.com/osMrPigHead/abuu-start/releases) 下载 `.exe` 可执行文件后，双击运行即可，通过系统托盘监测运行状态（目前构建版本为自签名证书签署，会导致 SmartScreen 警告，是正常现象）。
+
+### 自行构建
 
 本地运行方式：
 
 ```bash
-npm run dev     # 开发：Vite + 中继，127.0.0.1:5173
-npm run build   # 构建前端
-npm test        # 运行测试
-npm start       # 生产：Express 同源提供 dist 与 /api，127.0.0.1:3000
+npm install
+npm start                 # 本地中继 + 托盘，127.0.0.1:26171
+npm run dev               # WXT 开发服务器（Chrome/Edge），localhost:4000
+npm run dev:firefox       # WXT 开发服务器（Firefox）
+npm run build             # Chrome/Edge MV3 -> .output/chrome-mv3
+npm run build:firefox     # Firefox MV2 -> .output/firefox-mv2
+npm run build:server      # Windows x64 单文件中继 -> dist/server/abuu-start-relay.exe
+npm run build:server:gui  # Windows x64 单文件中继（窗口版本） -> dist/server/abuu-start-relay.exe
+npm test                  # Vitest
 ```
 
-## 后期规划
+- 中继与 WXT 开发服务器是两个独立进程：先 `npm start`，再按目标浏览器启动开发服务器。
+- `npm run build:server` 仅支持 Windows x64，需 Node >=22.12；默认执行一次 `TRAY=0` 启动冒烟测试，`npm run build:server -- --no-smoke` 可跳过；可用 `--no-sign` 和 `--no-timestamp` 跳过签名和时间戳，用 `--gui` `--windowed` `--no-console` 可构建窗口版本。
+- 中继 exe 不依赖目标机的 Node 或 `node_modules`；首次启用托盘时把 `tray-hook` 组件释放到 `%LOCALAPPDATA%\abuu-start\runtime\`，释放失败时降级为无托盘，API 仍可用。
+- `TRAY=0` 可关闭托盘；`PORT` 可改中继端口；`WXT_RELAY_ORIGIN` 可改扩展访问的中继地址。
 
-1. 整理文档及源码：减少 AI 率，提高可维护性
-2. 提供浏览器插件与本地代理的稳定版
+## 技术方案
+
+前端使用 WXT 构建 Chrome/Edge MV3 与 Firefox MV2 扩展，Vue 3 SPA 接管新标签页；后端是 Node.js + Express 本地中继，只提供 `/api`，负责统一认证、教务数据聚合、背景图片与本机设置。开发时 `npm start` 直接运行 TypeScript 中继，`npm run dev` 启动 WXT；发布时中继可构建为 Windows x64 单文件 exe，目标机无需安装 Node。其他个性化设置（打卡目标、日程高亮时间阈值、主页卡片显示状态、番茄钟桌面通知）与课表、作业缓存均存储在浏览器 localStorage。
 
 ## LICENSE
 
@@ -60,7 +74,7 @@ npm start       # 生产：Express 同源提供 dist 与 /api，127.0.0.1:3000
 
 那这就不得不说到作者原本的浏览器主页了，是在前 AI 时代自己做的（不过课表功能是后来加上的），当时原本是想解决随机背景图片这个问题：
 
-![原本的主页](readme-images/original-homepage.png)
+![原本的主页](readme-images/original-homepage.jpg)
 
 但这个主页所有的书签都得自己用 JSON 配置，课表也是让直接输入 Cookie 的纯前端方案，虽然我自己用着觉得不错，但当个作业交上去多少有些寒颤了，于是乎就诞生了分析下 UBAA 源码，做一个功能更全面的浏览器主页的想法。
 

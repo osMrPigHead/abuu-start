@@ -9,10 +9,7 @@ import {
   bykcStatusLabel,
   formatBykcDetailTime,
 } from "@/domain/bykc";
-import {
-  canRetrySource,
-  needsSettingsSource,
-} from "@/domain/sourceStatus";
+import { canRetrySource, needsSettingsSource } from "@/domain/sourceStatus";
 import { formatStamp } from "@/utils/date";
 
 const props = withDefaults(

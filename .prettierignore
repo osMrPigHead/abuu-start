@@ -4,6 +4,12 @@ dist
 _site
 .npm-cache
 _scaffold
+.output
+.wxt
+stats.html
+stats-*.json
+.acl-recovery
+.migration-backup
 
 # 由 npm 维护
 package-lock.json

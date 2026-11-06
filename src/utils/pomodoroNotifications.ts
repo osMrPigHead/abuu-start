@@ -7,8 +7,8 @@ export type PomodoroNotificationKind = "one-minute" | "phase-end";
 
 const NOTIFICATION_TITLE = "航启番茄钟";
 const NOTIFICATION_TAGS: Record<PomodoroNotificationKind, string> = {
-  "one-minute": "buaa-start-pomodoro-one-minute",
-  "phase-end": "buaa-start-pomodoro-phase-end",
+  "one-minute": "abuu-start-pomodoro-one-minute",
+  "phase-end": "abuu-start-pomodoro-phase-end",
 };
 
 /** 保留通知引用，避免对象被回收后点击回调失效。 */

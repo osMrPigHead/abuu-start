@@ -5,7 +5,7 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import type { CredentialEnvelope } from "./types.ts";
 
-const AAD = Buffer.from("buaa-start/credentials/v1", "utf8");
+const AAD = Buffer.from("abuu-start/credentials/v1", "utf8");
 const ALGORITHM = "aes-256-gcm";
 const IV_BYTES = 12;
 const TAG_BYTES = 16;

@@ -1,112 +1,181 @@
 /**
- * 生产用 Express 入口：同源提供 dist 构建产物与 /api 中继。
- * dev / preview 仍由 vite.config.ts 的 relayPlugin 挂同一份 Router，接口不变。
- * 只监听 127.0.0.1；启动方式见 docs/trd.md 10。
+ * 生产入口：只提供 /api 中继，并用系统托盘指示运行状态、提供退出入口。
+ * 托盘不可用或 TRAY=0 时退化为纯后台服务；只监听 127.0.0.1。
  */
-import { existsSync } from "node:fs";
-import { join } from "node:path";
-import { fileURLToPath } from "node:url";
-import express from "express";
-import { createApiRouter } from "./app/routes.ts";
-import { isAllowedHost } from "./app/relayHttp.ts";
+import type { Server } from "node:http";
+import type { Express } from "express";
+import { createApp } from "./app/createApp.ts";
+import {
+  HOST,
+  describeListenError,
+  isTrayDisabled,
+  readPort,
+} from "./app/config.ts";
+import { startTray } from "./tray/controller.ts";
+import type { TrayController } from "./tray/controller.ts";
 
-const HOST = "127.0.0.1";
-const DEFAULT_PORT = 3000;
-const DIST_DIR = fileURLToPath(new URL("../dist/", import.meta.url));
-const INDEX_FILE = join(DIST_DIR, "index.html");
+/** 优雅关闭时给在途请求的宽限，超时后强制断开。 */
+const GRACEFUL_CLOSE_MS = 2_000;
+/** 启动失败但托盘仍显示时，用长周期定时器保持进程存活。 */
+const STARTUP_KEEPALIVE_MS = 1 << 30;
 
-const app = express();
-app.disable("x-powered-by");
+let httpServer: Server | null = null;
+let tray: TrayController | null = null;
+let keepAlive: ReturnType<typeof setInterval> | null = null;
+let startupFailed = false;
+let shuttingDown = false;
 
-// 整站校验 Host：只接受本机域名，避免 DNS rebinding 读到本机服务。
-app.use((req, res, next) => {
-  if (isAllowedHost(req.headers.host)) {
-    next();
+void main().catch((error: unknown) => {
+  console.error("[relay] 启动失败", error);
+  void shutdown(1);
+});
+
+async function main(): Promise<void> {
+  const port = readPort(process.env.PORT);
+  const trayDisabled = isTrayDisabled(process.env.TRAY);
+
+  registerSignals();
+
+  try {
+    httpServer = await listen(createApp(), port);
+  } catch (error) {
+    await handleListenFailure(error, port, trayDisabled);
     return;
   }
 
-  res.status(404).type("text/plain; charset=utf-8").send("未找到");
-});
+  console.info(`[relay] 已启动：http://${HOST}:${port}`);
 
-// /api 白名单中继；非 /api 请求交给静态资源与 SPA fallback。
-app.use(createApiRouter());
+  if (trayDisabled) {
+    console.info("[relay] 托盘已由 TRAY=0 关闭，仅提供 /api");
+    return;
+  }
 
-if (existsSync(INDEX_FILE)) {
-  app.use(express.static(DIST_DIR, { index: false }));
+  try {
+    tray = await startTray({
+      state: { phase: "running", port },
+      onQuit: () => {
+        void shutdown(0);
+      },
+    });
+  } catch (error) {
+    console.warn("[relay] 托盘初始化异常，继续仅提供 /api", error);
+  }
 }
 
-// history 模式：非 /api 页面请求回退 index.html；未构建时给出提示。
-app.use((req, res, next) => {
-  const method = req.method ?? "GET";
-  if (method !== "GET" && method !== "HEAD") {
-    next();
-    return;
-  }
+function listen(app: Express, port: number): Promise<Server> {
+  return new Promise((resolve, reject) => {
+    const server = app.listen(port, HOST);
 
-  if (!req.accepts("html")) {
-    next();
-    return;
-  }
+    const onError = (error: Error) => {
+      reject(error);
+    };
 
-  // 带扩展名的请求视为静态资源，未命中时直接 404，不回退 index.html。
-  if (/\.[^/]+$/.test(req.path)) {
-    next();
-    return;
-  }
-
-  if (!existsSync(INDEX_FILE)) {
-    res
-      .status(503)
-      .type("text/plain; charset=utf-8")
-      .send("尚未构建前端，请先运行 npm run build");
-    return;
-  }
-
-  res.sendFile(
-    INDEX_FILE,
-    { headers: { "Cache-Control": "no-store" } },
-    (error) => {
-      if (error) next(error);
-    },
-  );
-});
-
-app.use((_req, res) => {
-  res.status(404).type("text/plain; charset=utf-8").send("未找到");
-});
-
-const port = readPort(process.env.PORT);
-const server = app.listen(port, HOST, () => {
-  console.info(`[relay] Express 已启动：http://${HOST}:${port}`);
-  if (!existsSync(INDEX_FILE)) {
-    console.info("[relay] 未找到 dist，先运行 npm run build；当前仅提供 /api");
-  }
-});
-
-server.on("error", (error: Error) => {
-  const code = (error as NodeJS.ErrnoException).code;
-  if (code === "EADDRINUSE") {
-    console.error(
-      `[relay] 端口 ${port} 已被占用，可用 PORT=<端口> npm start 换端口`,
-    );
-  } else {
-    console.error("[relay] 启动失败", error);
-  }
-  process.exit(1);
-});
-
-for (const signal of ["SIGINT", "SIGTERM"] as const) {
-  process.on(signal, () => {
-    server.close(() => process.exit(0));
+    server.once("error", onError);
+    server.once("listening", () => {
+      server.off("error", onError);
+      server.on("error", (error: Error) => {
+        console.error("[relay] 监听错误", error);
+      });
+      resolve(server);
+    });
   });
 }
 
-function readPort(raw: string | undefined): number {
-  if (raw === undefined || raw.trim() === "") return DEFAULT_PORT;
+async function handleListenFailure(
+  error: unknown,
+  port: number,
+  trayDisabled: boolean,
+): Promise<void> {
+  const reason = describeListenError(error, port);
+  startupFailed = true;
+  console.error(`[relay] 启动失败：${reason}`);
 
-  const value = Number(raw);
-  if (Number.isInteger(value) && value > 0 && value < 65536) return value;
+  if (trayDisabled) {
+    process.exitCode = 1;
+    return;
+  }
 
-  console.warn(`[relay] PORT=${raw} 不合法，改用 ${DEFAULT_PORT}`);
-  return DEFAULT_PORT;
+  try {
+    tray = await startTray({
+      state: { phase: "error", port, reason },
+      onQuit: () => {
+        void shutdown(1);
+      },
+    });
+  } catch (startError) {
+    console.warn("[relay] 托盘初始化异常", startError);
+    tray = null;
+  }
+
+  if (!tray) {
+    process.exitCode = 1;
+    return;
+  }
+
+  // 托盘仍可操作，保持进程存活，等待用户从菜单退出。
+  keepAlive = setInterval(() => {}, STARTUP_KEEPALIVE_MS);
+}
+
+function registerSignals(): void {
+  for (const signal of ["SIGINT", "SIGTERM"] as const) {
+    process.on(signal, () => {
+      void shutdown(startupFailed ? 1 : 0);
+    });
+  }
+}
+
+async function shutdown(code: number): Promise<void> {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  process.exitCode = code;
+
+  if (keepAlive !== null) {
+    clearInterval(keepAlive);
+    keepAlive = null;
+  }
+
+  const currentServer = httpServer;
+  httpServer = null;
+  if (currentServer) {
+    try {
+      await closeServer(currentServer);
+    } catch (error) {
+      console.error("[relay] 关闭 HTTP 服务失败", error);
+    }
+  }
+
+  const currentTray = tray;
+  tray = null;
+  if (currentTray) {
+    try {
+      await currentTray.quit();
+    } catch (error) {
+      console.error("[relay] 关闭托盘失败", error);
+    }
+  }
+
+  // 在信号监听中直接 process.exit 会触发 Windows 上 libuv 的 uv_async 断言；
+  // 服务与托盘关闭后让事件循环自然退出，退出码交给 Node。
+}
+
+async function closeServer(server: Server): Promise<void> {
+  const closed = new Promise<void>((resolve) => {
+    server.close(() => resolve());
+  });
+  server.closeIdleConnections();
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const forced = new Promise<void>((resolve) => {
+    timer = setTimeout(() => {
+      server.closeAllConnections();
+      resolve();
+    }, GRACEFUL_CLOSE_MS);
+  });
+
+  try {
+    await Promise.race([closed, forced]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+    server.closeAllConnections();
+  }
 }

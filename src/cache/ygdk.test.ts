@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  readYgdkOverviewCache,
-  writeYgdkOverviewCache,
-} from "@/cache/ygdk";
+import { readYgdkOverviewCache, writeYgdkOverviewCache } from "@/cache/ygdk";
 import { STORAGE_KEYS } from "@/cache/storage";
 
 describe("ygdk cache", () => {

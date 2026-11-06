@@ -4,6 +4,16 @@ _site
 _site
 .eslintcache
 
+# WXT 构建与类型产物
+.output
+.wxt
+stats.html
+stats-*.json
+web-ext.config.ts
+
+# 权限诊断报告
+.acl-recovery
+
 # Logs
 logs
 *.log

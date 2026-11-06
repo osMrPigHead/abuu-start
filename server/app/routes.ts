@@ -40,7 +40,7 @@ import type { RelayHealthResponse } from "../../shared/api.ts";
 
 /**
  * 只读白名单路由。
- * 未列出的 /api/* 一律 404，不回退到 SPA；非 /api 请求直接退出 Router。
+ * 未列出的 /api/* 一律 404；非 /api 请求直接退出 Router，由 createApp 统一 404。
  * 业务接口的凭据由 authSession 注入，路由不读取任何 X-* 请求头。
  * 外部路径、方法与错误码见 docs/trd.md 3.1 / 3.2 / 3.5。
  */

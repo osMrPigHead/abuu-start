@@ -1,5 +1,6 @@
 {
   "name": "abuu-start",
+  "description": "航启：北京航空航天大学教务信息聚合浏览器主页与本地中继",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -7,44 +8,57 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "dev": "vite",
-    "build": "vue-tsc -b && vite build",
-    "preview": "vite preview",
+    "dev": "wxt",
+    "dev:firefox": "wxt -b firefox",
+    "build": "wxt build",
+    "build:firefox": "wxt build -b firefox",
+    "zip": "wxt zip",
+    "zip:firefox": "wxt zip -b firefox",
     "start": "node --experimental-strip-types server/index.ts",
+    "build:server": "node scripts/build-server-exe.mjs",
+    "build:server:gui": "node scripts/build-server-exe.mjs --gui",
     "test": "vitest run",
     "test:watch": "vitest",
-    "type-check": "vue-tsc -noEmit",
+    "type-check": "vue-tsc --noEmit",
     "check:shared": "node scripts/check-shared-usage.mjs",
     "lint": "eslint . --cache",
     "lint:fix": "eslint . --fix --cache",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "npx npm-run-all --parallel lint type-check test"
+    "check": "npx npm-run-all --parallel lint format:check type-check test",
+    "postinstall": "wxt prepare"
   },
   "dependencies": {
     "express": "^5.3.0",
+    "tray-hook": "^1.1.1",
     "vue": "^3.5.44",
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
+    "@electron/windows-sign": "^2.1.0",
     "@eslint/js": "^10.0.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/express": "^5.0.6",
     "@types/node": "^24.19.2",
     "@vitejs/plugin-vue": "^6.0.10",
     "@vue/test-utils": "^2.5.1",
-    "@vue/tsconfig": "^0.9.1",
+    "@wxt-dev/module-vue": "^1.0.3",
+    "esbuild": "^0.28.2",
     "eslint": "^10.14.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-vue": "^10.12.0",
     "globals": "^17.14.0",
     "happy-dom": "^21.0.4",
+    "postject": "^1.0.0-alpha.6",
     "prettier": "^3.9.10",
+    "resedit": "^3.1.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.72.1",
     "vite": "^8.3.4",
     "vitest": "^5.1.0",
-    "vue-tsc": "^3.3.13"
+    "vue-tsc": "^3.3.13",
+    "web-ext": "^10.5.0",
+    "wxt": "^0.21.5"
   }
 }

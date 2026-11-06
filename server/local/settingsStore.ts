@@ -13,12 +13,12 @@ const SETTINGS_FILE = "settings.json";
 export function appDataDirectory(): string {
   const localAppData = process.env.LOCALAPPDATA;
   if (process.platform === "win32" && localAppData) {
-    return join(localAppData, "buaa-start");
+    return join(localAppData, "abuu-start");
   }
 
   const stateHome =
     process.env.XDG_STATE_HOME ?? join(homedir(), ".local", "state");
-  return join(stateHome, "buaa-start");
+  return join(stateHome, "abuu-start");
 }
 
 function settingsFilePath(): string {

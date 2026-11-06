@@ -12,7 +12,11 @@ import {
   type LoginRequest,
 } from "@/api/auth";
 import { ApiError } from "@/api/client";
-import { AUTH_SOURCE_IDS, AUTH_SOURCE_LABELS, emptyAuthSources } from "@shared/auth";
+import {
+  AUTH_SOURCE_IDS,
+  AUTH_SOURCE_LABELS,
+  emptyAuthSources,
+} from "@shared/auth";
 import type {
   AuthLoginResponse,
   AuthPreloadResponse,
