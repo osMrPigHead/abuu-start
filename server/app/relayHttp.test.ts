@@ -15,7 +15,7 @@ const OTHER_CHROME_EXTENSION_ID = "a".repeat(32);
 describe("relay http helpers", () => {
   it("Chrome 扩展 ID 与公钥一致且公钥可解析", () => {
     expect(CHROME_EXTENSION_ID).toMatch(/^[a-p]{32}$/);
-    expect(CHROME_EXTENSION_ID).toBe("abdghklddbmipnehjhadmbclgjbknfah");
+    expect(CHROME_EXTENSION_ID).toBe("fjmfhpkafoemogodanlkfjjfnnlpmhcl");
     expect(deriveChromeExtensionId(CHROME_PUBLIC_KEY)).toBe(
       CHROME_EXTENSION_ID,
     );

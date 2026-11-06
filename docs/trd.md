@@ -1064,6 +1064,27 @@ npm run check:shared
 - Chrome/Edge 与 Firefox 双平台均为验收目标；`npm run zip` 与 `npm run zip:firefox` 分别生成商店用压缩包。
 - 不引入其他后端；加密使用 Node 内置 `node:crypto`，托盘使用 `tray-hook`。
 
+### 10.1 扩展密钥与 ID 修改
+
+- 单一来源：`extension.config.ts` 保存 `CHROME_PUBLIC_KEY`、`FIREFOX_EXTENSION_ID`，并由公钥派生 `CHROME_EXTENSION_ID`；`wxt.config.ts` 与 `server/app/relayHttp.ts` 只引用这些常量，不在别处手写 ID。
+- 更换 Chrome/Edge 密钥：生成新的 RSA 2048 密钥对，私钥以 PKCS#8 PEM 写入 `private/extension-key.pem`（0600，gitignore），把对应 SPKI DER 公钥的 base64 填入 `CHROME_PUBLIC_KEY`；`CHROME_EXTENSION_ID` 会自动变化，需同步更新 `server/app/relayHttp.test.ts` 中的期望 ID，然后重新构建并重载扩展。
+  ```bash
+  # 先备份 private/extension-key.pem；下面的命令会覆盖它
+  node --input-type=module -e 'import { generateKeyPairSync } from "node:crypto"; import { mkdirSync, writeFileSync } from "node:fs"; const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048, publicKeyEncoding: { type: "spki", format: "der" }, privateKeyEncoding: { type: "pkcs8", format: "pem" } }); mkdirSync("private", { recursive: true }); writeFileSync("private/extension-key.pem", privateKey, { mode: 0o600 }); console.log(publicKey.toString("base64"));'
+  ```
+  使用已有私钥时，先放入 `private/extension-key.pem`，再用以下命令导出对应公钥：
+  ```bash
+  node --input-type=module -e 'import { createPublicKey } from "node:crypto"; import { readFileSync } from "node:fs"; console.log(createPublicKey(readFileSync("private/extension-key.pem")).export({ type: "spki", format: "der" }).toString("base64"));'
+  ```
+  将上述任一方式得到的 base64 填入 `CHROME_PUBLIC_KEY`，再运行以下命令取得新 ID，并更新测试中的期望值：
+  ```bash
+  node --experimental-strip-types --input-type=module -e 'import { CHROME_EXTENSION_ID } from "./extension.config.ts"; console.log(CHROME_EXTENSION_ID);'
+  ```
+- 只更换 Firefox gecko ID：修改 `FIREFOX_EXTENSION_ID` 后重新构建 Firefox，无需修改 Chrome 白名单；Firefox 内部 UUID 仍每次安装随机，中继仍放行任意 `moz-extension://`。
+- 私钥必须与公钥配对：只替换私钥而保留旧公钥会无法用同一扩展 ID 正确签名 CRX；私钥丢失不影响已固定公钥/ID 的未打包加载，但要重新生成密钥对并接受扩展 ID 变化。
+- 验证：`npm test`、`npm run type-check`、`npm run build`、`npm run build:firefox`；检查产物 manifest 的 `key` / gecko ID，重启中继后验证 Chrome/Edge 来源。
+- 注意：Chrome/Edge 扩展 ID 变化会改变扩展 origin，旧 localStorage 不迁移；`private/extension-key.pem` 不提交、不进入构建产物。
+
 ## 11. 验收
 
 - 构建与检查：`npm run type-check`、`npm run build`、`npm run build:firefox`、`npm run build:server`、`npm test`、`npm run lint`、`npm run format:check` 通过。
