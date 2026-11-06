@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
+import { RELAY_PORT } from "../../shared/relay.ts";
 import { startTray, type TrayPort } from "./controller.ts";
 import type { MenuItemTemplate } from "tray-hook";
 
@@ -36,7 +37,7 @@ describe("startTray", () => {
     const fake = createFakeTray();
     const onQuit = vi.fn();
     const controller = await startTray({
-      state: { phase: "running", port: 3000 },
+      state: { phase: "running", port: RELAY_PORT },
       onQuit,
       create: trayFactory(fake),
     });
@@ -49,7 +50,7 @@ describe("startTray", () => {
     });
     expect(fake.setState).toHaveBeenCalledWith("running");
     expect(fake.setTooltip).toHaveBeenCalledWith(
-      expect.stringContaining("127.0.0.1:3000"),
+      expect.stringContaining(`127.0.0.1:${RELAY_PORT}`),
     );
 
     const menu = fake.setMenu.mock.calls[0]?.[0] ?? [];
@@ -70,14 +71,18 @@ describe("startTray", () => {
   it("配置异常态文案", async () => {
     const fake = createFakeTray();
     const controller = await startTray({
-      state: { phase: "error", port: 3000, reason: "端口 3000 已被占用" },
+      state: {
+        phase: "error",
+        port: RELAY_PORT,
+        reason: `端口 ${RELAY_PORT} 已被占用`,
+      },
       onQuit: vi.fn(),
       create: trayFactory(fake),
     });
 
     expect(fake.setState).toHaveBeenCalledWith("error");
     expect(fake.setTooltip).toHaveBeenCalledWith(
-      expect.stringContaining("端口 3000 已被占用"),
+      expect.stringContaining(`端口 ${RELAY_PORT} 已被占用`),
     );
 
     await controller?.quit();
@@ -89,7 +94,7 @@ describe("startTray", () => {
     fake.start.mockRejectedValueOnce(new Error("spawn failed"));
 
     const controller = await startTray({
-      state: { phase: "running", port: 3000 },
+      state: { phase: "running", port: RELAY_PORT },
       onQuit: vi.fn(),
       create: trayFactory(fake),
     });
@@ -103,7 +108,7 @@ describe("startTray", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const controller = await startTray({
-      state: { phase: "running", port: 3000 },
+      state: { phase: "running", port: RELAY_PORT },
       onQuit: vi.fn(),
       runtime: null,
     });
@@ -118,7 +123,7 @@ describe("startTray", () => {
       const fake = createFakeTray();
       fake.quit.mockImplementationOnce(async () => {});
       const controller = await startTray({
-        state: { phase: "running", port: 3000 },
+        state: { phase: "running", port: RELAY_PORT },
         onQuit: vi.fn(),
         create: trayFactory(fake),
       });

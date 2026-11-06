@@ -1,3 +1,4 @@
+import { RELAY_PORT } from "../../shared/relay.ts";
 import { describe, expect, it } from "vitest";
 import {
   TRAY_QUIT_ID,
@@ -8,16 +9,16 @@ import {
 
 describe("presentTray", () => {
   it("运行态给出绿色图标、地址与退出项", () => {
-    const presentation = presentTray({ phase: "running", port: 3000 });
+    const presentation = presentTray({ phase: "running", port: RELAY_PORT });
 
     expect(presentation.stateName).toBe("running");
     expect(presentation.tooltip).toContain("运行中");
-    expect(presentation.tooltip).toContain("127.0.0.1:3000");
+    expect(presentation.tooltip).toContain(`127.0.0.1:${RELAY_PORT}`);
     expect(presentation.menu).toHaveLength(3);
     expect(presentation.menu[0]).toMatchObject({
       type: "item",
       id: TRAY_STATUS_ID,
-      title: "运行中 · http://127.0.0.1:3000",
+      title: `运行中 · http://127.0.0.1:${RELAY_PORT}`,
       enabled: false,
     });
     expect(presentation.menu[1]).toMatchObject({
@@ -34,26 +35,28 @@ describe("presentTray", () => {
   it("异常态给出红色图标与失败原因", () => {
     const presentation = presentTray({
       phase: "error",
-      port: 3000,
-      reason: "端口 3000 已被占用",
+      port: RELAY_PORT,
+      reason: `端口 ${RELAY_PORT} 已被占用`,
     });
 
     expect(presentation.stateName).toBe("error");
     expect(presentation.tooltip).toContain("启动失败");
-    expect(presentation.tooltip).toContain("端口 3000 已被占用");
+    expect(presentation.tooltip).toContain(`端口 ${RELAY_PORT} 已被占用`);
     expect(presentation.menu[0]).toMatchObject({
       type: "item",
       id: TRAY_STATUS_ID,
       enabled: false,
     });
-    expect(presentation.menu[0]?.title).toContain("端口 3000 已被占用");
+    expect(presentation.menu[0]?.title).toContain(
+      `端口 ${RELAY_PORT} 已被占用`,
+    );
     expect(presentation.menu[2]).toMatchObject({ id: TRAY_QUIT_ID });
   });
 
   it("失败原因压成单行并截断", () => {
     const presentation = presentTray({
       phase: "error",
-      port: 3000,
+      port: RELAY_PORT,
       reason: `第一行\n第二行 ${"x".repeat(200)}`,
     });
     const title = presentation.menu[0]?.title ?? "";
@@ -66,7 +69,7 @@ describe("presentTray", () => {
   it("空原因回退为未知错误", () => {
     const presentation = presentTray({
       phase: "error",
-      port: 3000,
+      port: RELAY_PORT,
       reason: "   ",
     });
 

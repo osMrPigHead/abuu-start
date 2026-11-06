@@ -44,19 +44,19 @@ describe("describeListenError", () => {
     expect(
       describeListenError(
         Object.assign(new Error("listen"), { code: "EADDRINUSE" }),
-        3000,
+        DEFAULT_PORT,
       ),
-    ).toBe("端口 3000 已被占用");
+    ).toBe(`端口 ${DEFAULT_PORT} 已被占用`);
     expect(
       describeListenError(
         Object.assign(new Error("listen"), { code: "EACCES" }),
-        3000,
+        DEFAULT_PORT,
       ),
-    ).toBe("端口 3000 无权限监听");
+    ).toBe(`端口 ${DEFAULT_PORT} 无权限监听`);
   });
 
   it("其余错误保留原始信息", () => {
-    expect(describeListenError(new Error("boom"), 3000)).toBe("boom");
-    expect(describeListenError("oops", 3000)).toBe("未知错误");
+    expect(describeListenError(new Error("boom"), DEFAULT_PORT)).toBe("boom");
+    expect(describeListenError("oops", DEFAULT_PORT)).toBe("未知错误");
   });
 });

@@ -7,9 +7,10 @@ import {
   CHROME_PUBLIC_KEY,
   deriveChromeExtensionId,
 } from "../../extension.config.ts";
+import { RELAY_PORT } from "../../shared/relay.ts";
 import { isAllowedHost, isAllowedPostOrigin, toUrl } from "./relayHttp.ts";
 
-const LOOPBACK_HOST = "127.0.0.1:3000";
+const LOOPBACK_HOST = `127.0.0.1:${RELAY_PORT}`;
 const OTHER_CHROME_EXTENSION_ID = "a".repeat(32);
 
 describe("relay http helpers", () => {
@@ -30,10 +31,10 @@ describe("relay http helpers", () => {
 
   it("isAllowedHost 只接受本机 Host", () => {
     expect(isAllowedHost("127.0.0.1:5173")).toBe(true);
-    expect(isAllowedHost("localhost:3000")).toBe(true);
-    expect(isAllowedHost("[::1]:3000")).toBe(true);
+    expect(isAllowedHost(`localhost:${RELAY_PORT}`)).toBe(true);
+    expect(isAllowedHost(`[::1]:${RELAY_PORT}`)).toBe(true);
     expect(isAllowedHost("::1")).toBe(false);
-    expect(isAllowedHost("0.0.0.0:3000")).toBe(false);
+    expect(isAllowedHost(`0.0.0.0:${RELAY_PORT}`)).toBe(false);
     expect(isAllowedHost("127.0.0.1.evil.com")).toBe(false);
     expect(isAllowedHost(undefined)).toBe(false);
   });
@@ -50,43 +51,43 @@ describe("relay http helpers", () => {
   it("isAllowedPostOrigin 只接受本机同源", () => {
     expect(
       isAllowedPostOrigin({
-        origin: "http://127.0.0.1:3000",
-        host: "127.0.0.1:3000",
+        origin: `http://127.0.0.1:${RELAY_PORT}`,
+        host: LOOPBACK_HOST,
         secFetchSite: "same-origin",
       }),
     ).toBe(true);
     expect(
       isAllowedPostOrigin({
         origin: "http://localhost:5173",
-        host: "127.0.0.1:3000",
+        host: LOOPBACK_HOST,
         secFetchSite: "same-origin",
       }),
     ).toBe(false);
     expect(
       isAllowedPostOrigin({
-        origin: "http://127.0.0.1:3000",
-        host: "127.0.0.1:3000",
+        origin: `http://127.0.0.1:${RELAY_PORT}`,
+        host: LOOPBACK_HOST,
         secFetchSite: "cross-site",
       }),
     ).toBe(false);
     expect(
       isAllowedPostOrigin({
         origin: "https://evil.example",
-        host: "127.0.0.1:3000",
+        host: LOOPBACK_HOST,
         secFetchSite: "same-origin",
       }),
     ).toBe(false);
     expect(
       isAllowedPostOrigin({
         origin: undefined,
-        host: "127.0.0.1:3000",
+        host: LOOPBACK_HOST,
         secFetchSite: "same-origin",
       }),
     ).toBe(false);
     expect(
       isAllowedPostOrigin({
-        origin: "http://127.0.0.1:3000",
-        host: "evil.example:3000",
+        origin: `http://127.0.0.1:${RELAY_PORT}`,
+        host: `evil.example:${RELAY_PORT}`,
         secFetchSite: "same-origin",
       }),
     ).toBe(false);
@@ -117,7 +118,7 @@ describe("relay http helpers", () => {
     expect(
       isAllowedPostOrigin({
         origin: `chrome-extension://${CHROME_EXTENSION_ID}`,
-        host: "evil.example:3000",
+        host: `evil.example:${RELAY_PORT}`,
         secFetchSite: "none",
       }),
     ).toBe(false);
@@ -131,7 +132,7 @@ describe("relay http helpers", () => {
       expect(
         isAllowedPostOrigin({
           origin,
-          host: "localhost:3000",
+          host: `localhost:${RELAY_PORT}`,
           secFetchSite: "none",
         }),
       ).toBe(true);
@@ -140,7 +141,7 @@ describe("relay http helpers", () => {
     expect(
       isAllowedPostOrigin({
         origin: "moz-extension://1234-5678",
-        host: "evil.example:3000",
+        host: `evil.example:${RELAY_PORT}`,
         secFetchSite: "none",
       }),
     ).toBe(false);

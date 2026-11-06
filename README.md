@@ -40,7 +40,7 @@
 
 ```bash
 npm install
-npm start                 # 本地中继 + 托盘，127.0.0.1:3000
+npm start                 # 本地中继 + 托盘，127.0.0.1:26171
 npm run dev               # WXT 开发服务器（Chrome/Edge），localhost:4000
 npm run dev:firefox       # WXT 开发服务器（Firefox）
 npm run build             # Chrome/Edge MV3 -> .output/chrome-mv3

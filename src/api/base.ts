@@ -1,9 +1,12 @@
+import { RELAY_PORT } from "@shared/relay";
+
 /**
  * 本地中继地址。
  * 扩展页面与中继不同源，所有 /api 请求都必须补全绝对地址；
- * 默认监听根项目 `npm start` 的 127.0.0.1:3000，可用 WXT_RELAY_ORIGIN 覆盖。
+ * 默认监听根项目 `npm start` 的本机中继（端口见 shared/relay.ts），
+ * 可用 WXT_RELAY_ORIGIN 覆盖。
  */
-const DEFAULT_RELAY_ORIGIN = "http://127.0.0.1:3000";
+const DEFAULT_RELAY_ORIGIN = `http://127.0.0.1:${RELAY_PORT}`;
 
 function normalizeOrigin(origin: string | undefined): string {
   const trimmed = origin?.trim();

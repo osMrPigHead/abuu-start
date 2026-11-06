@@ -10,8 +10,8 @@
 - 目标浏览器：Chrome/Edge MV3 与 Firefox MV2；两者都通过本机未打包扩展验收。
 - 扩展形态：只接管新标签页，manifest 声明 `chrome_url_overrides.newtab`、`notifications` 与 loopback 主机权限；Chrome/Edge 通过固定 `key` 稳定扩展 ID，Firefox 通过 `browser_specific_settings.gecko.id` 固定扩展 ID；Chrome/Edge MV3 写入 `host_permissions`，Firefox MV2 将主机权限并入 `permissions`；不生成 popup、options、background、content script。
 - 状态：`reactive` / `ref` composable，模块级单例；跨页面共享的数据只通过 composable 暴露，不引入全局 store 库。
-- 中继：Node.js >=22.12 的 TypeScript 模块，开发态由 `npm start` 直接运行；发布态可用 `npm run build:server` 生成 Windows x64 单文件 exe（Node SEA + esbuild + postject，内嵌 Node 运行时，目标机无需安装 Node），或用 `npm run build:server:gui` 生成不显示控制台窗口的版本。构建时用 `resedit` 写入应用图标与版本信息，按需把 PE 子系统改为 Windows GUI，并用随 `@electron/windows-sign` 提供的 `signtool` 以本地自签名证书签名，默认附带 DigiCert RFC3161 时间戳。只提供 `/api`，不托管页面或静态资源；只监听 `127.0.0.1:3000`（`PORT` 可覆盖）。托盘由 `tray-hook` 实现，显示运行中/启动失败并提供退出入口；exe 首次启用托盘时把托盘客户端、原生二进制、图标与许可释放到 `%LOCALAPPDATA%\abuu-start\runtime\tray-hook\<runtimeId>\`，释放失败时降级为无托盘。
-- 扩展访问中继：扩展页面与中继不同源，所有 `/api` 请求使用绝对地址；默认 `http://127.0.0.1:3000`，构建时可用 `WXT_RELAY_ORIGIN` 覆盖。
+- 中继：Node.js >=22.12 的 TypeScript 模块，开发态由 `npm start` 直接运行；发布态可用 `npm run build:server` 生成 Windows x64 单文件 exe（Node SEA + esbuild + postject，内嵌 Node 运行时，目标机无需安装 Node），或用 `npm run build:server:gui` 生成不显示控制台窗口的版本。构建时用 `resedit` 写入应用图标与版本信息，按需把 PE 子系统改为 Windows GUI，并用随 `@electron/windows-sign` 提供的 `signtool` 以本地自签名证书签名，默认附带 DigiCert RFC3161 时间戳。只提供 `/api`，不托管页面或静态资源；只监听 `127.0.0.1:26171`（`PORT` 可覆盖）。托盘由 `tray-hook` 实现，显示运行中/启动失败并提供退出入口；exe 首次启用托盘时把托盘客户端、原生二进制、图标与许可释放到 `%LOCALAPPDATA%\abuu-start\runtime\tray-hook\<runtimeId>\`，释放失败时降级为无托盘。
+- 扩展访问中继：扩展页面与中继不同源，所有 `/api` 请求使用绝对地址；默认 `http://127.0.0.1:26171`，构建时可用 `WXT_RELAY_ORIGIN` 覆盖。
 - 对外接口：业务数据只读 `GET /api/*`；仅登录、登出、验证码预加载、单源重试与背景目录设置/重新扫描使用白名单 `POST`。中继内部再调用上游的 GET/POST、AES/RSA、Token 头；前端不接触上游路径。
 - HTTP：前端所有请求统一走 `src/api/client.ts`，基址由 `src/api/base.ts` 的 `relayUrl()` 生成；`request` 负责 `GET`，`postJson` 只用于白名单 `POST`，网络失败与非 JSON 响应统一映射为 `RELAY_UNREACHABLE`。
 - 缓存：前端 localStorage，按数据源分键，缓存优先 + 后台刷新；不做定时轮询。
@@ -58,7 +58,7 @@
 - 所有教务数据只读；不执行提交、打卡、选退课、签到、附件下载。
 - 前端改为 WXT 扩展，只接管新标签页；`shared/` 不复制，通过 `@shared` 别名引用仓库根。
 - Chrome/Edge 与 Firefox 均为验收目标：Chrome/Edge 构建 MV3，Firefox 构建 MV2。
-- 中继与扩展不同源：扩展用绝对地址访问中继，默认 `http://127.0.0.1:3000`；地址可用 `WXT_RELAY_ORIGIN` 覆盖。
+- 中继与扩展不同源：扩展用绝对地址访问中继，默认 `http://127.0.0.1:26171`；地址可用 `WXT_RELAY_ORIGIN` 覆盖。
 - 中继只提供 `/api`，非 `/api` 请求返回 404；不再使用 Vite 插件，也不再提供 SPA fallback。
 - `POST` 来源校验：Host 必须是 loopback；普通网页仍要求同源且非 `cross-site`；Chrome/Edge 只放行 `chrome-extension://<固定扩展 ID>`；Firefox 因内部 UUID 每次安装随机，RC 仍放行任意 `moz-extension://`（见 §9、§12）。
 - 托盘只显示运行中/启动失败两态；菜单“退出”与 SIGINT/SIGTERM 都优雅关闭；`TRAY=0` 时不创建托盘。
@@ -122,7 +122,7 @@ private/code-signing/         本地代码签名证书、密码与 CER，不提�
 
 ### 3.1 通用约定
 
-- 监听：`127.0.0.1:3000`（`npm start`，可用 `PORT` 覆盖）；只接受 Host 为 `127.0.0.1`、`localhost` 或 `[::1]` 的请求，非本机 Host 返回 `404 NOT_FOUND`。中继不再挂到 Vite 开发服务器或 preview。
+- 监听：`127.0.0.1:26171`（`npm start`，可用 `PORT` 覆盖）；只接受 Host 为 `127.0.0.1`、`localhost` 或 `[::1]` 的请求，非本机 Host 返回 `404 NOT_FOUND`。中继不再挂到 Vite 开发服务器或 preview。
 - 方法：
   - 业务数据只接受 `GET`。
   - 仅 `/api/auth/preload`、`/api/auth/login`、`/api/auth/logout`、`/api/auth/sources/:source/retry`、`/api/background/directory`、`/api/background/rescan` 接受 `POST`。
@@ -879,7 +879,7 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 - `hydrate()` 在应用启动时调用一次 `GET /api/background`（绝对地址），记忆化后不再重跑；页面不得重复调用，否则会重新随机选图。
 - 从 `images` 随机选一张作为 `selectedName`；同一 SPA 会话内所有页面共用。
 - 浏览器刷新后重新随机；子页面不重新选图。
-- 图片地址由 `relayUrl("/api/background/image?name=...")` 生成，默认 `http://127.0.0.1:3000/api/background/image?name=<encodeURIComponent(name)>`。
+- 图片地址由 `relayUrl("/api/background/image?name=...")` 生成，默认 `http://127.0.0.1:26171/api/background/image?name=<encodeURIComponent(name)>`。
 - 选中文件名后不预加载；由 `App.vue` 的 `<img>` 加载成功调用 `markLoaded(name)`，失败调用 `markFailed(name)`。
 - 单张加载失败：从未失败的图片中再随机选一张；连续失败 3 张或全部失败，设 `fallback=true`。
 - 自定义图加载期间不渲染内置图；加载成功后渐入；`fallback=true` 时渲染内置图。
@@ -1037,7 +1037,7 @@ type YgdkSettings = { termTarget: number; weekTarget: number };
 
 ```bash
 npm install
-npm start             # 本地中继 + 托盘，127.0.0.1:3000
+npm start             # 本地中继 + 托盘，127.0.0.1:26171
 npm run build:server  # Windows x64 单文件中继（图标 + 版本信息 + 自签名 + 时间戳）-> dist/server/abuu-start-relay.exe
 npm run build:server:gui # 同上，但生成无控制台窗口的 GUI 子系统版本
 node scripts/make-app-icon.mjs # 从 public/icon 重新生成 app.ico
@@ -1056,7 +1056,7 @@ npm run check:shared
 ```
 
 - 中继与 WXT 开发服务器是两个独立进程：先 `npm start`，再按目标浏览器执行 `npm run dev` 或 `npm run dev:firefox`；开发服务器固定 `localhost:4000`，`strictPort` 下端口占用会直接失败。
-- 扩展请求默认发往 `http://127.0.0.1:3000`；需要改中继地址时，在构建或开发命令前设置 `WXT_RELAY_ORIGIN`。`PORT` 可改中继端口。
+- 扩展请求默认发往 `http://127.0.0.1:26171`；需要改中继地址时，在构建或开发命令前设置 `WXT_RELAY_ORIGIN`。`PORT` 可改中继端口。
 - `npm start` 使用 `node --experimental-strip-types server/index.ts`；`TRAY=0` 可关闭托盘，仅保留 API。
 - `npm run build:server` 仅支持 Windows x64，需 Node >=22.12；默认带 `TRAY=0` 冒烟测试，`-- --no-smoke` 可跳过；默认签名，`-- --no-sign` 或 `ABUU_SIGN=0` 可跳过。产物不依赖目标机的 Node 或 `node_modules`。
 - `npm run build:server:gui` 或 `npm run build:server -- --gui` 生成 GUI 子系统版本，双击不显示控制台窗口；`--windowed`、`--no-console` 为同义参数。默认版本保留控制台窗口。

@@ -2,9 +2,10 @@
  * 中继启动配置：监听地址、端口、托盘开关与监听失败文案。
  * 这里只放纯函数；环境变量读取集中在 server/index.ts。
  */
+import { RELAY_PORT } from "../../shared/relay.ts";
 
 export const HOST = "127.0.0.1";
-export const DEFAULT_PORT = 3000;
+export const DEFAULT_PORT = RELAY_PORT;
 
 export function readPort(raw: string | undefined): number {
   if (raw === undefined || raw.trim() === "") return DEFAULT_PORT;

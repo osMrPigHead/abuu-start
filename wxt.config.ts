@@ -7,7 +7,7 @@ import { CHROME_PUBLIC_KEY, FIREFOX_EXTENSION_ID } from "./extension.config.ts";
  * 航启的 WXT 扩展工程。
  * - src/ 保存从根项目迁移过来的 Vue SPA，入口在 src/entrypoints/newtab；
  * - shared/ 不复制，继续引用仓库根目录，保证前端与本地中继使用同一份契约；
- * - 本地中继固定监听 127.0.0.1:3000，WXT 开发服务器改用 4000 避免端口冲突。
+ * - 本地中继固定监听 127.0.0.1，WXT 开发服务器改用 4000 避免端口冲突。
  */
 export default defineConfig({
   srcDir: "src",
